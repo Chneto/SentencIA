@@ -1,0 +1,197 @@
+/* ==========================================================================
+   SENTENCIA — TEMA 01: GABINETE CLÁSSICO (TASK-007)
+   Derivado da Proposta 01 (Google Stitch #12863266171247825984).
+   Papel algodão, tinta ferro-gálica, marinho institucional, ouro envelhecido,
+   sem vidro translúcido, sumário lateral com algarismos romanos e folha 60–80ch.
+   ========================================================================== */
+
+html[data-design="classico"],
+html[data-design="classico"][data-theme="light"] {
+  --bg-canvas: #F3F0E8;
+  --bg-backdrop-glow: linear-gradient(180deg, #F7F5F0 0%, #EFEBE1 100%);
+  --bg-glass-header: #FBF9F4;
+  --bg-glass-sidebar: #F6F3EC;
+  --bg-surface: #FCFBF8;
+  --bg-surface-solid: #FCFBF8;
+  --bg-surface-2: #F4F0E6;
+  --bg-muted: #EAE4D6;
+  --bg-sheet: #FFFDF9;
+
+  --border-subtle: #DDD6C7;
+  --border-strong: #B8AE9B;
+  --border-hairline: #E8E2D5;
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+
+  --text-primary: #1A1B1E;
+  --text-secondary: #44474E;
+  --text-muted: #5F5A50;
+  --text-on-accent: #FFFFFF;
+
+  --accent-primary: #142B4E;
+  --accent-primary-2: #1E3E70;
+  --accent-primary-hover: #0E203B;
+  --accent-primary-soft: #E8EEF5;
+  --accent-gold: #8A620A;
+  --accent-gold-2: #A67710;
+  --accent-gold-soft: #F6EED9;
+
+  --semantic-emerald: #1D5422;
+  --semantic-emerald-soft: #E6F3E8;
+  --semantic-emerald-border: #A5D1AA;
+  --semantic-amber: #964406;
+  --semantic-amber-soft: #FBF0E4;
+  --semantic-amber-border: #E6BF99;
+  --semantic-danger: #A61F17;
+  --semantic-danger-soft: #FCEAE8;
+  --semantic-danger-border: #E9B3AE;
+  --semantic-neutral: #2F3033;
+  --semantic-neutral-soft: #EDE9DF;
+
+  --shadow-card: 0 1px 2px rgba(26, 27, 30, 0.05);
+  --shadow-card-hover: 0 3px 10px rgba(26, 27, 30, 0.08);
+  --shadow-sheet: 0 2px 8px rgba(26, 27, 30, 0.06), 0 12px 28px -12px rgba(26, 27, 30, 0.12);
+  --shadow-elevated: 0 16px 40px -10px rgba(26, 27, 30, 0.22);
+  --focus-ring: 0 0 0 3px rgba(20, 43, 78, 0.24);
+
+  /* Fontes 100% locais (hospedadas em app/static/fonts/) */
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+  --font-serif: "Newsreader", "Georgia", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+
+  --radius-outer: 8px;
+  --radius-card: 6px;
+  --radius-inner: 4px;
+  --radius-pill: 4px;
+
+  --sidebar-width: 272px;
+  --duration-fast: 150ms;
+}
+
+html[data-design="classico"][data-theme="dark"] {
+  --bg-canvas: #141311;
+  --bg-backdrop-glow: linear-gradient(180deg, #161512 0%, #11100E 100%);
+  --bg-glass-header: #1B1916;
+  --bg-glass-sidebar: #181613;
+  --bg-surface: #1F1D19;
+  --bg-surface-solid: #1F1D19;
+  --bg-surface-2: #26231F;
+  --bg-muted: #2D2924;
+  --bg-sheet: #1C1A17;
+
+  --border-subtle: #35312B;
+  --border-strong: #524C43;
+  --border-hairline: #2A2722;
+  --specular-top: inset 0 1px 0 rgba(255, 250, 240, 0.05);
+
+  --text-primary: #F2EEE6;
+  --text-secondary: #C5BEB2;
+  --text-muted: #A49C8F;
+  --text-on-accent: #0F141D;
+
+  --accent-primary: #8AB4EC;
+  --accent-primary-2: #A6C8F4;
+  --accent-primary-hover: #74A3E2;
+  --accent-primary-soft: #1F2B3D;
+  --accent-gold: #E3B64A;
+  --accent-gold-2: #F0CA67;
+  --accent-gold-soft: #312918;
+
+  --semantic-emerald: #5AD48A;
+  --semantic-emerald-soft: #172B1F;
+  --semantic-emerald-border: #28563A;
+  --semantic-amber: #F5B547;
+  --semantic-amber-soft: #2E2414;
+  --semantic-amber-border: #5D4620;
+  --semantic-danger: #F4837D;
+  --semantic-danger-soft: #311B1A;
+  --semantic-danger-border: #63312E;
+  --semantic-neutral: #D4CEC3;
+  --semantic-neutral-soft: #2A2722;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-sheet: 0 8px 28px rgba(0, 0, 0, 0.55);
+  --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.68);
+  --focus-ring: 0 0 0 3px rgba(138, 180, 236, 0.32);
+}
+
+/* Superfícies editoriais sólidas (sem vidro translúcido) */
+html[data-design="classico"] .case-hero-ribbon,
+html[data-design="classico"] .sidebar-nav,
+html[data-design="classico"] .card,
+html[data-design="classico"] .modal-dialog {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-design="classico"] .case-hero-ribbon {
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+html[data-design="classico"] .workspace-layout {
+  align-items: stretch;
+  min-height: calc(100vh - var(--ribbon-height, 56px));
+}
+
+html[data-design="classico"] .sidebar-nav {
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-glass-sidebar);
+  align-self: stretch;
+  min-height: calc(100vh - var(--ribbon-height, 56px));
+}
+
+html[data-design="classico"] .station-title,
+html[data-design="classico"] .modal-title,
+html[data-design="classico"] .card-title {
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+/* Sumário lateral com algarismos romanos (I a IV) no elemento real .station-step-tag */
+html[data-design="classico"] .station-btn .station-step-tag {
+  font-size: 0;
+  line-height: 1.2;
+}
+
+html[data-design="classico"] .station-btn .station-step-tag::before {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-gold);
+}
+
+html[data-design="classico"] .station-btn[data-station="autos"] .station-step-tag::before {
+  content: "I";
+}
+
+html[data-design="classico"] .station-btn[data-station="analise"] .station-step-tag::before {
+  content: "II";
+}
+
+html[data-design="classico"] .station-btn[data-station="dosimetria"] .station-step-tag::before {
+  content: "III";
+}
+
+html[data-design="classico"] .station-btn[data-station="sentenca"] .station-step-tag::before {
+  content: "IV";
+}
+
+html[data-design="classico"] .station-btn.active {
+  border-left: 3px solid var(--accent-gold);
+  background: var(--bg-surface);
+}
+
+/* Folha da sentença: leitura longa editorial (60 a 80 caracteres) */
+html[data-design="classico"] .sentence-paper-wrapper {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-outer);
+}
+
+html[data-design="classico"] .sentence-paper-body {
+  max-width: 74ch;
+  margin-inline: auto;
+  font-family: var(--font-serif);
+  line-height: 1.72;
+}

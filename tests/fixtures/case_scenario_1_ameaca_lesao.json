@@ -1,0 +1,306 @@
+{
+  "case_id": "CASE-01-AMEACA-LESAO-DECADENCIA-LEGITIMA-DEFESA",
+  "numero_processo": "0801245-78.2025.8.20.5001",
+  "comarca": "Natal/RN",
+  "juizado": "1º Juizado de Violência Doméstica e Familiar contra a Mulher",
+  "ofendida": "JULIANA MENDES MOREIRA",
+  "reu": "MARCOS VINÍCIUS DA SILVA",
+  "data_fato": "2025-01-20",
+  "data_recebimento_denuncia": "2025-02-15",
+  "data_sentenca": "2025-05-10",
+  "crimes_imputados": [
+    "art_129_p13_cp",
+    "art_147_cp"
+  ],
+  "autos_mpu_apenso": "0800998-11.2025.8.20.5001",
+  "raw_documents": [
+    {
+      "doc_id": "ID-2010101",
+      "titulo": "Portaria Policial e Boletim de Ocorrência",
+      "tipo": "BOLETIM_OCORRENCIA",
+      "pagina_inicial": 1,
+      "pagina_final": 5,
+      "conteudo_resumido": "Registro de ocorrência lavrado pela DEAM em 21/01/2025. Narra agressões físicas e ameaças de morte proferidas pelo réu contra sua ex-companheira Juliana.",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15.  Registro de ocorrência lavrado pela DEAM em 21/01/2025. Narra agressões físicas e ameaças de morte proferidas pelo réu contra sua ex-companheira Juliana.",
+      "folha": "fls. 1/5"
+    },
+    {
+      "doc_id": "ID-2010102",
+      "titulo": "Laudo Pericial de Exame de Corpo de Delito",
+      "tipo": "LAUDO_PERICIAL",
+      "pagina_inicial": 6,
+      "pagina_final": 9,
+      "conteudo_resumido": "Laudo pericial oficial do ITEP subscrito por perito médico legista oficial atestando equimoses violáceas em antebraço esquerdo e região zigomática direita, produzidas por ação contundente.",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15.  Laudo pericial oficial do ITEP subscrito por perito médico legista oficial atestando equimoses violáceas em antebraço esquerdo e região zigomática direita, produzidas por ação contundente.",
+      "folha": "fls. 6/9"
+    },
+    {
+      "doc_id": "ID-2010103",
+      "titulo": "Denúncia Ministerial",
+      "tipo": "DENUNCIA",
+      "pagina_inicial": 10,
+      "pagina_final": 14,
+      "conteudo_resumido": "Imputação dos crimes do art. 129, § 13, do CP (lesão corporal qualificada pós-Lei 14.994/24) e art. 147 do CP (ameaça em dobro pós-Lei 14.994/24), em concurso material (art. 69 CP). Pedido expresso de indenização por danos morais de R$ 3.000,00 (Tema 983 STJ).",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15. O Ministério Público vem oferecer denúncia imputando ao acusado a prática de art. 129, § 13, do Código Penal e art. 147, caput, do CP. Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ).  Imputação dos crimes do art. 129, § 13, do CP (lesão corporal qualificada pós-Lei 14.994/24) e art. 147 do CP (ameaça em dobro pós-Lei 14.994/24), em concurso material (art. 69 CP). Pedido expresso de indenização por danos morais de R$ 3.000,00 (Tema 983 STJ).",
+      "folha": "fls. 10/14"
+    },
+    {
+      "doc_id": "ID-2010104",
+      "titulo": "Decisão de Recebimento da Denúncia",
+      "tipo": "DECISAO_INTERLOCUTORIA",
+      "pagina_inicial": 15,
+      "pagina_final": 18,
+      "conteudo_resumido": "Recebimento da denúncia em 15/02/2025 e deferimento de medidas protetivas de afastamento e proibição de contato.",
+      "data_peca": "2025-02-15",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15. O Ministério Público vem oferecer denúncia imputando ao acusado a prática de art. 129, § 13, do Código Penal e art. 147, caput, do CP. Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ).  Recebimento da denúncia em 15/02/2025 e deferimento de medidas protetivas de afastamento e proibição de contato.",
+      "folha": "fls. 15/18"
+    },
+    {
+      "doc_id": "ID-2010105",
+      "titulo": "Termo de Audiência",
+      "tipo": "TERMO_AUDIENCIA",
+      "pagina_inicial": 40,
+      "pagina_final": 43,
+      "conteudo_resumido": "Oitiva da vítima Juliana, inquirição da testemunha presencial Mariana e interrogatório do acusado Marcos Vinícius.",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15.  Oitiva da vítima Juliana, inquirição da testemunha presencial Mariana e interrogatório do acusado Marcos Vinícius.",
+      "folha": "fls. 40/43"
+    },
+    {
+      "doc_id": "ID-2010106",
+      "titulo": "Alegações Finais do Ministério Público",
+      "tipo": "ALEGACOES_FINAIS_MP",
+      "pagina_inicial": 44,
+      "pagina_final": 50,
+      "conteudo_resumido": "Postula condenação integral nos termos da exordial acusatória com reparação moral mínima fixada em R$ 3.000,00.",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15. O Ministério Público apresenta memoriais do ministério público pugnando pela condenação pelo delito de art. 129, § 13, do Código Penal e art. 147, caput, do CP.  Postula condenação integral nos termos da exordial acusatória com reparação moral mínima fixada em R$ 3.000,00.",
+      "folha": "fls. 44/50"
+    },
+    {
+      "doc_id": "ID-2010107",
+      "titulo": "Alegações Finais da Defesa",
+      "tipo": "ALEGACOES_FINAIS_DEFESA",
+      "pagina_inicial": 51,
+      "pagina_final": 60,
+      "conteudo_resumido": "Suscita preliminar de decadência do direito de representação quanto à ameaça e nulidade do laudo pericial; no mérito pugna pela absolvição por legítima defesa e atipicidade da ameaça por ausência de ânimo calmo e refletido; subsidiariamente postula mínimo legal e sursis.",
+      "data_peca": "2025-01-20",
+      "conteudo": "Processo nº 0801245-78.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: JULIANA MENDES MOREIRA, residente em Natal/RN. Acusado: MARCOS VINÍCIUS DA SILVA, qualificado nos autos. Fato ocorrido em 2025-01-20. Denúncia recebida em 2025-02-15. A Defesa apresenta memoriais da defesa pugnando pela absolvição in dubio pro reo e pedidos subsidiários.  Suscita preliminar de decadência do direito de representação quanto à ameaça e nulidade do laudo pericial; no mérito pugna pela absolvição por legítima defesa e atipicidade da ameaça por ausência de ânimo calmo e refletido; subsidiariamente postula mínimo legal e sursis.",
+      "folha": "fls. 51/60"
+    }
+  ],
+  "matriz_oral": {
+    "depoentes": [
+      {
+        "depoente": "JULIANA MENDES MOREIRA",
+        "papel": "OFENDIDA",
+        "midia_id": "ID-MIDIA-01",
+        "arquivo": "audiencia_juliana.mp4",
+        "resumo": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+      },
+      {
+        "depoente": "MARIANA COSTA",
+        "papel": "TESTEMUNHA_ACUSACAO",
+        "midia_id": "ID-MIDIA-02",
+        "arquivo": "audiencia_mariana.mp4",
+        "resumo": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+      },
+      {
+        "depoente": "MARCOS VINÍCIUS DA SILVA",
+        "papel": "ACUSADO",
+        "midia_id": "ID-MIDIA-03",
+        "arquivo": "audiencia_interrogatorio.mp4",
+        "resumo": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+      }
+    ]
+  },
+  "teses_defesa": [
+    {
+      "codigo_tese": "PREL-01",
+      "tipo": "PRELIMINAR",
+      "titulo": "Decadência do direito de representação da ameaça",
+      "descricao": "Alega decurso do prazo decadencial de 6 meses para representação da ameaça.",
+      "folha_autos_id": "ID-2010107 (fls. 51-53)",
+      "resolucao_esperada": "REJEITADA. A representação foi exercida no dia imediato perante a autoridade policial da DEAM (art. 103 CP c/c art. 12 LMP); ademais, pós-Lei 14.994/2024 a ação da ameaça no contexto doméstico é pública incondicionada."
+    },
+    {
+      "codigo_tese": "PREL-02",
+      "tipo": "PRELIMINAR",
+      "titulo": "Nulidade do laudo de exame de corpo de delito",
+      "descricao": "Alega nulidade formal do laudo pericial por falta de perito oficial.",
+      "folha_autos_id": "ID-2010107 (fls. 53-54)",
+      "resolucao_esperada": "REJEITADA. O Laudo nº 2025/0129 foi subscrito por perito médico legista concursado dos quadros do ITEP/RN em estrita conformidade com o art. 159 do CPP."
+    },
+    {
+      "codigo_tese": "MER-01",
+      "tipo": "MERITO",
+      "titulo": "Legítima defesa própria na lesão corporal",
+      "descricao": "Afirma ter agido em legítima defesa moderada para repelir agressão injusta da vítima.",
+      "folha_autos_id": "ID-2010107 (fls. 55-57)",
+      "resolucao_esperada": "REJEITADA. Prova testemunhal e laudo do IML demonstram assimetria de forças e agressão unilateral desproporcional do acusado, sem qualquer elemento comprobatório de agressão pretérita da vítima (Resolução CNJ nº 492/2023)."
+    },
+    {
+      "codigo_tese": "MER-02",
+      "tipo": "MERITO",
+      "titulo": "Atipicidade da ameaça por ausência de ânimo calmo e refletido",
+      "descricao": "Sustenta que as palavras foram proferidas no calor de discussão desprovidas de dolo.",
+      "folha_autos_id": "ID-2010107 (fls. 57-59)",
+      "resolucao_esperada": "REJEITADA. Jurisprudência pacífica do STJ e do TJRN firmou que a exaltação anímica ou estado de cólera não exclui o dolo do crime de ameaça quando apto a incutir fundado temor na vítima."
+    },
+    {
+      "codigo_tese": "SUBS-01",
+      "tipo": "SUBSIDIARIA",
+      "titulo": "Aplicação de sursis e afastamento do dano moral",
+      "descricao": "Pede suspensão condicional da pena e indeferimento de indenização moral.",
+      "folha_autos_id": "ID-2010107 (fls. 59-60)",
+      "resolucao_esperada": "INDEFERIDA. Sursis vedado pela pena superior a 2 anos (art. 77 CP). Dano moral fixado obrigatoriamente por força do Tema 983 do STJ em razão de pedido expresso na exordial."
+    }
+  ],
+  "certidao_antecedentes": [
+    {
+      "processo": "Nenhum",
+      "descricao": "Certidão de Antecedentes Criminais Folha Corrida Sem Anotações (ID-2010100 fls. 38)",
+      "possui_transito_em_julgado": false
+    }
+  ],
+  "dosimetria_esperada": {
+    "art_129_p13_cp": {
+      "tipo": "reclusao",
+      "min_pena": "2 anos",
+      "max_pena": "5 anos",
+      "intervalo": "3 anos (36 meses)",
+      "fracao_1fase": "1/8 do intervalo = 4 meses e 15 dias",
+      "vetores_art59_desfavoraveis": [
+        "culpabilidade"
+      ],
+      "fundamentacao_culpabilidade": "Agressão perpetrada no ambiente doméstico com invasão de domicílio após o término do vínculo.",
+      "pena_base": {
+        "anos": 2,
+        "meses": 4,
+        "dias": 15
+      },
+      "segunda_fase": {
+        "agravantes": [],
+        "bloqueio_art61_ii_f": true,
+        "pena_intermediaria": {
+          "anos": 2,
+          "meses": 4,
+          "dias": 15
+        }
+      },
+      "terceira_fase": {
+        "causas_aumento": [],
+        "causas_diminuicao": [],
+        "pena_definitiva": {
+          "anos": 2,
+          "meses": 4,
+          "dias": 15
+        }
+      }
+    },
+    "art_147_cp": {
+      "tipo": "detencao",
+      "min_pena": "2 meses",
+      "max_pena": "1 ano",
+      "pena_base": {
+        "anos": 0,
+        "meses": 2,
+        "dias": 0
+      },
+      "segunda_fase": {
+        "bloqueio_art61_ii_f": true,
+        "pena_intermediaria": {
+          "anos": 0,
+          "meses": 2,
+          "dias": 0
+        }
+      },
+      "terceira_fase": {
+        "pena_definitiva": {
+          "anos": 0,
+          "meses": 2,
+          "dias": 0
+        }
+      }
+    },
+    "unificacao_art69": {
+      "tipo_concurso": "material",
+      "reclusao_total": {
+        "anos": 2,
+        "meses": 4,
+        "dias": 15
+      },
+      "detencao_total": {
+        "anos": 0,
+        "meses": 2,
+        "dias": 0
+      },
+      "regime_inicial_reclusao": "ABERTO",
+      "regime_inicial_detencao": "ABERTO",
+      "substituicao_art44": false,
+      "motivo_vedacao_substituicao": "Súmula 588 do STJ (crime praticado com violência contra a mulher)",
+      "sursis_art77": false,
+      "motivo_vedacao_sursis": "Pena total superior a 2 anos (art. 77, caput, CP)",
+      "dano_moral_tema983": 3000.0,
+      "intimacao_vitima_art21_lmp": true
+    }
+  },
+  "ofendida_detalhes": {
+    "nome": "JULIANA MENDES MOREIRA",
+    "qualificacao": "brasileira, solteira, professora, residente em Natal/RN"
+  },
+  "reu_detalhes": {
+    "nome": "MARCOS VINÍCIUS DA SILVA",
+    "qualificacao": "brasileiro, solteiro, comerciante, residente em Natal/RN",
+    "primario": true,
+    "reincidente": false
+  },
+  "vinculo_domestico": "Ex-companheiro (união estável por cerca de 4 anos)",
+  "transcriptions": [
+    {
+      "media_id": "ID-MIDIA-01",
+      "arquivo": "audiencia_juliana.mp4",
+      "depoente": "JULIANA MENDES MOREIRA",
+      "papel": "OFENDIDA",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+        }
+      ],
+      "resumo": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+    },
+    {
+      "media_id": "ID-MIDIA-02",
+      "arquivo": "audiencia_mariana.mp4",
+      "depoente": "MARIANA COSTA",
+      "papel": "TESTEMUNHA_ACUSACAO",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+        }
+      ],
+      "resumo": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+    },
+    {
+      "media_id": "ID-MIDIA-03",
+      "arquivo": "audiencia_interrogatorio.mp4",
+      "depoente": "MARCOS VINÍCIUS DA SILVA",
+      "papel": "INTERROGATORIO_REU",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+        }
+      ],
+      "resumo": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "ID-MIDIA-01": {
+    "media_id": "ID-MIDIA-01",
+    "arquivo": "audiencia_juliana.mp4",
+    "depoente": "JULIANA MENDES MOREIRA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+      }
+    ],
+    "resumo": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+  },
+  "audiencia_juliana.mp4": {
+    "media_id": "ID-MIDIA-01",
+    "arquivo": "audiencia_juliana.mp4",
+    "depoente": "JULIANA MENDES MOREIRA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+      }
+    ],
+    "resumo": "Relatou com firmeza que o réu não aceitava o término e foi à sua residência, onde a segurou pelo braço com violência, desferiu um tapa em seu rosto e disse 'se você não for minha, não será de mais ninguém'."
+  },
+  "ID-MIDIA-02": {
+    "media_id": "ID-MIDIA-02",
+    "arquivo": "audiencia_mariana.mp4",
+    "depoente": "MARIANA COSTA",
+    "papel": "TESTEMUNHA_ACUSACAO",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+      }
+    ],
+    "resumo": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+  },
+  "audiencia_mariana.mp4": {
+    "media_id": "ID-MIDIA-02",
+    "arquivo": "audiencia_mariana.mp4",
+    "depoente": "MARIANA COSTA",
+    "papel": "TESTEMUNHA_ACUSACAO",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+      }
+    ],
+    "resumo": "Irmã da vítima, ouviu os gritos de socorro e presenciou as marcas no braço e rosto de Juliana logo após a saída do acusado."
+  },
+  "ID-MIDIA-03": {
+    "media_id": "ID-MIDIA-03",
+    "arquivo": "audiencia_interrogatorio.mp4",
+    "depoente": "MARCOS VINÍCIUS DA SILVA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+      }
+    ],
+    "resumo": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+  },
+  "audiencia_interrogatorio.mp4": {
+    "media_id": "ID-MIDIA-03",
+    "arquivo": "audiencia_interrogatorio.mp4",
+    "depoente": "MARCOS VINÍCIUS DA SILVA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+      }
+    ],
+    "resumo": "Negou ter ameaçado e alegou que apenas segurou o braço da ofendida para conter uma investida dela contra seu rosto."
+  },
+  "ID-MIDIA-10": {
+    "media_id": "ID-MIDIA-10",
+    "arquivo": "audiencia_beatriz.mp4",
+    "depoente": "BEATRIZ SIQUEIRA DUARTE",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+      }
+    ],
+    "resumo": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+  },
+  "audiencia_beatriz.mp4": {
+    "media_id": "ID-MIDIA-10",
+    "arquivo": "audiencia_beatriz.mp4",
+    "depoente": "BEATRIZ SIQUEIRA DUARTE",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+      }
+    ],
+    "resumo": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+  },
+  "ID-MIDIA-11": {
+    "media_id": "ID-MIDIA-11",
+    "arquivo": "audiencia_roberto.mp4",
+    "depoente": "ROBERTO CARLOS ALBUQUERQUE",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+      }
+    ],
+    "resumo": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+  },
+  "audiencia_roberto.mp4": {
+    "media_id": "ID-MIDIA-11",
+    "arquivo": "audiencia_roberto.mp4",
+    "depoente": "ROBERTO CARLOS ALBUQUERQUE",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+      }
+    ],
+    "resumo": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+  },
+  "ID-MIDIA-20": {
+    "media_id": "ID-MIDIA-20",
+    "arquivo": "audiencia_renata.mp4",
+    "depoente": "RENATA VASCONCELOS LIMA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+      }
+    ],
+    "resumo": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+  },
+  "audiencia_renata.mp4": {
+    "media_id": "ID-MIDIA-20",
+    "arquivo": "audiencia_renata.mp4",
+    "depoente": "RENATA VASCONCELOS LIMA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+      }
+    ],
+    "resumo": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+  },
+  "ID-MIDIA-21": {
+    "media_id": "ID-MIDIA-21",
+    "arquivo": "audiencia_vizinha.mp4",
+    "depoente": "CARLA BEZERRA",
+    "papel": "TESTEMUNHA_ACUSACAO",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+      }
+    ],
+    "resumo": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+  },
+  "audiencia_vizinha.mp4": {
+    "media_id": "ID-MIDIA-21",
+    "arquivo": "audiencia_vizinha.mp4",
+    "depoente": "CARLA BEZERRA",
+    "papel": "TESTEMUNHA_ACUSACAO",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+      }
+    ],
+    "resumo": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+  },
+  "ID-MIDIA-22": {
+    "media_id": "ID-MIDIA-22",
+    "arquivo": "audiencia_claudio.mp4",
+    "depoente": "CLÁUDIO HENRIQUE NOGUEIRA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Afirmou que houve apenas discussão verbal sem contato físico."
+      }
+    ],
+    "resumo": "Afirmou que houve apenas discussão verbal sem contato físico."
+  },
+  "audiencia_claudio.mp4": {
+    "media_id": "ID-MIDIA-22",
+    "arquivo": "audiencia_claudio.mp4",
+    "depoente": "CLÁUDIO HENRIQUE NOGUEIRA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Afirmou que houve apenas discussão verbal sem contato físico."
+      }
+    ],
+    "resumo": "Afirmou que houve apenas discussão verbal sem contato físico."
+  },
+  "ID-MIDIA-30": {
+    "media_id": "ID-MIDIA-30",
+    "arquivo": "audiencia_samara.mp4",
+    "depoente": "SAMARA KELLY SOUZA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+      }
+    ],
+    "resumo": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+  },
+  "audiencia_samara.mp4": {
+    "media_id": "ID-MIDIA-30",
+    "arquivo": "audiencia_samara.mp4",
+    "depoente": "SAMARA KELLY SOUZA",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+      }
+    ],
+    "resumo": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+  },
+  "ID-MIDIA-31": {
+    "media_id": "ID-MIDIA-31",
+    "arquivo": "audiencia_wellington.mp4",
+    "depoente": "WELLINGTON BARBOSA DA COSTA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Alegou que apenas se defendeu e negou a ameaça de morte."
+      }
+    ],
+    "resumo": "Alegou que apenas se defendeu e negou a ameaça de morte."
+  },
+  "audiencia_wellington.mp4": {
+    "media_id": "ID-MIDIA-31",
+    "arquivo": "audiencia_wellington.mp4",
+    "depoente": "WELLINGTON BARBOSA DA COSTA",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Alegou que apenas se defendeu e negou a ameaça de morte."
+      }
+    ],
+    "resumo": "Alegou que apenas se defendeu e negou a ameaça de morte."
+  },
+  "ID-MIDIA-40": {
+    "media_id": "ID-MIDIA-40",
+    "arquivo": "audiencia_vanessa.mp4",
+    "depoente": "VANESSA MEIRELES CASTRO",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+      }
+    ],
+    "resumo": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+  },
+  "audiencia_vanessa.mp4": {
+    "media_id": "ID-MIDIA-40",
+    "arquivo": "audiencia_vanessa.mp4",
+    "depoente": "VANESSA MEIRELES CASTRO",
+    "papel": "OFENDIDA",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+      }
+    ],
+    "resumo": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+  },
+  "ID-MIDIA-41": {
+    "media_id": "ID-MIDIA-41",
+    "arquivo": "audiencia_daniel.mp4",
+    "depoente": "DANIEL FAGUNDES BARRETO",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Reconheceu que esteve no local para levar o medicamento do filho."
+      }
+    ],
+    "resumo": "Reconheceu que esteve no local para levar o medicamento do filho."
+  },
+  "audiencia_daniel.mp4": {
+    "media_id": "ID-MIDIA-41",
+    "arquivo": "audiencia_daniel.mp4",
+    "depoente": "DANIEL FAGUNDES BARRETO",
+    "papel": "INTERROGATORIO_REU",
+    "duracao": "05:00",
+    "segmentos": [
+      {
+        "timestamp": "00:00 - 05:00",
+        "texto_literal": "Reconheceu que esteve no local para levar o medicamento do filho."
+      }
+    ],
+    "resumo": "Reconheceu que esteve no local para levar o medicamento do filho."
+  }
+}

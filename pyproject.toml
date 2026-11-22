@@ -1,0 +1,66 @@
+[project]
+name = "sentenca-jvdfm"
+version = "2.1.0"
+description = "Sistema local de apoio à prolação de sentenças penais — Juizado de Violência Doméstica e Familiar contra a Mulher (Lei 11.340/2006)"
+authors = [{ name = "FChNeto" }]
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+# Núcleo mínimo: o sistema abre, ingere PDFs com texto, calcula a dosimetria, gera, audita e exporta
+# a minuta sem nenhum extra. Recursos pesados ou dependentes de plataforma ficam nos extras abaixo e
+# são importados de forma preguiçosa (degradação explícita quando ausentes).
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.6.0",
+    "pymupdf>=1.24.0",
+    "python-docx>=1.1.0",
+    "reportlab>=4.0.0",
+    "pillow>=10.0.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+    # OCR nativo da plataforma e cofre de segredos ficam nas dependências principais para que
+    # nenhum `uv sync`/`uv run` sem extras remova o OCR ou o cofre da chave do Gemini (TASK-027).
+    "winocr>=0.0.13; sys_platform == 'win32'",
+    "ocrmac>=1.0.0; sys_platform == 'darwin'",
+    "keyring>=25.0.0",
+]
+
+[project.optional-dependencies]
+# Transcrição local das audiências (Whisper). Traz ctranslate2 e PyAV (duração das mídias).
+transcricao = ["faster-whisper>=1.1.0"]
+# Aliases redundantes mantidos por retrocompatibilidade com o instalador (já incluídos em dependencies).
+ocr-windows = ["winocr>=0.0.13; sys_platform == 'win32'"]
+ocr-macos = ["ocrmac>=1.0.0; sys_platform == 'darwin'"]
+# Motores externos (enviam dados para fora da máquina; só rodam com permissão + consentimento).
+# imageio-ffmpeg fornece o ffmpeg usado para extrair o áudio enviado a esses motores.
+nuvem = ["google-genai>=1.0.0", "SpeechRecognition>=3.10.0", "imageio-ffmpeg>=0.5.1"]
+# Alias redundante mantido por retrocompatibilidade com o instalador (keyring já está em dependencies).
+seguranca = ["keyring>=25.0.0"]
+
+[dependency-groups]
+dev = ["pytest>=8.0.0", "playwright>=1.45.0"]
+
+[tool.uv]
+required-version = ">=0.8.0"  # o uv.lock usa revision 3 (uv antigo falha com erro enganoso)
+# O instalador (instalador/bootstrap.*) usa Python 3.12, que tem wheels para todos os extras.
+environments = [
+    "sys_platform == 'win32'",
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux'",
+]
+# macOS 13 (Ventura) ou mais recente, Apple Silicon e Intel: as versões mais novas destes pacotes
+# só publicam wheels para macOS 14+ (av, onnxruntime) ou deixaram de publicar para Mac Intel
+# (onnxruntime, cryptography). Sem as travas o instalador tentaria compilar e falharia.
+constraint-dependencies = [
+    "onnxruntime<1.24; sys_platform == 'darwin'",
+    "av<16; sys_platform == 'darwin'",
+    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "pymupdf<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "dados_reais: exige os autos reais (PDF/MP4 sigilosos) na pasta indicada por JVDFM_REAL_CASES_DIR; pulado quando a variável não está definida",
+]

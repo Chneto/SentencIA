@@ -1,0 +1,253 @@
+name: Release — Pacote, Instaladores e Publicação
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  construir-artefatos:
+    name: Construir .zip, .exe, scripts e SHA256SUMS
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar uv e Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Verificar sigilo antes de empacotar
+        shell: pwsh
+        run: |
+          uv run python scripts/verificar_sigilo.py --apenas-padroes
+
+      - name: Gerar pacote SentencIA-vX.Y.Z.zip
+        shell: pwsh
+        run: |
+          uv run python scripts/build_release.py
+
+      - name: Compilar instalador Windows (.exe via Inno Setup) e preparar scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+
+          if (Test-Path "instalador/instalar-mac.sh") {
+            Copy-Item "instalador/instalar-mac.sh" "dist/instalar-mac.sh" -Force
+          }
+          if (Test-Path "instalador/instalar.ps1") {
+            Copy-Item "instalador/instalar.ps1" "dist/instalar.ps1" -Force
+          }
+
+          $issPath = "instalador/windows/SentencIA.iss"
+          if (Test-Path $issPath) {
+            if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+              choco install innosetup -y --no-progress
+            }
+            $isccCmd = Get-Command iscc -ErrorAction SilentlyContinue
+            $isccExe = if ($isccCmd) { $isccCmd.Source } else { "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
+            & $isccExe $issPath
+            if ($LASTEXITCODE -ne 0) {
+              throw "Falha ao compilar $issPath com Inno Setup (código $LASTEXITCODE)."
+            }
+          }
+
+          uv run python -c "
+          import hashlib, pathlib
+          dist = pathlib.Path('dist')
+          linhas = []
+          for arq in sorted(dist.iterdir()):
+              if arq.is_file() and arq.name != 'SHA256SUMS.txt':
+                  h = hashlib.sha256(arq.read_bytes()).hexdigest()
+                  linhas.append(f'{h}  {arq.name}')
+          (dist / 'SHA256SUMS.txt').write_bytes(('\n'.join(linhas) + '\n').encode('utf-8'))
+          print('\n'.join(linhas))
+          "
+
+      - name: Publicar artefatos da build para os jobs de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/*
+          if-no-files-found: error
+
+  teste-instalacao-windows:
+    name: Teste de Instalação Limpa (Windows)
+    needs: construir-artefatos
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Baixar artefatos gerados
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Testar instalação limpa no Windows e verificar /api/health
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zipFile = Get-ChildItem -Path dist -Filter "SentencIA-v*.zip" | Select-Object -First 1
+          if (-not $zipFile) {
+            throw "Pacote SentencIA-v*.zip não encontrado em dist/."
+          }
+
+          $destRoot = Join-Path $env:RUNNER_TEMP "SentencIA-clean-win"
+          $destData = Join-Path $env:RUNNER_TEMP "SentencIA-data-win"
+          New-Item -ItemType Directory -Force -Path $destRoot | Out-Null
+          New-Item -ItemType Directory -Force -Path $destData | Out-Null
+
+          if (Test-Path "dist/instalar.ps1") {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File "dist/instalar.ps1" `
+              -PacoteLocal $zipFile.FullName `
+              -Sha256Local (Resolve-Path "dist/SHA256SUMS.txt").Path `
+              -Destino $destRoot `
+              -Dados $destData `
+              -SemPerguntas `
+              -SemIniciar
+            $appDir = $destRoot
+          } else {
+            Expand-Archive -Path $zipFile.FullName -DestinationPath $destRoot -Force
+            $sub = Get-ChildItem -Path $destRoot -Directory | Select-Object -First 1
+            $appDir = if ($sub) { $sub.FullName } else { $destRoot }
+            $env:JVDFM_DATA_DIR = $destData
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $appDir "instalador/bootstrap.ps1") -SemPerguntas -SemIniciar
+          }
+
+          $pyExe = Join-Path $appDir ".venv/Scripts/python.exe"
+          if (-not (Test-Path $pyExe)) {
+            throw "Ambiente .venv não foi criado em $pyExe"
+          }
+
+          $env:JVDFM_DATA_DIR = $destData
+          $env:JVDFM_PORT = "8765"
+          & $pyExe (Join-Path $appDir "launcher.py") --sem-navegador --porta 8765
+          try {
+            $resp = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/health" -TimeoutSec 10
+            if ($resp.status -ne "ok") {
+              throw "Resposta inesperada de /api/health: $($resp | ConvertTo-Json -Compress)"
+            }
+          } finally {
+            & $pyExe (Join-Path $appDir "launcher.py") --parar --porta 8765
+          }
+
+  teste-instalacao-macos:
+    name: Teste de Instalação Limpa (${{ matrix.os }})
+    needs: construir-artefatos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-15
+          - macos-15-intel
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Baixar artefatos gerados
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Testar instalação limpa no macOS e verificar /api/health e ocrmac
+        shell: bash
+        run: |
+          ZIP_PATH=""
+          for arq in dist/SentencIA-v*.zip; do
+            if [ -f "$arq" ]; then
+              ZIP_PATH="$arq"
+              break
+            fi
+          done
+          if [ -z "$ZIP_PATH" ]; then
+            echo "ERRO: pacote .zip não encontrado em dist/." >&2
+            exit 1
+          fi
+
+          DEST_APP="${RUNNER_TEMP}/SentencIA"
+          DEST_BUNDLE="${RUNNER_TEMP}/SentencIA.app"
+          DEST_DATA="${RUNNER_TEMP}/SentencIA-data"
+
+          bash dist/instalar-mac.sh \
+            --pacote-local "$ZIP_PATH" \
+            --sha256-local dist/SHA256SUMS.txt \
+            --destino "$DEST_APP" \
+            --app-destino "$DEST_BUNDLE" \
+            --dados "$DEST_DATA" \
+            --sem-perguntas \
+            --sem-iniciar
+
+          "$DEST_APP/.venv/bin/python" -c "import ocrmac; print('ocrmac OK')"
+
+          export JVDFM_DATA_DIR="$DEST_DATA"
+          export JVDFM_PORT="8765"
+          "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --sem-navegador --porta 8765
+          curl -fsSL http://127.0.0.1:8765/api/health | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'
+          "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --parar --porta 8765
+
+  publicar-release:
+    name: Publicar GitHub Release
+    needs:
+      - construir-artefatos
+      - teste-instalacao-windows
+      - teste-instalacao-macos
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Baixar artefatos validados
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Extrair notas da versão a partir do CHANGELOG.md
+        shell: bash
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSAO="${TAG_NAME#v}"
+          python3 - "$VERSAO" <<'PY'
+          import pathlib, re, sys
+          versao = sys.argv[1]
+          texto = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          padrao = re.compile(
+              rf"^##\s+\[?v?{re.escape(versao)}\]?[^\n]*\n(.*?)(?=^##\s+|\Z)",
+              re.MULTILINE | re.DOTALL,
+          )
+          m = padrao.search(texto)
+          notas = m.group(1).strip() if m else f"Versão {versao} do SentencIA."
+          pathlib.Path("release_notes.md").write_text(notas + "\n", encoding="utf-8")
+          PY
+
+      - name: Criar GitHub Release com os artefatos
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          files: |
+            dist/SentencIA-v*.zip
+            dist/SentencIA-Setup-*.exe
+            dist/instalar.ps1
+            dist/instalar-mac.sh
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: false

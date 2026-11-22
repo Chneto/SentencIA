@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verificação de Colagem no PJe — SentencIA (Fictício)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f5f6f8;
+      color: #1c2430;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #d5dce5;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .aviso {
+      background: #fff7e6;
+      border: 1px solid #e6b85c;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13.5px;
+      margin-bottom: 14px;
+    }
+    ol.checklist {
+      margin: 0;
+      padding-left: 20px;
+    }
+    ol.checklist li {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .acoes {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    button {
+      background: #1b4d89;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #153c6b;
+    }
+    #statusCopia {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #17663a;
+    }
+    .folha {
+      background: #ffffff;
+      border: 1px solid #cbd3de;
+      padding: 36px 42px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Página de verificação de colagem no PJe (SentencIA)</h1>
+      <div class="aviso">
+        <strong>Documento 100% fictício:</strong> esta página abre offline e não contém dados de nenhum processo real.
+        Use-a para testar a fidelidade da formatação ao colar no editor do PJe.
+      </div>
+      <h2>Instruções: copie e cole num documento de teste do PJe e confira os itens 1 a 6</h2>
+      <ol class="checklist">
+        <li><strong>1. Corpo do texto:</strong> parágrafos justificados, fonte Times New Roman 12 pt, entrelinhas 1,5 e recuo de primeira linha de 1,25 cm.</li>
+        <li><strong>2. Títulos e subseções:</strong> seções principais em negrito e subseções em itálico, sem recuo de primeira linha.</li>
+        <li><strong>3. Formatação inline:</strong> trechos em negrito, itálico, sublinhado, sobrescrito e referências de peças preservados sem perda.</li>
+        <li><strong>4. Citação direta longa:</strong> bloco recuado 4 cm à esquerda, fonte 10 pt e entrelinhas simples (1,0), sem aspas externas.</li>
+        <li><strong>5. Ausência de sujeira HTML:</strong> nenhuma tag crua (&lt;p&gt;, &lt;span&gt;), classes estranhas, cores indevidas ou bordas inesperadas.</li>
+        <li><strong>6. Encerramento forense:</strong> fórmula de publicação centralizada em negrito, linha de data alinhada à direita e assinatura centralizada.</li>
+      </ol>
+      <div class="acoes">
+        <button type="button" id="btnCopiarTestePje">Copiar sentença fictícia para o PJe</button>
+        <span id="statusCopia" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Pré-visualização da sentença fictícia</h2>
+      <div class="folha" id="previewFolha"></div>
+    </div>
+  </div>
+
+  <template id="sentencaPjeHtml">
+<p style="text-align: center; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 6pt; margin-bottom: 10pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">PODER JUDICIÁRIO DO ESTADO FICTÍCIO<br />1º JUIZADO MODELO DE DEMONSTRAÇÃO<br />COMARCA FICTÍCIA DA CAPITAL</span></p>
+<p style="text-align: left; text-indent: 0cm; margin-left: 0cm; line-height: 1.15; margin-top: 0pt; margin-bottom: 2pt; font-family: 'Times New Roman', serif; font-size: 12pt">PROCESSO Nº 0800001-00.2026.8.20.0001 (DADOS FICTÍCIOS)</p>
+<p style="text-align: left; text-indent: 0cm; margin-left: 0cm; line-height: 1.15; margin-top: 0pt; margin-bottom: 10pt; font-family: 'Times New Roman', serif; font-size: 12pt">ACUSADO: JOÃO DA SILVA FICTÍCIO · OFENDIDA: MARIA DOS SANTOS FICTÍCIA</p>
+<p style="text-align: center; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 6pt; margin-bottom: 12pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">SENTENÇA</span></p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 12pt; margin-bottom: 6pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">I – RELATÓRIO</span></p>
+<p style="text-align: justify; text-indent: 1.25cm; margin-left: 0cm; line-height: 1.5; margin-top: 0pt; margin-bottom: 4pt; font-family: 'Times New Roman', serif; font-size: 12pt">O Ministério Público Estadual ofereceu denúncia (ID-4100201) em face de <span style="font-weight: bold">João da Silva Fictício</span>, imputando-lhe fato hipotético narrado exclusivamente para teste de colagem no editor do PJe, com destaque em <span style="font-style: italic">itálico</span>, trecho <span style="text-decoration: underline">sublinhado</span> e referência ao art. 1<sup>o</sup> da norma fictícia.</p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 12pt; margin-bottom: 6pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">II – FUNDAMENTAÇÃO</span></p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 8pt; margin-bottom: 4pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-style: italic">2.1. Da análise probatória e da citação direta longa</span></p>
+<p style="text-align: justify; text-indent: 1.25cm; margin-left: 0cm; line-height: 1.5; margin-top: 0pt; margin-bottom: 4pt; font-family: 'Times New Roman', serif; font-size: 12pt">A documentação fictícia juntada aos autos (ID-4100108 e ID-4100301) demonstra a regularidade formal do procedimento, conforme entendimento consolidado:</p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 4cm; line-height: 1.0; margin-top: 6pt; margin-bottom: 6pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-size: 10pt">Exemplo de citação direta longa em conformidade com a ABNT NBR 10520: recuo esquerdo de quatro centímetros, entrelinhas simples, fonte dez pontos e ausência de aspas externas, elaborada exclusivamente para conferência visual no editor de textos do PJe.</span></p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 12pt; margin-bottom: 6pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">III – DISPOSITIVO</span></p>
+<p style="text-align: justify; text-indent: 1.25cm; margin-left: 0cm; line-height: 1.5; margin-top: 0pt; margin-bottom: 4pt; font-family: 'Times New Roman', serif; font-size: 12pt">Ante o exposto, julgo <span style="font-weight: bold">PROCEDENTE</span> o pedido fictício apenas para fins de verificação técnica de colagem e preservação de estilos.</p>
+<p style="text-align: justify; text-indent: 0cm; margin-left: 1.25cm; line-height: 1.5; margin-top: 2pt; margin-bottom: 4pt; font-family: 'Times New Roman', serif; font-size: 12pt">1. Intime-se a parte fictícia do teor desta decisão de teste.</p>
+<p style="text-align: center; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 14pt; margin-bottom: 8pt; font-family: 'Times New Roman', serif; font-size: 12pt"><span style="font-weight: bold">Publique-se. Registre-se. Intimem-se.</span></p>
+<p style="text-align: right; text-indent: 0cm; margin-left: 0cm; line-height: 1.5; margin-top: 12pt; margin-bottom: 16pt; font-family: 'Times New Roman', serif; font-size: 12pt">Cidade Fictícia/UF, 21 de novembro de 2026.</p>
+<p style="text-align: center; text-indent: 0cm; margin-left: 0cm; line-height: 1.15; margin-top: 20pt; margin-bottom: 6pt; font-family: 'Times New Roman', serif; font-size: 12pt">Magistrado(a) Fictício(a)<br />Juiz(a) de Direito Titular</p>
+  </template>
+
+  <script>
+    (function () {
+      const tpl = document.getElementById("sentencaPjeHtml");
+      const htmlPje = (tpl ? tpl.innerHTML : "").trim();
+      const preview = document.getElementById("previewFolha");
+      if (preview) preview.innerHTML = htmlPje;
+
+      function htmlParaTextoSimples(html) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const blocos = [];
+        function extrairNo(el) {
+          let out = "";
+          for (const node of el.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              out += node.nodeValue || "";
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+              if (node.tagName === "BR") out += "\n";
+              else out += extrairNo(node);
+            }
+          }
+          return out.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim();
+        }
+        for (const child of doc.body.children) {
+          const txt = extrairNo(child);
+          if (txt) blocos.push(txt);
+        }
+        return blocos.join("\n\n");
+      }
+
+      document.getElementById("btnCopiarTestePje")?.addEventListener("click", async () => {
+        const status = document.getElementById("statusCopia");
+        const textoSimples = htmlParaTextoSimples(htmlPje);
+        try {
+          if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+            const item = new window.ClipboardItem({
+              "text/html": new Blob([htmlPje], { type: "text/html" }),
+              "text/plain": new Blob([textoSimples], { type: "text/plain" }),
+            });
+            await navigator.clipboard.write([item]);
+            if (status) status.textContent = "Copiado! Cole no editor do PJe (Ctrl+V) e confira os itens 1 a 6.";
+          } else {
+            await navigator.clipboard.writeText(textoSimples);
+            if (status) status.textContent = "Seu navegador copiou só o texto; a formatação não foi incluída.";
+          }
+        } catch (err) {
+          if (status) status.textContent = "Não foi possível copiar automaticamente: " + (err.message || err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

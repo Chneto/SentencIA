@@ -1,0 +1,223 @@
+/* ==========================================================================
+   SENTENCIA — TEMA 02: ESTÚDIO MODERNO (TASK-010)
+   Derivado da Proposta 02 (Google Stitch #4596997227369203731).
+   Superfícies brancas limpas (#FFFFFF), canvas suave (#F5F7FA),
+   navegação superior segmentada das 4 estações e acento marinho (#1B3B66).
+   ========================================================================== */
+
+html[data-design="moderno"],
+html[data-design="moderno"][data-theme="light"] {
+  --bg-canvas: #F5F7FA;
+  --bg-backdrop-glow: linear-gradient(180deg, #F8FAFC 0%, #F2F5F9 100%);
+  --bg-glass-header: rgba(255, 255, 255, 0.96);
+  --bg-glass-sidebar: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --bg-surface-solid: #FFFFFF;
+  --bg-surface-2: #F3F6FA;
+  --bg-muted: #EAEFF5;
+  --bg-sheet: #FFFFFF;
+
+  --border-subtle: #E1E6EE;
+  --border-strong: #C3CCD9;
+  --border-hairline: #EDF1F6;
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+
+  --text-primary: #191C1E;
+  --text-secondary: #3A485C;
+  --text-muted: #58657A;
+  --text-on-accent: #FFFFFF;
+
+  --accent-primary: #1B3B66;
+  --accent-primary-2: #294773;
+  --accent-primary-hover: #00254D;
+  --accent-primary-soft: #E9F0F9;
+  --accent-gold: #8F660D;
+  --accent-gold-2: #AD7D13;
+  --accent-gold-soft: #FBF4E2;
+
+  --semantic-emerald: #12703A;
+  --semantic-emerald-soft: #E8F6EE;
+  --semantic-emerald-border: #A7DFBE;
+  --semantic-amber: #9A4807;
+  --semantic-amber-soft: #FEF3E6;
+  --semantic-amber-border: #F2C496;
+  --semantic-danger: #B42318;
+  --semantic-danger-soft: #FDECEB;
+  --semantic-danger-border: #F2B5B0;
+  --semantic-neutral: #2E3C50;
+  --semantic-neutral-soft: #EEF2F7;
+
+  --shadow-card: 0 1px 3px rgba(13, 28, 47, 0.04), 0 4px 14px -4px rgba(13, 28, 47, 0.05);
+  --shadow-card-hover: 0 2px 6px rgba(13, 28, 47, 0.06), 0 10px 24px -6px rgba(27, 59, 102, 0.10);
+  --shadow-sheet: 0 1px 4px rgba(13, 28, 47, 0.04), 0 14px 36px -10px rgba(13, 28, 47, 0.09);
+  --shadow-elevated: 0 20px 48px -12px rgba(13, 28, 47, 0.18);
+  --focus-ring: 0 0 0 3px rgba(27, 59, 102, 0.22);
+
+  /* Fontes 100% locais (hospedadas em app/static/fonts/) */
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+  --font-serif: "Newsreader", "Georgia", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+
+  --radius-outer: 18px;
+  --radius-card: 14px;
+  --radius-inner: 10px;
+  --radius-pill: 9999px;
+
+  --duration-fast: 160ms;
+}
+
+html[data-design="moderno"][data-theme="dark"] {
+  --bg-canvas: #0F131A;
+  --bg-backdrop-glow: linear-gradient(180deg, #12161E 0%, #0D1117 100%);
+  --bg-glass-header: rgba(20, 24, 33, 0.96);
+  --bg-glass-sidebar: #151923;
+  --bg-surface: #181D27;
+  --bg-surface-solid: #181D27;
+  --bg-surface-2: #202634;
+  --bg-muted: #272F40;
+  --bg-sheet: #161A23;
+
+  --border-subtle: #2B3344;
+  --border-strong: #414D66;
+  --border-hairline: #222938;
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --text-primary: #F3F5F8;
+  --text-secondary: #BCC5D4;
+  --text-muted: #98A4B8;
+  --text-on-accent: #0B1220;
+
+  --accent-primary: #79A8E8;
+  --accent-primary-2: #98BFF2;
+  --accent-primary-hover: #6496DE;
+  --accent-primary-soft: #1E2C42;
+  --accent-gold: #E5BC54;
+  --accent-gold-2: #F2CE72;
+  --accent-gold-soft: #2E2717;
+
+  --semantic-emerald: #52D68A;
+  --semantic-emerald-soft: #152B20;
+  --semantic-emerald-border: #25573D;
+  --semantic-amber: #F8BD4A;
+  --semantic-amber-soft: #2E2414;
+  --semantic-amber-border: #5E471E;
+  --semantic-danger: #F9827C;
+  --semantic-danger-soft: #311A1B;
+  --semantic-danger-border: #662F31;
+  --semantic-neutral: #CFD7E3;
+  --semantic-neutral-soft: #232A38;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 18px -6px rgba(0, 0, 0, 0.42);
+  --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.45), 0 12px 26px -6px rgba(0, 0, 0, 0.55);
+  --shadow-sheet: 0 14px 36px -8px rgba(0, 0, 0, 0.58);
+  --shadow-elevated: 0 24px 56px rgba(0, 0, 0, 0.70);
+  --focus-ring: 0 0 0 3px rgba(121, 168, 232, 0.30);
+}
+
+/* Layout Estúdio Moderno: navegação das 4 estações no topo (segmentada) sobre o mesmo DOM */
+html[data-design="moderno"] .workspace-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--ribbon-height, 56px));
+}
+
+html[data-design="moderno"] .sidebar-nav {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  position: static;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 10px 28px;
+  background: var(--bg-glass-sidebar);
+  border-right: none;
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-design="moderno"] .sidebar-section-label,
+html[data-design="moderno"] .sidebar-author-signature {
+  display: none;
+}
+
+html[data-design="moderno"] .sidebar-top-block {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+html[data-design="moderno"] .station-nav-list {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+html[data-design="moderno"] .station-btn {
+  width: auto;
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  gap: 8px;
+}
+
+html[data-design="moderno"] .station-btn .station-step-tag {
+  display: none;
+}
+
+html[data-design="moderno"] .station-btn .station-icon-box {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+html[data-design="moderno"] .station-btn .station-name {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+html[data-design="moderno"] .station-btn.active {
+  background: var(--bg-surface-solid);
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  color: var(--accent-primary);
+}
+
+/* Área principal espaçosa e limpa */
+html[data-design="moderno"] .main-workspace {
+  max-width: 1320px;
+  width: 100%;
+  margin-inline: auto;
+  padding: 24px 32px 64px;
+}
+
+html[data-design="moderno"] .journey-stepper {
+  display: none;
+}
+
+html[data-design="moderno"] .card {
+  background: var(--bg-surface-solid);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-design="moderno"] .sentence-paper-body {
+  max-width: 74ch;
+  margin-inline: auto;
+  line-height: 1.72;
+}

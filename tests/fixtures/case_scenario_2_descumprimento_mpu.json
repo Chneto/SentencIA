@@ -1,0 +1,208 @@
+{
+  "case_id": "CASE-02-DESCUMPRIMENTO-WHATSAPP-CONFISSAO",
+  "numero_processo": "0803456-12.2025.8.20.5001",
+  "comarca": "Natal/RN",
+  "juizado": "2º Juizado de Violência Doméstica e Familiar contra a Mulher",
+  "ofendida": "BEATRIZ SIQUEIRA DUARTE",
+  "reu": "ROBERTO CARLOS ALBUQUERQUE",
+  "data_fato": "2025-02-10",
+  "data_recebimento_denuncia": "2025-03-01",
+  "data_sentenca": "2025-06-15",
+  "crimes_imputados": [
+    "art_24a_lmp"
+  ],
+  "autos_mpu_apenso": "0802100-33.2025.8.20.5001",
+  "raw_documents": [
+    {
+      "doc_id": "ID-2104501",
+      "titulo": "Certidão de Intimação Pessoal do Mandado de Protetivas",
+      "tipo": "CERTIDAO_OFICIAL_JUSTICA",
+      "pagina_inicial": 1,
+      "pagina_final": 3,
+      "conteudo_resumido": "Certidão do Oficial de Justiça atestando que Roberto Carlos foi pessoalmente intimado em 05/02/2025 das medidas de proibição de aproximação (200m) e proibição de qualquer contato.",
+      "data_peca": "2025-02-10",
+      "conteudo": "Processo nº 0803456-12.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: BEATRIZ SIQUEIRA DUARTE, residente em Natal/RN. Acusado: ROBERTO CARLOS ALBUQUERQUE, qualificado nos autos. Fato ocorrido em 2025-02-10. Denúncia recebida em 2025-03-01.  Certidão do Oficial de Justiça atestando que Roberto Carlos foi pessoalmente intimado em 05/02/2025 das medidas de proibição de aproximação (200m) e proibição de qualquer contato.",
+      "folha": "fls. 1/3"
+    },
+    {
+      "doc_id": "ID-2104515",
+      "titulo": "Relatório de Degravação de Áudios de WhatsApp",
+      "tipo": "RELATORIO_TECNICO_DELEGACIA",
+      "pagina_inicial": 4,
+      "pagina_final": 12,
+      "conteudo_resumido": "Transcrição de 14 áudios e mensagens de texto enviados pelo número do acusado ao celular da ofendida no dia 10/02/2025, insistindo em reatar e comparecendo à portaria do laboratório onde ela trabalha.",
+      "data_peca": "2025-02-10",
+      "conteudo": "Processo nº 0803456-12.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: BEATRIZ SIQUEIRA DUARTE, residente em Natal/RN. Acusado: ROBERTO CARLOS ALBUQUERQUE, qualificado nos autos. Fato ocorrido em 2025-02-10. Denúncia recebida em 2025-03-01.  Transcrição de 14 áudios e mensagens de texto enviados pelo número do acusado ao celular da ofendida no dia 10/02/2025, insistindo em reatar e comparecendo à portaria do laboratório onde ela trabalha.",
+      "folha": "fls. 4/12"
+    },
+    {
+      "doc_id": "ID-2104520",
+      "titulo": "Denúncia Ministerial",
+      "tipo": "DENUNCIA",
+      "pagina_inicial": 13,
+      "pagina_final": 16,
+      "conteudo_resumido": "Denúncia pelo crime de descumprimento de decisão judicial que defere medidas protetivas de urgência, tipificado no art. 24-A da Lei 11.340/2006 com redação dada pela Lei 14.994/2024. Pedido de indenização moral de R$ 2.000,00.",
+      "data_peca": "2025-02-10",
+      "conteudo": "Processo nº 0803456-12.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: BEATRIZ SIQUEIRA DUARTE, residente em Natal/RN. Acusado: ROBERTO CARLOS ALBUQUERQUE, qualificado nos autos. Fato ocorrido em 2025-02-10. Denúncia recebida em 2025-03-01. O Ministério Público vem oferecer denúncia imputando ao acusado a prática de art. 24-A da Lei nº 11.340/2006 (descumprimento de medida protetiva). Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ).  Denúncia pelo crime de descumprimento de decisão judicial que defere medidas protetivas de urgência, tipificado no art. 24-A da Lei 11.340/2006 com redação dada pela Lei 14.994/2024. Pedido de indenização moral de R$ 2.000,00.",
+      "folha": "fls. 13/16"
+    },
+    {
+      "doc_id": "ID-2104530",
+      "titulo": "Alegações Finais da Defesa",
+      "tipo": "ALEGACOES_FINAIS_DEFESA",
+      "pagina_inicial": 35,
+      "pagina_final": 42,
+      "conteudo_resumido": "Defesa sustenta ilicitude da prova obtida do WhatsApp sem autorização judicial, consentimento da ofendida que respondeu mensagens sobre despesas do filho, ausência de dolo e subsidiariamente postula atenuação pela confissão com pena abaixo do mínimo legal e sursis.",
+      "data_peca": "2025-02-10",
+      "conteudo": "Processo nº 0803456-12.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: BEATRIZ SIQUEIRA DUARTE, residente em Natal/RN. Acusado: ROBERTO CARLOS ALBUQUERQUE, qualificado nos autos. Fato ocorrido em 2025-02-10. Denúncia recebida em 2025-03-01. A Defesa apresenta memoriais da defesa pugnando pela absolvição in dubio pro reo e pedidos subsidiários.  Defesa sustenta ilicitude da prova obtida do WhatsApp sem autorização judicial, consentimento da ofendida que respondeu mensagens sobre despesas do filho, ausência de dolo e subsidiariamente postula atenuação pela confissão com pena abaixo do mínimo legal e sursis.",
+      "folha": "fls. 35/42"
+    }
+  ],
+  "matriz_oral": {
+    "depoentes": [
+      {
+        "depoente": "BEATRIZ SIQUEIRA DUARTE",
+        "papel": "OFENDIDA",
+        "midia_id": "ID-MIDIA-10",
+        "arquivo": "audiencia_beatriz.mp4",
+        "resumo": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+      },
+      {
+        "depoente": "ROBERTO CARLOS ALBUQUERQUE",
+        "papel": "ACUSADO",
+        "midia_id": "ID-MIDIA-11",
+        "arquivo": "audiencia_roberto.mp4",
+        "resumo": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+      }
+    ]
+  },
+  "teses_defesa": [
+    {
+      "codigo_tese": "PREL-01",
+      "tipo": "PRELIMINAR",
+      "titulo": "Ilicitude da prova telemática",
+      "descricao": "Alega que a extração dos áudios do WhatsApp dependia de prévia autorização judicial de quebra de sigilo.",
+      "folha_autos_id": "ID-2104530 (fls. 35-37)",
+      "resolucao_esperada": "REJEITADA. A exibição voluntária das mensagens pela vítima destinatária na delegacia não constitui quebra de sigilo telemático, sendo meio idôneo e lícito de notitia criminis (jurisprudência consolidada do STJ)."
+    },
+    {
+      "codigo_tese": "MER-01",
+      "tipo": "MERITO",
+      "titulo": "Consentimento da vítima e descaracterização do delito",
+      "descricao": "Sustenta que a ofendida teria anuído com o contato ao responder sobre temas financeiros.",
+      "folha_autos_id": "ID-2104530 (fls. 37-39)",
+      "resolucao_esperada": "REJEITADA. O bem jurídico tutelado pelo art. 24-A é a administração da justiça. As medidas protetivas são ordens judiciais coercitivas indisponíveis, não sendo revogadas pelo suposto consentimento da vítima (Tema 1249 STJ e Enunciado 47 FONAVID)."
+    },
+    {
+      "codigo_tese": "MER-02",
+      "tipo": "MERITO",
+      "titulo": "Ausência de dolo de descumprimento",
+      "descricao": "Alega que agiu impelido por dever de assistência paterna.",
+      "folha_autos_id": "ID-2104530 (fls. 39-40)",
+      "resolucao_esperada": "REJEITADA. O réu possuía plena ciência da vedação de aproximação e contato. Questões de alimentos ou guarda devem ser deduzidas por meio de advogados na Vara de Família competente."
+    },
+    {
+      "codigo_tese": "SUBS-01",
+      "tipo": "SUBSIDIARIA",
+      "titulo": "Fixação de pena abaixo do mínimo pela confissão espontânea",
+      "descricao": "Pede que a confissão reduza a pena aquém do mínimo abstrato de 2 anos cominado pela Lei 14.994/2024.",
+      "folha_autos_id": "ID-2104530 (fls. 40-42)",
+      "resolucao_esperada": "REJEITADA. Aplicação cogente da Súmula 231 do STJ, que veda a redução da pena aquém do mínimo legal na 2ª fase da dosimetria."
+    }
+  ],
+  "certidao_antecedentes": [
+    {
+      "processo": "Nenhum",
+      "descricao": "Certidão de Antecedentes Criminais Nada Consta",
+      "possui_transito_em_julgado": false
+    }
+  ],
+  "dosimetria_esperada": {
+    "art_24a_lmp": {
+      "tipo": "reclusao",
+      "min_pena": "2 anos",
+      "max_pena": "5 anos",
+      "pena_base": {
+        "anos": 2,
+        "meses": 0,
+        "dias": 0
+      },
+      "segunda_fase": {
+        "confissao_espontanea": true,
+        "bloqueio_sumula_231": true,
+        "pena_intermediaria": {
+          "anos": 2,
+          "meses": 0,
+          "dias": 0
+        }
+      },
+      "terceira_fase": {
+        "pena_definitiva": {
+          "anos": 2,
+          "meses": 0,
+          "dias": 0
+        }
+      }
+    },
+    "unificacao_art69": {
+      "tipo_concurso": "nenhum",
+      "reclusao_total": {
+        "anos": 2,
+        "meses": 0,
+        "dias": 0
+      },
+      "detencao_total": {
+        "anos": 0,
+        "meses": 0,
+        "dias": 0
+      },
+      "regime_inicial_reclusao": "ABERTO",
+      "substituicao_art44": true,
+      "motivo_substituicao": "Crime sem violência ou grave ameaça física contra a pessoa e pena de 2 anos (art. 44 CP)",
+      "sursis_art77": false,
+      "dano_moral_tema983": 2000.0,
+      "intimacao_vitima_art21_lmp": true
+    }
+  },
+  "ofendida_detalhes": {
+    "nome": "BEATRIZ SIQUEIRA DUARTE",
+    "qualificacao": "brasileira, biomédica, residente em Natal/RN"
+  },
+  "reu_detalhes": {
+    "nome": "ROBERTO CARLOS ALBUQUERQUE",
+    "qualificacao": "brasileiro, motorista de aplicativo, residente em Natal/RN",
+    "primario": true,
+    "reincidente": false
+  },
+  "vinculo_domestico": "Ex-companheiro (união estável por cerca de 4 anos)",
+  "transcriptions": [
+    {
+      "media_id": "ID-MIDIA-10",
+      "arquivo": "audiencia_beatriz.mp4",
+      "depoente": "BEATRIZ SIQUEIRA DUARTE",
+      "papel": "OFENDIDA",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+        }
+      ],
+      "resumo": "Confirmou que recebeu as mensagens e áudios no WhatsApp e viu o réu em frente ao seu trabalho; relatou que sentiu pavor e procurou imediatamente a delegacia."
+    },
+    {
+      "media_id": "ID-MIDIA-11",
+      "arquivo": "audiencia_roberto.mp4",
+      "depoente": "ROBERTO CARLOS ALBUQUERQUE",
+      "papel": "INTERROGATORIO_REU",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+        }
+      ],
+      "resumo": "Confessou espontaneamente que enviou os áudios e foi até o local de trabalho da ofendida, alegando que pretendia conversar sobre as despesas escolares do filho menor."
+    }
+  ]
+}

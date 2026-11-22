@@ -1,0 +1,61 @@
+# Ambiente Python e caches
+.venv/
+venv/
+ENV/
+python/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Modelos e sentenças reais do gabinete (segredo de justiça / LGPD) — NUNCA versionar
+Modelos de Sentenças/
+
+# Dados sigilosos dos processos e estado local — NUNCA versionar ou distribuir
+data/cases/
+data/lote/
+data/user_settings.json
+data/user_settings*.json
+data/secrets/
+data/logs/
+data/jobs/
+data/exports/
+data/templates_gabinete/amostras/
+data/templates_gabinete/style_profile.json
+data/knowledge_base/custom_precedentes.json
+data/.instalado
+data/.servidor.json
+data/.launcher.lock
+*.pje_cache_v2.json
+*.transcript_v2.json
+
+# Segredos, variáveis de ambiente e atalhos locais
+.env
+.env.*
+secrets.json
+*.lnk
+*.log
+*.log.*
+*.tmp
+*.parcial
+
+# Coordenação interna de agentes e notas locais
+.ai-collab/
+.agent/
+.claude/
+CLAUDE.md
+docs/memory.md
+docs/TEST_READY.md
+
+# Artefatos de build/distribuição e sistema operacional
+dist/
+build/
+*.zip
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+.pasta_dados

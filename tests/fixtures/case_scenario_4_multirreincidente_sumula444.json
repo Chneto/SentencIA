@@ -1,0 +1,243 @@
+{
+  "case_id": "CASE-04-REINCIDENTE-SUMULA444-CONCURSO-SURSIS",
+  "numero_processo": "0805678-90.2025.8.20.5001",
+  "comarca": "Natal/RN",
+  "juizado": "1º Juizado de Violência Doméstica e Familiar contra a Mulher",
+  "ofendida": "SAMARA KELLY SOUZA",
+  "reu": "WELLINGTON BARBOSA DA COSTA",
+  "data_fato": "2025-01-12",
+  "data_recebimento_denuncia": "2025-02-05",
+  "data_sentenca": "2025-05-20",
+  "crimes_imputados": [
+    "art_129_p13_cp",
+    "art_147_cp"
+  ],
+  "autos_mpu_apenso": "0805122-88.2025.8.20.5001",
+  "raw_documents": [
+    {
+      "doc_id": "ID-2309101",
+      "titulo": "Antecedentes Criminais",
+      "tipo": "FOLHA_ANTECEDENTES",
+      "pagina_inicial": 1,
+      "pagina_final": 5,
+      "conteudo_resumido": "Registra 3 anotações: 1) Inquérito Policial nº 2022/45 por furto (sem denúncia); 2) Ação Penal nº 0102030-40.2023 em andamento sem julgamento; 3) Condenação com trânsito em julgado em 15/05/2022 por roubo circunstanciado (Processo 0001234-55.2021) com pena extinta em 10/11/2023.",
+      "data_peca": "2025-01-12",
+      "conteudo": "Processo nº 0805678-90.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: SAMARA KELLY SOUZA, residente em Natal/RN. Acusado: WELLINGTON BARBOSA DA COSTA, qualificado nos autos. Fato ocorrido em 2025-01-12. Denúncia recebida em 2025-02-05.  Registra 3 anotações: 1) Inquérito Policial nº 2022/45 por furto (sem denúncia); 2) Ação Penal nº 0102030-40.2023 em andamento sem julgamento; 3) Condenação com trânsito em julgado em 15/05/2022 por roubo circunstanciado (Processo 0001234-55.2021) com pena extinta em 10/11/2023.",
+      "folha": "fls. 1/5"
+    },
+    {
+      "doc_id": "ID-2309102",
+      "titulo": "Denúncia Ministerial",
+      "data_peca": "2025-01-12",
+      "pagina_inicial": 8,
+      "pagina_final": 10,
+      "folha": "fls. 08/10",
+      "conteudo": "Processo nº 0805678-90.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: SAMARA KELLY SOUZA. Acusado: WELLINGTON BARBOSA DA COSTA. O Ministério Público vem oferecer denúncia ministerial em desfavor do acusado pela prática de art. 129, § 13, do Código Penal e art. 147, caput, do CP. Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ)."
+    },
+    {
+      "doc_id": "ID-2309105",
+      "titulo": "Laudo Pericial de Exame de Corpo de Delito",
+      "tipo": "LAUDO_PERICIAL",
+      "pagina_inicial": 10,
+      "pagina_final": 13,
+      "conteudo_resumido": "Atesta fratura nasal e múltiplos hematomas em face decorrentes de socos e pontapés desferidos pelo acusado.",
+      "data_peca": "2025-01-12",
+      "conteudo": "Processo nº 0805678-90.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: SAMARA KELLY SOUZA, residente em Natal/RN. Acusado: WELLINGTON BARBOSA DA COSTA, qualificado nos autos. Fato ocorrido em 2025-01-12. Denúncia recebida em 2025-02-05.  Atesta fratura nasal e múltiplos hematomas em face decorrentes de socos e pontapés desferidos pelo acusado.",
+      "folha": "fls. 10/13"
+    },
+    {
+      "doc_id": "ID-2309120",
+      "titulo": "Alegações Finais da Defesa",
+      "tipo": "ALEGACOES_FINAIS_DEFESA",
+      "pagina_inicial": 50,
+      "pagina_final": 59,
+      "conteudo_resumido": "Sustenta impossibilidade de agravar pena pelos inquéritos em curso (Súmula 444 STJ); no mérito nega ameaça e alega reciprocidade nas lesões; subsidiariamente postula regime aberto e sursis especial.",
+      "data_peca": "2025-01-12",
+      "conteudo": "Processo nº 0805678-90.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: SAMARA KELLY SOUZA, residente em Natal/RN. Acusado: WELLINGTON BARBOSA DA COSTA, qualificado nos autos. Fato ocorrido em 2025-01-12. Denúncia recebida em 2025-02-05. A Defesa apresenta memoriais da defesa pugnando pela absolvição in dubio pro reo e pedidos subsidiários.  Sustenta impossibilidade de agravar pena pelos inquéritos em curso (Súmula 444 STJ); no mérito nega ameaça e alega reciprocidade nas lesões; subsidiariamente postula regime aberto e sursis especial.",
+      "folha": "fls. 50/59"
+    }
+  ],
+  "matriz_oral": {
+    "depoentes": [
+      {
+        "depoente": "SAMARA KELLY SOUZA",
+        "papel": "OFENDIDA",
+        "midia_id": "ID-MIDIA-30",
+        "arquivo": "audiencia_samara.mp4",
+        "resumo": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+      },
+      {
+        "depoente": "WELLINGTON BARBOSA DA COSTA",
+        "papel": "ACUSADO",
+        "midia_id": "ID-MIDIA-31",
+        "arquivo": "audiencia_wellington.mp4",
+        "resumo": "Alegou que apenas se defendeu e negou a ameaça de morte."
+      }
+    ]
+  },
+  "teses_defesa": [
+    {
+      "codigo_tese": "MER-01",
+      "tipo": "MERITO",
+      "titulo": "Negativa de autoria da ameaça e agressões recíprocas",
+      "descricao": "Sustenta ausência de dolo na ameaça e reciprocidade de ofensas físicas.",
+      "folha_autos_id": "ID-2309120 (fls. 50-54)",
+      "resolucao_esperada": "REJEITADA. A fratura nasal atestada em perícia e a contundência do depoimento da ofendida afastam reciprocidade. Ameaça configurada e comprovada."
+    },
+    {
+      "codigo_tese": "SUBS-01",
+      "tipo": "SUBSIDIARIA",
+      "titulo": "Aplicação da Súmula 444 do STJ na 1ª fase",
+      "descricao": "Requer que o inquérito e o processo sem trânsito não exasperem a pena-base.",
+      "folha_autos_id": "ID-2309120 (fls. 54-56)",
+      "resolucao_esperada": "ACOLHIDA. Neutralização compulsória das anotações em curso ex vi da Súmula 444 do STJ, servindo apenas a condenação transitada para fins de reincidência na 2ª fase."
+    },
+    {
+      "codigo_tese": "SUBS-02",
+      "tipo": "SUBSIDIARIA",
+      "titulo": "Pedido de Sursis especial e Regime Aberto",
+      "descricao": "Postula sursis pelo art. 77, § 2º, do CP e fixação de regime aberto.",
+      "folha_autos_id": "ID-2309120 (fls. 56-59)",
+      "resolucao_esperada": "REJEITADA. O réu é reincidente em crime doloso e a pena privativa de liberdade é superior a 2 anos, o que impede de forma intransponível o benefício do sursis (art. 77, I, CP) e impõe o regime SEMIABERTO (art. 33, § 2º, 'b', CP)."
+    }
+  ],
+  "certidao_antecedentes": [
+    {
+      "processo": "Inquérito Policial 2022/45",
+      "descricao": "Inquérito policial por furto sem oferecimento de denúncia",
+      "possui_transito_em_julgado": false
+    },
+    {
+      "processo": "Ação Penal 0102030-40.2023",
+      "descricao": "Ação penal em curso por embriaguez ao volante sem decisão condenatória definitiva",
+      "possui_transito_em_julgado": false
+    },
+    {
+      "processo": "Ação Penal 0001234-55.2021.8.20.5001",
+      "descricao": "Condenação definitiva transitada em julgado em 15/05/2022 por roubo circunstanciado. Pena extinta em 10/11/2023.",
+      "possui_transito_em_julgado": true
+    }
+  ],
+  "dosimetria_esperada": {
+    "art_129_p13_cp": {
+      "tipo": "reclusao",
+      "min_pena": "2 anos",
+      "max_pena": "5 anos",
+      "intervalo": "3 anos (36 meses)",
+      "fracao_1fase": "1/8 do intervalo = 4 meses e 15 dias",
+      "vetores_art59_desfavoraveis": [
+        "culpabilidade"
+      ],
+      "vetor_antecedentes_sumula444": "NEUTRALIZADO com aplicação da Súmula 444 do STJ",
+      "pena_base": {
+        "anos": 2,
+        "meses": 4,
+        "dias": 15
+      },
+      "segunda_fase": {
+        "agravante_reincidencia_art61_i": true,
+        "fracao_reincidencia": "1/6 sobre a pena-base (4 meses e 22 dias)",
+        "pena_intermediaria": {
+          "anos": 2,
+          "meses": 9,
+          "dias": 7
+        }
+      },
+      "terceira_fase": {
+        "pena_definitiva": {
+          "anos": 2,
+          "meses": 9,
+          "dias": 7
+        }
+      }
+    },
+    "art_147_cp": {
+      "tipo": "detencao",
+      "min_pena": "2 meses",
+      "max_pena": "1 ano",
+      "pena_base": {
+        "anos": 0,
+        "meses": 2,
+        "dias": 0
+      },
+      "segunda_fase": {
+        "agravante_reincidencia_art61_i": true,
+        "fracao_reincidencia": "1/6 sobre 60 dias = 10 dias",
+        "pena_intermediaria": {
+          "anos": 0,
+          "meses": 2,
+          "dias": 10
+        }
+      },
+      "terceira_fase": {
+        "pena_definitiva": {
+          "anos": 0,
+          "meses": 2,
+          "dias": 10
+        }
+      }
+    },
+    "unificacao_art69": {
+      "tipo_concurso": "material",
+      "reclusao_total": {
+        "anos": 2,
+        "meses": 9,
+        "dias": 7
+      },
+      "detencao_total": {
+        "anos": 0,
+        "meses": 2,
+        "dias": 10
+      },
+      "regime_inicial_reclusao": "SEMIABERTO",
+      "regime_inicial_detencao": "SEMIABERTO",
+      "substituicao_art44": false,
+      "motivo_vedacao_substituicao": "Súmula 588 STJ e reincidência em crime doloso",
+      "sursis_art77": false,
+      "motivo_vedacao_sursis": "Reincidência em crime doloso (art. 77, I, CP) e pena de reclusão > 2 anos",
+      "dano_moral_tema983": 5000.0,
+      "intimacao_vitima_art21_lmp": true
+    }
+  },
+  "ofendida_detalhes": {
+    "nome": "SAMARA KELLY SOUZA",
+    "qualificacao": "brasileira, auxiliar administrativa, residente em Natal/RN"
+  },
+  "reu_detalhes": {
+    "nome": "WELLINGTON BARBOSA DA COSTA",
+    "qualificacao": "brasileiro, autônomo, residente em Natal/RN",
+    "primario": false,
+    "reincidente": true
+  },
+  "vinculo_domestico": "Ex-companheiro (união estável por cerca de 4 anos)",
+  "transcriptions": [
+    {
+      "media_id": "ID-MIDIA-30",
+      "arquivo": "audiencia_samara.mp4",
+      "depoente": "SAMARA KELLY SOUZA",
+      "papel": "OFENDIDA",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+        }
+      ],
+      "resumo": "Declarou que Wellington a espancou na calçada de casa com socos e chutes na face e a jurou de morte, dizendo 'se me denunciar eu te mato na saída da delegacia'."
+    },
+    {
+      "media_id": "ID-MIDIA-31",
+      "arquivo": "audiencia_wellington.mp4",
+      "depoente": "WELLINGTON BARBOSA DA COSTA",
+      "papel": "INTERROGATORIO_REU",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Alegou que apenas se defendeu e negou a ameaça de morte."
+        }
+      ],
+      "resumo": "Alegou que apenas se defendeu e negou a ameaça de morte."
+    }
+  ]
+}

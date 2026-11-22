@@ -1,0 +1,8 @@
+# Termina??es de linha e modos corretos independentemente do checkout (core.autocrlf).
+*.sh text eol=lf
+*.command text eol=lf
+SentencIA.app/Contents/MacOS/* text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.vbs text eol=crlf
+*.icns binary

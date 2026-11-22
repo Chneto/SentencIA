@@ -1,0 +1,21 @@
+<!--
+  SentencIA — Windows Sandbox para testar o instalador PowerShell (caminho A) em maquina limpa.
+  Uso:
+    1. Gere o pacote em dist\SentencIA-vX.Y.Z.zip com: uv run python scripts/build_release.py
+    2. Ajuste HostFolder abaixo para a pasta do projeto (somente leitura na Sandbox).
+    3. De dois cliques neste arquivo .wsb para abrir a Windows Sandbox e validar a instalacao limpa.
+-->
+<Configuration>
+  <VGpu>Disable</VGpu>
+  <Networking>Enable</Networking>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\SentencIA\dist</HostFolder>
+      <SandboxFolder>C:\PacoteSentencIA</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -NoExit -ExecutionPolicy Bypass -Command "$zip = Get-ChildItem C:\PacoteSentencIA\SentencIA-v*.zip | Select-Object -First 1; if (-not $zip) { Write-Host 'Pacote zip nao encontrado em C:\PacoteSentencIA' -ForegroundColor Red; exit 1 }; Expand-Archive $zip.FullName C:\TempInst -Force; $inst = Get-ChildItem C:\TempInst -Recurse -Filter instalar.ps1 | Select-Object -First 1; &amp; $inst.FullName -PacoteLocal $zip.FullName -SemPerguntas -SemNavegador"</Command>
+  </LogonCommand>
+</Configuration>

@@ -1,0 +1,240 @@
+{
+  "case_id": "CASE-03-LESAO-LAUDO-INCONCLUSIVO-PALAVRA-VITIMA",
+  "numero_processo": "0804567-89.2024.8.20.5001",
+  "comarca": "Natal/RN",
+  "juizado": "3º Juizado de Violência Doméstica e Familiar contra a Mulher",
+  "ofendida": "RENATA VASCONCELOS LIMA",
+  "reu": "CLÁUDIO HENRIQUE NOGUEIRA",
+  "data_fato": "2024-08-25",
+  "data_recebimento_denuncia": "2024-09-20",
+  "data_sentenca": "2024-12-05",
+  "crimes_imputados": [
+    "art_129_p9_cp"
+  ],
+  "autos_mpu_apenso": "0803999-55.2024.8.20.5001",
+  "raw_documents": [
+    {
+      "doc_id": "ID-2207801",
+      "titulo": "Portaria Policial e Boletim de Ocorrência",
+      "tipo": "BOLETIM_OCORRENCIA",
+      "pagina_inicial": 1,
+      "pagina_final": 4,
+      "conteudo_resumido": "Ocorrência registrada em 25/08/2024 narrando que Cláudio Henrique empurrou Renata contra a parede e desferiu tapas em seus braços durante discussão conjugal.",
+      "data_peca": "2024-08-25",
+      "conteudo": "Processo nº 0804567-89.2024.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: RENATA VASCONCELOS LIMA, residente em Natal/RN. Acusado: CLÁUDIO HENRIQUE NOGUEIRA, qualificado nos autos. Fato ocorrido em 2024-08-25. Denúncia recebida em 2024-09-20.  Ocorrência registrada em 25/08/2024 narrando que Cláudio Henrique empurrou Renata contra a parede e desferiu tapas em seus braços durante discussão conjugal.",
+      "folha": "fls. 1/4"
+    },
+    {
+      "doc_id": "ID-2201102",
+      "titulo": "Denúncia Ministerial",
+      "data_peca": "2024-08-25",
+      "pagina_inicial": 8,
+      "pagina_final": 10,
+      "folha": "fls. 08/10",
+      "conteudo": "Processo nº 0804567-89.2024.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: RENATA VASCONCELOS LIMA. Acusado: CLÁUDIO HENRIQUE NOGUEIRA. O Ministério Público vem oferecer denúncia ministerial em desfavor do acusado pela prática de art. 129, § 9º, do Código Penal. Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ)."
+    },
+    {
+      "doc_id": "ID-2207802",
+      "titulo": "Laudo Pericial de Exame de Corpo de Delito",
+      "tipo": "LAUDO_PERICIAL",
+      "pagina_inicial": 5,
+      "pagina_final": 8,
+      "conteudo_resumido": "Exame realizado 16 dias após os fatos concluindo pela inexistência de equimoses perceptíveis no momento do exame pericial por decurso de tempo (laudo direto inconclusivo).",
+      "data_peca": "2024-08-25",
+      "conteudo": "Processo nº 0804567-89.2024.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: RENATA VASCONCELOS LIMA, residente em Natal/RN. Acusado: CLÁUDIO HENRIQUE NOGUEIRA, qualificado nos autos. Fato ocorrido em 2024-08-25. Denúncia recebida em 2024-09-20.  Exame realizado 16 dias após os fatos concluindo pela inexistência de equimoses perceptíveis no momento do exame pericial por decurso de tempo (laudo direto inconclusivo).",
+      "folha": "fls. 5/8"
+    },
+    {
+      "doc_id": "ID-2207803",
+      "titulo": "Fotografias e Relatório de Atendimento Médico de Urgência",
+      "tipo": "PROVA_DOCUMENTAL",
+      "pagina_inicial": 9,
+      "pagina_final": 14,
+      "conteudo_resumido": "Prontuário da UPA de 25/08/2024 registrando atendimento com escoriações em membro superior direito e fotos datadas tiradas no mesmo dia comprovando as lesões.",
+      "data_peca": "2024-08-25",
+      "conteudo": "Processo nº 0804567-89.2024.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: RENATA VASCONCELOS LIMA, residente em Natal/RN. Acusado: CLÁUDIO HENRIQUE NOGUEIRA, qualificado nos autos. Fato ocorrido em 2024-08-25. Denúncia recebida em 2024-09-20.  Prontuário da UPA de 25/08/2024 registrando atendimento com escoriações em membro superior direito e fotos datadas tiradas no mesmo dia comprovando as lesões.",
+      "folha": "fls. 9/14"
+    },
+    {
+      "doc_id": "ID-2207810",
+      "titulo": "Alegações Finais da Defesa",
+      "tipo": "ALEGACOES_FINAIS_DEFESA",
+      "pagina_inicial": 40,
+      "pagina_final": 48,
+      "conteudo_resumido": "Argui preliminar de nulidade do processo por falta de laudo pericial conclusivo (art. 158 CPP); no mérito postula absolvição por ausência de prova de materialidade (art. 386, II e VII, CPP); subsidiariamente desclassificação para vias de fato e sursis.",
+      "data_peca": "2024-08-25",
+      "conteudo": "Processo nº 0804567-89.2024.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: RENATA VASCONCELOS LIMA, residente em Natal/RN. Acusado: CLÁUDIO HENRIQUE NOGUEIRA, qualificado nos autos. Fato ocorrido em 2024-08-25. Denúncia recebida em 2024-09-20. A Defesa apresenta memoriais da defesa pugnando pela absolvição in dubio pro reo e pedidos subsidiários.  Argui preliminar de nulidade do processo por falta de laudo pericial conclusivo (art. 158 CPP); no mérito postula absolvição por ausência de prova de materialidade (art. 386, II e VII, CPP); subsidiariamente desclassificação para vias de fato e sursis.",
+      "folha": "fls. 40/48"
+    }
+  ],
+  "matriz_oral": {
+    "depoentes": [
+      {
+        "depoente": "RENATA VASCONCELOS LIMA",
+        "papel": "OFENDIDA",
+        "midia_id": "ID-MIDIA-20",
+        "arquivo": "audiencia_renata.mp4",
+        "resumo": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+      },
+      {
+        "depoente": "CARLA BEZERRA",
+        "papel": "TESTEMUNHA_ACUSACAO",
+        "midia_id": "ID-MIDIA-21",
+        "arquivo": "audiencia_vizinha.mp4",
+        "resumo": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+      },
+      {
+        "depoente": "CLÁUDIO HENRIQUE NOGUEIRA",
+        "papel": "ACUSADO",
+        "midia_id": "ID-MIDIA-22",
+        "arquivo": "audiencia_claudio.mp4",
+        "resumo": "Afirmou que houve apenas discussão verbal sem contato físico."
+      }
+    ]
+  },
+  "teses_defesa": [
+    {
+      "codigo_tese": "PREL-01",
+      "tipo": "PRELIMINAR",
+      "titulo": "Nulidade processual por ausência de laudo pericial positivo",
+      "descricao": "Alega violação ao art. 158 do CPP ante o caráter inconclusivo do laudo pericial.",
+      "folha_autos_id": "ID-2207810 (fls. 40-42)",
+      "resolucao_esperada": "REJEITADA. Aplicação do art. 167 do CPP c/c art. 12, § 3º, da Lei 11.340/2006: o desaparecimento de vestígios por decurso de prazo autoriza o suprimento da perícia por prontuários médicos, fotos e prova testemunhal uníssona."
+    },
+    {
+      "codigo_tese": "MER-01",
+      "tipo": "MERITO",
+      "titulo": "Absolvição por falta de materialidade delitiva",
+      "descricao": "Pede absolvição com base no in dubio pro reo pelo laudo pericial negativo.",
+      "folha_autos_id": "ID-2207810 (fls. 42-45)",
+      "resolucao_esperada": "REJEITADA. A materialidade e autoria restaram cabalmente comprovadas pelo prontuário médico contemporâneo e fotos idôneas, corroborados pela palavra firme da ofendida e de testemunha presencial dos fatos subsequentes (Protocolo de Gênero CNJ nº 492/2023)."
+    },
+    {
+      "codigo_tese": "MER-02",
+      "tipo": "MERITO",
+      "titulo": "Desclassificação para vias de fato",
+      "descricao": "Postula que a conduta seja enquadrada no art. 21 da LCP.",
+      "folha_autos_id": "ID-2207810 (fls. 45-46)",
+      "resolucao_esperada": "REJEITADA. Houve comprometimento da integridade corporal comprovada em prontuário de emergência médica (escoriações e hematomas), o que afasta a natureza meramente contravencional de vias de fato."
+    },
+    {
+      "codigo_tese": "SUBS-01",
+      "tipo": "SUBSIDIARIA",
+      "titulo": "Concessão de Sursis",
+      "descricao": "Requer a suspensão condicional da pena caso condenado.",
+      "folha_autos_id": "ID-2207810 (fls. 46-48)",
+      "resolucao_esperada": "ACOLHIDA. Presentes os requisitos do art. 77 do Código Penal (pena menor de 2 anos, réu primário, crime com violência que impede PRD por força da Súmula 588 STJ), sendo cabível o sursis com imposição de condições do art. 45 da Lei Maria da Penha."
+    }
+  ],
+  "certidao_antecedentes": [
+    {
+      "processo": "Nenhum",
+      "descricao": "Certidão de Antecedentes Criminais Negativa",
+      "possui_transito_em_julgado": false
+    }
+  ],
+  "dosimetria_esperada": {
+    "art_129_p9_cp": {
+      "tipo": "detencao",
+      "regra_temporal": "Fato anterior à vigência da Lei 14.994/2024 (25/08/2024) -> Pena de 3 meses a 3 anos de detenção",
+      "min_pena": "3 meses",
+      "max_pena": "3 anos",
+      "pena_base": {
+        "anos": 0,
+        "meses": 3,
+        "dias": 0
+      },
+      "segunda_fase": {
+        "bloqueio_art61_ii_f": true,
+        "pena_intermediaria": {
+          "anos": 0,
+          "meses": 3,
+          "dias": 0
+        }
+      },
+      "terceira_fase": {
+        "pena_definitiva": {
+          "anos": 0,
+          "meses": 3,
+          "dias": 0
+        }
+      }
+    },
+    "unificacao_art69": {
+      "tipo_concurso": "nenhum",
+      "reclusao_total": {
+        "anos": 0,
+        "meses": 0,
+        "dias": 0
+      },
+      "detencao_total": {
+        "anos": 0,
+        "meses": 3,
+        "dias": 0
+      },
+      "regime_inicial_detencao": "ABERTO",
+      "substituicao_art44": false,
+      "motivo_vedacao_substituicao": "Súmula 588 do STJ",
+      "sursis_art77": true,
+      "prazo_sursis_anos": 2,
+      "condicoes_sursis": "Prestação de serviços à comunidade no 1º ano e frequência obrigatória a grupo reflexivo para autores de violência doméstica (art. 45 LMP)",
+      "dano_moral_tema983": 2500.0,
+      "intimacao_vitima_art21_lmp": true
+    }
+  },
+  "ofendida_detalhes": {
+    "nome": "RENATA VASCONCELOS LIMA",
+    "qualificacao": "brasileira, advogada, residente em Natal/RN"
+  },
+  "reu_detalhes": {
+    "nome": "CLÁUDIO HENRIQUE NOGUEIRA",
+    "qualificacao": "brasileiro, empresário, residente em Natal/RN",
+    "primario": true,
+    "reincidente": false
+  },
+  "vinculo_domestico": "Ex-companheiro (união estável por cerca de 4 anos)",
+  "transcriptions": [
+    {
+      "media_id": "ID-MIDIA-20",
+      "arquivo": "audiencia_renata.mp4",
+      "depoente": "RENATA VASCONCELOS LIMA",
+      "papel": "OFENDIDA",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+        }
+      ],
+      "resumo": "Depoimento firme e sereno explicando que foi empurrada contra a parede e segurada com força; confirmou o atendimento na UPA e as fotos juntadas aos autos."
+    },
+    {
+      "media_id": "ID-MIDIA-21",
+      "arquivo": "audiencia_vizinha.mp4",
+      "depoente": "CARLA BEZERRA",
+      "papel": "TESTEMUNHA_ACUSACAO",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+        }
+      ],
+      "resumo": "Vizinha de parede, ouviu os estrondos na parede e o choro de Renata, socorrendo-a logo em seguida e vendo marcas avermelhadas nos braços."
+    },
+    {
+      "media_id": "ID-MIDIA-22",
+      "arquivo": "audiencia_claudio.mp4",
+      "depoente": "CLÁUDIO HENRIQUE NOGUEIRA",
+      "papel": "INTERROGATORIO_REU",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Afirmou que houve apenas discussão verbal sem contato físico."
+        }
+      ],
+      "resumo": "Afirmou que houve apenas discussão verbal sem contato físico."
+    }
+  ]
+}

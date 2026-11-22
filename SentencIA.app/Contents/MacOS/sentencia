@@ -1,0 +1,31 @@
+#!/bin/bash
+# Executável do bundle "SentencIA.app": abre o Terminal rodando o iniciador que fica ao lado do
+# .app ("Iniciar SentencIA.command" -> instalador/bootstrap.sh). O .app precisa permanecer na
+# pasta do programa.
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")/../.." && pwd -P)"
+RAIZ="$(dirname "$APP_DIR")"
+ALVO="$RAIZ/Iniciar SentencIA.command"
+
+dialogo() {
+    /usr/bin/osascript -e "display dialog \"$1\" with title \"SentencIA\" buttons {\"OK\"} default button 1 with icon caution" >/dev/null 2>&1 || true
+}
+
+case "$APP_DIR" in
+    */AppTranslocation/*)
+        dialogo "O macOS abriu o aplicativo a partir de uma cópia temporária protegida (Gatekeeper). Use o arquivo 'Iniciar SentencIA.command' da pasta do programa (botão direito > Abrir) ou execute no Terminal: xattr -dr com.apple.quarantine <pasta do programa>. Detalhes no README.md."
+        exit 1 ;;
+esac
+
+if [ ! -f "$ALVO" ] || [ ! -f "$RAIZ/instalador/bootstrap.sh" ]; then
+    dialogo "Não encontrei o iniciador ao lado do aplicativo. Mantenha 'SentencIA.app' dentro da pasta do programa (junto de 'Iniciar SentencIA.command' e da pasta 'instalador')."
+    exit 1
+fi
+
+if [ ! -x "$ALVO" ]; then
+    chmod u+x "$ALVO" 2>/dev/null || true
+fi
+
+export JVDFM_DATA_DIR="${JVDFM_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
+exec /usr/bin/open -a Terminal "$ALVO"

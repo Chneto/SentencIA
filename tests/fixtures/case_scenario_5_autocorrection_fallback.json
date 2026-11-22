@@ -1,0 +1,200 @@
+{
+  "case_id": "CASE-05-REJEICAO-CRITIC-AUTOCORRECAO-SUCESSO",
+  "numero_processo": "0806789-01.2025.8.20.5001",
+  "comarca": "Natal/RN",
+  "juizado": "2º Juizado de Violência Doméstica e Familiar contra a Mulher",
+  "ofendida": "VANESSA MEIRELES CASTRO",
+  "reu": "DANIEL FAGUNDES BARRETO",
+  "data_fato": "2025-01-28",
+  "data_recebimento_denuncia": "2025-02-18",
+  "data_sentenca": "2025-05-30",
+  "crimes_imputados": [
+    "art_24a_lmp"
+  ],
+  "autos_mpu_apenso": "0806111-22.2025.8.20.5001",
+  "raw_documents": [
+    {
+      "doc_id": "ID-2401101",
+      "titulo": "Certidão de Intimação Pessoal do Mandado de Protetivas",
+      "tipo": "CERTIDAO_OFICIAL_JUSTICA",
+      "pagina_inicial": 1,
+      "pagina_final": 3,
+      "conteudo_resumido": "Mandado intimando Daniel da proibição de contato e limite de 300 metros de aproximação.",
+      "data_peca": "2025-01-28",
+      "conteudo": "Processo nº 0806789-01.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: VANESSA MEIRELES CASTRO, residente em Natal/RN. Acusado: DANIEL FAGUNDES BARRETO, qualificado nos autos. Fato ocorrido em 2025-01-28. Denúncia recebida em 2025-02-18.  Mandado intimando Daniel da proibição de contato e limite de 300 metros de aproximação.",
+      "folha": "fls. 1/3"
+    },
+    {
+      "doc_id": "ID-2501102",
+      "titulo": "Denúncia Ministerial",
+      "data_peca": "2025-01-28",
+      "pagina_inicial": 8,
+      "pagina_final": 10,
+      "folha": "fls. 08/10",
+      "conteudo": "Processo nº 0806789-01.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: VANESSA MEIRELES CASTRO. Acusado: DANIEL FAGUNDES BARRETO. O Ministério Público vem oferecer denúncia ministerial em desfavor do acusado pela prática de art. 24-A da Lei nº 11.340/2006 (descumprimento de medida protetiva). Pedido expresso de reparação de danos morais mínimos (Tema 983 STJ)."
+    },
+    {
+      "doc_id": "ID-2401108",
+      "titulo": "Registro de Câmeras de Segurança e BO da DEAM",
+      "tipo": "PROVA_DOCUMENTAL",
+      "pagina_inicial": 4,
+      "pagina_final": 10,
+      "conteudo_resumido": "Filmagem comprovando que o réu estacionou seu veículo em frente à loja onde trabalha a ofendida e tentou abordá-la.",
+      "data_peca": "2025-01-28",
+      "conteudo": "Processo nº 0806789-01.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: VANESSA MEIRELES CASTRO, residente em Natal/RN. Acusado: DANIEL FAGUNDES BARRETO, qualificado nos autos. Fato ocorrido em 2025-01-28. Denúncia recebida em 2025-02-18.  Filmagem comprovando que o réu estacionou seu veículo em frente à loja onde trabalha a ofendida e tentou abordá-la.",
+      "folha": "fls. 4/10"
+    },
+    {
+      "doc_id": "ID-2401125",
+      "titulo": "Alegações Finais da Defesa",
+      "tipo": "ALEGACOES_FINAIS_DEFESA",
+      "pagina_inicial": 30,
+      "pagina_final": 38,
+      "conteudo_resumido": "Defesa sustenta tese de inexigibilidade de conduta diversa (MER-02), alegando que compareceu ao trabalho da ofendida para entregar medicação urgente de uso contínuo ao filho do casal.",
+      "data_peca": "2025-01-28",
+      "conteudo": "Processo nº 0806789-01.2025.8.20.5001. 1º Juizado de Violência Doméstica. Vítima: VANESSA MEIRELES CASTRO, residente em Natal/RN. Acusado: DANIEL FAGUNDES BARRETO, qualificado nos autos. Fato ocorrido em 2025-01-28. Denúncia recebida em 2025-02-18. A Defesa apresenta memoriais da defesa pugnando pela absolvição in dubio pro reo e pedidos subsidiários.  Defesa sustenta tese de inexigibilidade de conduta diversa (MER-02), alegando que compareceu ao trabalho da ofendida para entregar medicação urgente de uso contínuo ao filho do casal.",
+      "folha": "fls. 30/38"
+    }
+  ],
+  "matriz_oral": {
+    "depoentes": [
+      {
+        "depoente": "VANESSA MEIRELES CASTRO",
+        "papel": "OFENDIDA",
+        "midia_id": "ID-MIDIA-40",
+        "arquivo": "audiencia_vanessa.mp4",
+        "resumo": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+      },
+      {
+        "depoente": "DANIEL FAGUNDES BARRETO",
+        "papel": "ACUSADO",
+        "midia_id": "ID-MIDIA-41",
+        "arquivo": "audiencia_daniel.mp4",
+        "resumo": "Reconheceu que esteve no local para levar o medicamento do filho."
+      }
+    ]
+  },
+  "teses_defesa": [
+    {
+      "codigo_tese": "MER-01",
+      "tipo": "MERITO",
+      "titulo": "Atipicidade por ausência de dolo",
+      "descricao": "Sustenta ausência de ânimo de afrontar a ordem judicial.",
+      "folha_autos_id": "ID-2401125 (fls. 30-33)",
+      "resolucao_esperada": "REJEITADA. Dolo genérico configurado pela ciência inequívoca da ordem e descumprimento consciente."
+    },
+    {
+      "codigo_tese": "MER-02",
+      "tipo": "MERITO",
+      "titulo": "Inexigibilidade de conduta diversa por urgência médica",
+      "descricao": "Alega que agiu sob estado de necessidade/inexigibilidade para resguardar a saúde do filho.",
+      "folha_autos_id": "ID-2401125 (fls. 33-37)",
+      "resolucao_esperada": "REJEITADA. A entrega de medicamentos poderia ter sido viabilizada por terceiros, familiares ou via Conselho Tutelar, não autorizando a violação unilateral de medida protetiva."
+    }
+  ],
+  "fluxo_teste_autocorrecao": {
+    "secao_alvo": "merito",
+    "paragrafo_injetado_defeito": 2,
+    "rascunho_1_defeito": {
+      "texto_paragrafo_2": "A materialidade e autoria do crime restaram evidentes. Conforme jurisprudência pacificada na Súmula 999 do STJ e pelo documento de ID-77788899, o crime do art. 24-A prescinde de dolo específico.",
+      "defeitos_injetados": [
+        "OMISSAO_TESE_MER-02 (inexigibilidade de conduta diversa não foi enfrentada)",
+        "ALUCINACAO_SUMULA: Súmula 999 do STJ (inexistente)",
+        "ALUCINACAO_ID: ID-77788899 (inexistente nos autos)"
+      ]
+    },
+    "escrutinio_crivo_duplo_rodada_1": {
+      "critic_llm_aprovado": false,
+      "critic_score": 40.0,
+      "critic_objecao_paragrafo": "Parágrafo 2",
+      "critic_tipo_falha": "OMISSAO_TESE_DEFESA",
+      "critic_feedback_cirurgico": "O parágrafo 2 omitiu a tese defensiva MER-02 (inexigibilidade de conduta diversa decorrente de urgência médica do filho menor, fls. 33-37 / ID-2401125). Redija unicamente o parágrafo 2 refutando fundamentadamente a tese com base na possibilidade de entrega por terceiros.",
+      "auditor_python_aprovado": false,
+      "auditor_score": 30.0,
+      "auditor_erros": [
+        "ID-77788899 não consta nas peças dos autos (-25 pts)",
+        "Súmula 999 do STJ não autorizada no acervo fechado (-25 pts)",
+        "Tese MER-02 omitida (-20 pts)"
+      ]
+    },
+    "retentativa_cirurgica_rodada_2": {
+      "tentativa_numero": 1,
+      "texto_corrigido_paragrafo_2": "Quanto à tese de inexigibilidade de conduta diversa aventada pela Defesa Técnica (MER-02, ID-2401125), impõe-se sua rejeição. O réu possuía meios lícitos e ordinários para encaminhar eventuais medicamentos ao infante — seja por intermédio de familiares, terceiros de confiança ou da rede de apoio —, sendo inadmissível o desrespeito à ordem judicial proibitiva de aproximação, mormente quando comprovado pela ofendida (ID-MIDIA-40) que não havia qualquer situação emergencial.",
+      "escrutinio_crivo_duplo_rodada_2": {
+        "critic_llm_aprovado": true,
+        "critic_score": 100.0,
+        "auditor_python_aprovado": true,
+        "auditor_score": 100.0,
+        "ids_inexistentes": [],
+        "citacoes_nao_autorizadas": [],
+        "teses_omitidas": [],
+        "status_final": "APROVADO_SEM_RESSALVAS"
+      }
+    }
+  },
+  "dosimetria_esperada": {
+    "art_24a_lmp": {
+      "tipo": "reclusao",
+      "min_pena": "2 anos",
+      "max_pena": "5 anos",
+      "pena_definitiva": {
+        "anos": 2,
+        "meses": 0,
+        "dias": 0
+      }
+    },
+    "unificacao_art69": {
+      "reclusao_total": {
+        "anos": 2,
+        "meses": 0,
+        "dias": 0
+      },
+      "regime_inicial_reclusao": "ABERTO",
+      "substituicao_art44": true,
+      "sursis_art77": false,
+      "dano_moral_tema983": 2000.0,
+      "intimacao_vitima_art21_lmp": true
+    }
+  },
+  "ofendida_detalhes": {
+    "nome": "VANESSA MEIRELES CASTRO",
+    "qualificacao": "brasileira, comerciária, residente em Natal/RN"
+  },
+  "reu_detalhes": {
+    "nome": "DANIEL FAGUNDES BARRETO",
+    "qualificacao": "brasileiro, técnico em informática, residente em Natal/RN",
+    "primario": true,
+    "reincidente": false
+  },
+  "vinculo_domestico": "Ex-companheiro (união estável por cerca de 4 anos)",
+  "transcriptions": [
+    {
+      "media_id": "ID-MIDIA-40",
+      "arquivo": "audiencia_vanessa.mp4",
+      "depoente": "VANESSA MEIRELES CASTRO",
+      "papel": "OFENDIDA",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+        }
+      ],
+      "resumo": "Declarou que a criança não necessitava de remédio urgente e que o réu usou esse pretexto para intimidá-la no trabalho."
+    },
+    {
+      "media_id": "ID-MIDIA-41",
+      "arquivo": "audiencia_daniel.mp4",
+      "depoente": "DANIEL FAGUNDES BARRETO",
+      "papel": "INTERROGATORIO_REU",
+      "duracao": "05:00",
+      "segmentos": [
+        {
+          "timestamp": "00:00 - 05:00",
+          "texto_literal": "Reconheceu que esteve no local para levar o medicamento do filho."
+        }
+      ],
+      "resumo": "Reconheceu que esteve no local para levar o medicamento do filho."
+    }
+  ]
+}

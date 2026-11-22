@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light" data-design="original">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="FChNeto" />
+  <meta name="description" content="SentencIA — redação forense assistida para sentenças penais. A inteligência que auxilia; a decisão é sua." />
+  <meta name="theme-color" content="#12284B" />
+  <link rel="icon" href="/static/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate icon" href="/static/assets/app_icon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/static/assets/apple-touch-icon.png" />
+  <title>SentencIA — Gabinete Judicial Editorial</title>
+  <script>
+    (function () {
+      try {
+        var d = localStorage.getItem("sentencia_design") || "original";
+        if (d !== "original" && d !== "classico" && d !== "moderno" && d !== "cockpit") d = "original";
+        document.documentElement.setAttribute("data-design", d);
+        var mode = localStorage.getItem("sentencia_theme_mode") || localStorage.getItem("jvdfm_theme") || "light";
+        var t = mode === "system"
+          ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : (mode === "dark" ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-design", "original");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v=2.1.0" />
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2.1.0" />
+  <link rel="stylesheet" href="/static/css/temas/_base.css?v=2.1.0" />
+  <link rel="stylesheet" href="/static/css/temas/classico.css?v=2.1.0" />
+</head>
+<body>
+  <!-- Símbolo do SentencIA (balança + centelha); reutilizado com <use href="#sia-marca"/> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs><linearGradient id="sia-fundo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16335E"/><stop offset="1" stop-color="#0A1A33"/></linearGradient><linearGradient id="sia-ouro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7DC8C"/><stop offset="1" stop-color="#C99A2E"/></linearGradient><radialGradient id="sia-brilho"><stop offset="0" stop-color="#FFE9A6" stop-opacity="0.55"/><stop offset="1" stop-color="#FFE9A6" stop-opacity="0"/></radialGradient></defs>
+    <symbol id="sia-marca" viewBox="0 0 512 512"><rect width="512" height="512" rx="116" fill="url(#sia-fundo)"/><rect x="14" y="14" width="484" height="484" rx="104" fill="none" stroke="#E0B84D" stroke-opacity="0.30" stroke-width="3"/><path d="M114 205.0L56 334M114 205.0L172 334" stroke="url(#sia-ouro)" stroke-width="15" stroke-linecap="round" fill="none"/><path d="M48 334H180A66 40.92 0 0 1 48 334Z" fill="url(#sia-ouro)"/><path d="M398 205.0L340 334M398 205.0L456 334" stroke="url(#sia-ouro)" stroke-width="15" stroke-linecap="round" fill="none"/><path d="M332 334H464A66 40.92 0 0 1 332 334Z" fill="url(#sia-ouro)"/><rect x="234" y="168" width="44" height="210" rx="11.0" fill="url(#sia-ouro)"/><path d="M164 408h184l-20-36H184z" fill="url(#sia-ouro)"/><rect x="88" y="188" width="336" height="34" rx="17.0" fill="url(#sia-ouro)"/><circle cx="256" cy="108" r="108.0" fill="url(#sia-brilho)"/><path d="M256 36Q268.24 95.76 328 108Q268.24 120.24 256 180Q243.76 120.24 184 108Q243.76 95.76 256 36Z" fill="#FFF3CF"/></symbol>
+  </svg>
+  <!-- AVISO DE SESSÃO (token inválido/expirado: o servidor foi reiniciado) -->
+  <div class="session-banner" id="sessionBanner" role="alert" hidden>
+    <span id="sessionBannerText">A sessão local expirou (o servidor foi reiniciado). Recarregue a página para continuar.</span>
+    <button type="button" class="btn btn-sm btn-primary" id="btnReloadPage">Recarregar página</button>
+  </div>
+
+  <div class="app-shell">
+    <!-- FAIXA COMPACTA LIQUID GLASS DO PROCESSO -->
+    <header class="case-hero-ribbon" role="banner">
+      <div class="ribbon-left">
+        <div class="brand-menu-anchor" id="brandMenuAnchor">
+          <button type="button" class="brand-mark brand-mark-btn" id="btnAppMenu" aria-haspopup="menu" aria-expanded="false" aria-controls="appMainMenu" title="Menu do SentencIA (Temas, Configurações e utilitários)">
+            <span class="brand-emblem" aria-hidden="true">
+              <svg width="34" height="34" viewBox="0 0 512 512" focusable="false"><use href="#sia-marca" /></svg>
+            </span>
+            <span class="brand-name-group">
+              <span class="brand-title">Sentenc<span class="brand-ia">IA</span></span>
+              <span class="brand-sub">Studio Penal</span>
+            </span>
+            <svg class="brand-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+          </button>
+
+          <div class="app-menu" id="appMainMenu" role="menu" aria-label="Menu do SentencIA" hidden>
+            <div class="app-menu-subwrap">
+              <button type="button" class="app-menu-item" id="menuItemTemas" role="menuitem" aria-haspopup="menu" aria-expanded="false" aria-controls="appThemesSubmenu">
+                <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>
+                <span class="app-menu-label">Temas</span>
+                <svg class="app-menu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+              <div class="app-submenu" id="appThemesSubmenu" role="menu" aria-label="Temas" hidden>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="true" data-set-design="original">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Original (Liquid Glass)</span>
+                </button>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="false" data-set-design="classico">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Gabinete Clássico</span>
+                </button>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="false" data-set-design="moderno" disabled aria-disabled="true">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Estúdio Moderno</span>
+                  <span class="app-menu-soon">em breve</span>
+                </button>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="false" data-set-design="cockpit" disabled aria-disabled="true">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Cockpit</span>
+                  <span class="app-menu-soon">em breve</span>
+                </button>
+                <div class="app-menu-sep" role="separator"></div>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="true" data-set-mode="light">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Claro</span>
+                </button>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="false" data-set-mode="dark">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Escuro</span>
+                </button>
+                <button type="button" class="app-menu-item" role="menuitemradio" aria-checked="false" data-set-mode="system">
+                  <svg class="app-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span class="app-menu-label">Seguir o sistema</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="app-menu-sep" role="separator"></div>
+
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="settings">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+              <span class="app-menu-label">Configurações…</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="acervo">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+              <span class="app-menu-label">Acervo &amp; Estilo</span>
+              <span class="app-menu-shortcut" id="badgeAcervoCount">—</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="telemetry">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+              <span class="app-menu-label">Telemetria e status…</span>
+            </button>
+
+            <div class="app-menu-sep" role="separator"></div>
+
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="demo">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3" /></svg>
+              <span class="app-menu-label">Carregar caso de demonstração</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="limpar-demo" id="btnMenuLimparDemo">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+              <span class="app-menu-label">Limpar dados de demonstração</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="lote">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="16" rx="2" /><path d="M7 2h12a2 2 0 0 1 2 2v14" /><line x1="7" y1="9" x2="13" y2="9" /><line x1="7" y1="13" x2="13" y2="13" /></svg>
+              <span class="app-menu-label">Pré-análise em lote…</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="reset">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" /></svg>
+              <span class="app-menu-label">Nova sentença…</span>
+            </button>
+
+            <div class="app-menu-sep" role="separator"></div>
+
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="palette">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+              <span class="app-menu-label">Paleta de comandos</span>
+              <span class="app-menu-shortcut">Ctrl+K</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="reload">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+              <span class="app-menu-label">Recarregar interface</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="assistente" id="btnMenuAssistente">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+              <span class="app-menu-label">Ajuda · Assistente inicial</span>
+            </button>
+            <button type="button" class="app-menu-item" role="menuitem" data-menu-action="about">
+              <svg class="app-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              <span class="app-menu-label">Sobre o SentencIA</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="ribbon-meta-strip">
+          <span class="ribbon-kv ribbon-kv-pill">
+            <span class="ribbon-k">Autos</span>
+            <span class="ribbon-v mono" id="heroCaseNumber">Sem autos carregados</span>
+          </span>
+          <span class="ribbon-kv ribbon-kv-pill">
+            <span class="ribbon-k">Ofendida</span>
+            <span class="ribbon-v" id="heroVictimName">—</span>
+          </span>
+          <span class="ribbon-kv ribbon-kv-pill">
+            <span class="ribbon-k">Acusado</span>
+            <span class="ribbon-v" id="heroDefendantName">—</span>
+          </span>
+          <span class="ribbon-kv ribbon-kv-pill ribbon-kv-accent">
+            <span class="ribbon-k">Pena</span>
+            <span class="ribbon-v penalty" id="heroTotalPenalty">—</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="ribbon-actions">
+        <button type="button" class="telemetry-pill" id="btnOpenTelemetryModal" title="Status medido de hardware, Ollama, OCR, transcrição e motores Python">
+          <span class="telemetry-dot warn" id="hwTelemetryDot"></span>
+          <span id="hwTelemetryLabel">Verificando status...</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost-glass" id="btnToggleTheme" title="Alternar tema claro/escuro">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+          </svg>
+          <span id="btnToggleThemeLabel">Tema Escuro</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-ghost-glass" id="btnLoadDemo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="6 3 20 12 6 21 6 3" />
+          </svg>
+          <span>Caso Demo</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" id="btnResetProduction">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          <span>Nova Sentença</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="workspace-layout">
+      <!-- SIDEBAR EDITORIAL COM 4 ESTAÇÕES DIRETAS -->
+      <aside class="sidebar-nav" aria-label="Estações de Trabalho">
+        <div class="sidebar-top-block">
+          <div class="sidebar-section-label">Fluxo do Julgamento</div>
+          <nav class="station-nav-list" role="navigation">
+            <button type="button" class="station-btn active" data-station="autos" title="Etapa 1 — Autos &amp; Mídias">
+              <span class="station-label-wrap">
+                <span class="station-icon-box" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <path d="M12 18v-6" />
+                    <path d="m9 15 3-3 3 3" />
+                  </svg>
+                </span>
+                <span class="station-text-stack">
+                  <span class="station-step-tag">Etapa 1</span>
+                  <span class="station-name">Autos &amp; Mídias</span>
+                </span>
+              </span>
+              <span class="station-count" id="badgeCountAutos">0</span>
+            </button>
+
+            <button type="button" class="station-btn" data-station="analise" title="Etapa 2 — Análise &amp; Provas">
+              <span class="station-label-wrap">
+                <span class="station-icon-box" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                    <path d="M11 8v6" />
+                    <path d="M8 11h6" />
+                  </svg>
+                </span>
+                <span class="station-text-stack">
+                  <span class="station-step-tag">Etapa 2</span>
+                  <span class="station-name">Análise &amp; Provas</span>
+                </span>
+              </span>
+              <span class="station-count" id="badgeCountOral">0</span>
+            </button>
+
+            <button type="button" class="station-btn" data-station="dosimetria" title="Etapa 3 — Dosimetria da Pena">
+              <span class="station-label-wrap">
+                <span class="station-icon-box" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 16 19 8 22 16c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                    <path d="M2 16 5 8 8 16c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                    <path d="M7 21h10" />
+                    <path d="M12 3v18" />
+                    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+                  </svg>
+                </span>
+                <span class="station-text-stack">
+                  <span class="station-step-tag">Etapa 3</span>
+                  <span class="station-name">Dosimetria da Pena</span>
+                </span>
+              </span>
+              <span class="station-count" id="badgeCountCrimes">0</span>
+            </button>
+
+            <button type="button" class="station-btn" data-station="sentenca" title="Etapa 4 — Sentença &amp; Gemini">
+              <span class="station-label-wrap">
+                <span class="station-icon-box" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                </span>
+                <span class="station-text-stack">
+                  <span class="station-step-tag">Etapa 4</span>
+                  <span class="station-name">Sentença &amp; Gemini</span>
+                </span>
+              </span>
+              <span class="station-count" id="badgeAuditMini">—</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="sidebar-author-signature" aria-label="Autoria do Sistema">
+          <span>Criado por <strong>FChNeto</strong></span>
+          <span class="mono" id="sidebarAuthorVersion">v2.1.0</span>
+        </div>
+      </aside>
+
+      <!-- ÁREA PRINCIPAL -->
+      <main class="main-workspace">
+        <!-- STEPPER HORIZONTAL INTERATIVO -->
+        <nav class="journey-stepper" aria-label="Progresso das Etapas">
+          <button type="button" class="stepper-node active" data-goto-station="autos">
+            <span class="stepper-dot">1</span>
+            <span>Autos &amp; Mídias</span>
+          </button>
+          <span class="stepper-connector" aria-hidden="true"></span>
+          <button type="button" class="stepper-node" data-goto-station="analise">
+            <span class="stepper-dot">2</span>
+            <span>Análise &amp; Provas</span>
+          </button>
+          <span class="stepper-connector" aria-hidden="true"></span>
+          <button type="button" class="stepper-node" data-goto-station="dosimetria">
+            <span class="stepper-dot">3</span>
+            <span>Dosimetria</span>
+          </button>
+          <span class="stepper-connector" aria-hidden="true"></span>
+          <button type="button" class="stepper-node" data-goto-station="sentenca">
+            <span class="stepper-dot">4</span>
+            <span>Sentença &amp; Gemini</span>
+          </button>
+        </nav>
+
+        <!-- ESTAÇÃO 1: AUTOS & MÍDIAS -->
+        <section class="station-panel active" data-station-panel="autos">
+          <div class="station-header">
+            <div>
+              <div class="station-eyebrow">Etapa 01 de 04 &bull; Ingestão Documental e Oral</div>
+              <h1 class="station-title">Autos &amp; Mídias do Processo</h1>
+              <p class="station-subtitle">Envie o PDF integral do PJe/eproc e as gravações audiovisuais de audiência em áreas separadas com status em tempo real.</p>
+            </div>
+            <div class="subtab-bar" role="tablist" data-subtab-group="autos">
+              <button type="button" class="subtab-btn active" data-subtab="sub-autos-upload">Upload &amp; Status</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-autos-indice">Índice de Peças / OCR / CAC</button>
+            </div>
+          </div>
+
+          <div class="progress-box" id="uploadProgressContainer" hidden>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <strong id="uploadProgressPhase">Processando arquivos...</strong>
+              <span class="mono badge-tag badge-neutral" id="uploadProgressPercent">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="uploadProgressBar"></div>
+            </div>
+            <div class="muted mono" style="font-size:11.5px; margin-top:6px;" id="uploadProgressDetail"></div>
+            <div class="alert-banner alert-warn" id="uploadProgressStall" style="margin-top:8px;" hidden>
+              <div id="uploadProgressStallText"></div>
+              <div class="alert-actions">
+                <button type="button" class="btn btn-sm btn-danger" id="btnCancelarIngestao">Cancelar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aviso global quando não há motor de OCR instalado (TASK-027) -->
+          <div class="alert-banner alert-danger" id="ocrUnavailableBanner" hidden>
+            <div>
+              <strong>OCR desativado:</strong> páginas digitalizadas não terão texto.
+              <span class="muted">Feche o programa e abra pelo 'Iniciar SentencIA' para restaurar o motor de OCR.</span>
+            </div>
+            <div class="alert-actions">
+              <button type="button" class="btn btn-sm" id="btnOcrUnavailableInfo">Ver detalhes na Telemetria</button>
+            </div>
+          </div>
+
+          <!-- Autos já presentes em data/cases (o GET não carrega mais nada sozinho) -->
+          <div class="alert-banner alert-info" id="diskAutosBanner" hidden>
+            <div>
+              <strong>Autos encontrados na pasta de casos.</strong>
+              <span id="diskAutosBannerText">Há arquivos de autos na pasta do sistema que ainda não foram carregados.</span>
+            </div>
+            <div class="alert-actions">
+              <label class="switch-inline" title="Somente se o envio externo estiver permitido nas Configurações">
+                <input type="checkbox" id="chkConsentimentoDisco" />
+                <span>Autorizo envio externo de mídias</span>
+              </label>
+              <button type="button" class="btn btn-sm btn-primary" id="btnLoadFromDisk">Carregar autos do disco</button>
+            </div>
+          </div>
+
+          <div class="subtab-pane active" id="sub-autos-upload">
+            <div class="grid-2 upload-cards-grid">
+              <!-- CARD 1: PDFs DO PROCESSO -->
+              <article class="surface-card upload-card">
+                <div class="upload-card-head">
+                  <div class="upload-title-row">
+                    <span class="upload-head-icon icon-navy" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" x2="8" y1="13" y2="13" />
+                        <line x1="16" x2="8" y1="17" y2="17" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h2 class="upload-card-title">PDFs do Processo</h2>
+                      <p class="upload-card-desc">Autos completos do PJe/eproc com bookmarks, OCR seletivo e sub-segmentação de APF/IP.</p>
+                    </div>
+                  </div>
+                  <span class="badge-tag badge-neutral">.PDF</span>
+                </div>
+
+                <form id="formUploadPdfs" class="upload-form">
+                  <label class="upload-dropzone" for="inputPdfFiles" id="dropzonePdf">
+                    <input class="upload-file-input-hidden" type="file" id="inputPdfFiles" accept=".pdf" multiple required />
+                    <span class="dropzone-medallion" aria-hidden="true">
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" x2="12" y1="3" y2="15" />
+                      </svg>
+                    </span>
+                    <span class="dropzone-main-text">Arraste os PDFs do processo aqui ou clique para selecionar</span>
+                    <span class="dropzone-sub-text">Aceita autos integrais do PJe, denúncia, laudos periciais, CAC e alegações finais</span>
+                    <span class="dropzone-selected-badge" id="selectedPdfFilesBadge">Nenhum arquivo selecionado</span>
+                  </label>
+
+                  <div class="upload-action-row">
+                    <span class="muted" style="font-size:12px;">Motor 1 (Ingestor) + Motor 2 (Classificador Laya)</span>
+                    <button type="submit" class="btn btn-primary" id="btnUploadPdfs">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" x2="12" y1="3" y2="15" />
+                      </svg>
+                      <span>Enviar e Processar PDFs</span>
+                    </button>
+                  </div>
+                </form>
+
+                <div class="status-tray" id="uploadPdfStatusList">
+                  <p class="muted" style="margin:0; font-size:12.5px;">Nenhum PDF enviado nesta sessão.</p>
+                </div>
+              </article>
+
+              <!-- CARD 2: MÍDIAS DE AUDIÊNCIA -->
+              <article class="surface-card upload-card">
+                <div class="upload-card-head">
+                  <div class="upload-title-row">
+                    <span class="upload-head-icon icon-gold" aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" x2="12" y1="19" y2="22" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h2 class="upload-card-title">Mídias de Audiência</h2>
+                      <p class="upload-card-desc">Vídeos e áudios de oitiva (.mp4, .m4a, .mp3, .wav, .ogg, .mkv) com transcrição local (Whisper) e discurso indireto.</p>
+                    </div>
+                  </div>
+                  <span class="badge-tag badge-warn">Áudio / Vídeo</span>
+                </div>
+
+                <form id="formUploadMedias" class="upload-form">
+                  <label class="upload-dropzone dropzone-gold" for="inputMediaFiles" id="dropzoneMedia">
+                    <input class="upload-file-input-hidden" type="file" id="inputMediaFiles" accept=".mp4,.mp3,.wav,.ogg,.m4a,.mkv" multiple required />
+                    <span class="dropzone-medallion" aria-hidden="true">
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect width="15" height="14" x="1" y="5" rx="2" ry="2" />
+                      </svg>
+                    </span>
+                    <span class="dropzone-main-text">Arraste vídeos/áudios da AIJ aqui ou clique para selecionar</span>
+                    <span class="dropzone-sub-text">Identificação por nome de arquivo + Whisper local (nada sai da máquina sem consentimento)</span>
+                    <span class="dropzone-selected-badge" id="selectedMediaFilesBadge">Nenhuma mídia selecionada</span>
+                  </label>
+
+                  <div class="upload-media-controls">
+                    <div class="depoente-input-wrap">
+                      <label class="form-label" for="inputDepoenteMedia">Depoente padrão (se não constar no nome do arquivo)</label>
+                      <input class="form-control" type="text" id="inputDepoenteMedia" value="OFENDIDA / TESTEMUNHA" />
+                    </div>
+                    <button type="submit" class="btn btn-gold" id="btnUploadMedias">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      </svg>
+                      <span>Enviar e Transcrever Mídias</span>
+                    </button>
+                  </div>
+                  <div class="consent-box" id="consentMidiaBox">
+                    <label class="switch-inline">
+                      <input type="checkbox" id="chkConsentimentoMidia" />
+                      <span>Autorizo o envio destas mídias a serviço externo (Gemini / Google) caso a transcrição local falhe</span>
+                    </label>
+                    <div class="muted" style="font-size:11.5px;" id="consentMidiaHint">Segredo de justiça: por padrão, a transcrição é feita apenas no computador (Whisper local).</div>
+                  </div>
+                </form>
+
+                <div class="status-tray" id="uploadMediaStatusList">
+                  <p class="muted" style="margin:0; font-size:12.5px;">Nenhuma mídia enviada nesta sessão.</p>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div class="subtab-pane" id="sub-autos-indice">
+            <div class="surface-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+                <h2 style="margin:0; font-size:16px; font-weight:700;">Índice de Peças Extraídas</h2>
+                <input type="search" class="form-control" id="searchPecasInput" placeholder="Filtrar por ID, título ou categoria..." style="max-width:320px;" />
+              </div>
+              <div id="pecasListContainer"></div>
+            </div>
+            <div class="surface-card">
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">CAC / FAC &amp; Antecedentes</h2>
+              <div id="cacDetailsContainer"></div>
+            </div>
+          </div>
+
+          <!-- RODAPÉ DE PROGRESSÃO DA ETAPA 1 -->
+          <div class="station-step-footer">
+            <div class="step-footer-info">
+              <span class="step-footer-title">Próximo passo do fluxo judicial</span>
+              <span class="step-footer-desc" id="step1FooterHint">Após carregar os PDFs e/ou mídias (ou o Caso Demo), avance para revisar a cronologia e a prova oral.</span>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="btnNextFromAutos" data-goto-station="analise">
+              <span>Avançar para Etapa 2: Análise &amp; Provas</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- ESTAÇÃO 2: ANÁLISE & PROVAS -->
+        <section class="station-panel" data-station-panel="analise">
+          <div class="station-header">
+            <div>
+              <div class="station-eyebrow">Etapa 02 de 04 &bull; Acervo Probatório e Diretriz CNJ 492/2023</div>
+              <h1 class="station-title">Análise Fática &amp; Prova Oral</h1>
+              <p class="station-subtitle">Cronologia Laya S1, prova oral consolidada por interlocutor, protocolo de gênero CNJ 492 e teses defensivas mapeadas.</p>
+            </div>
+            <div class="subtab-bar" role="tablist" data-subtab-group="analise">
+              <button type="button" class="subtab-btn active" data-subtab="sub-analise-timeline">Linha do Tempo Laya S1</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-analise-oral">Prova Oral &amp; Áudio Consolidado</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-analise-cnj">Matriz CNJ 492</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-analise-quadro">Quadro Sinóptico &amp; Teses</button>
+            </div>
+          </div>
+
+          <div class="subtab-pane active" id="sub-analise-timeline">
+            <div class="surface-card">
+              <div class="laya-timeline-spine" id="timelineContainer"></div>
+            </div>
+          </div>
+
+          <div class="subtab-pane" id="sub-analise-oral">
+            <div id="oralFalhasContainer"></div>
+            <div class="surface-card">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
+                <div>
+                  <h2 style="margin:0 0 4px; font-size:16px; font-weight:700;">O que cada parte alegou (IA local)</h2>
+                  <div class="muted" style="font-size:12.5px;">Marca quem fala e extrai as alegações com o trecho literal que as sustenta. Alegação sem trecho comprovado na transcrição é descartada. É sugestão: confira com o áudio.</div>
+                </div>
+                <button type="button" class="btn btn-sm" id="btnAnalisarFalas">Analisar falas e alegações</button>
+              </div>
+              <div id="oralAlegacoesContainer"><p class="muted">Ainda não analisado.</p></div>
+            </div>
+            <div class="surface-card">
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Consolidação por Interlocutor (Discurso Indireto Forense)</h2>
+              <div id="oralConsolidadoContainer"></div>
+            </div>
+            <div class="surface-card">
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Registros Individuais de Mídia</h2>
+              <div id="oralCardsContainer"></div>
+            </div>
+          </div>
+
+          <div class="subtab-pane" id="sub-analise-cnj">
+            <div class="surface-card">
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Julgamento com Perspectiva de Gênero (Res. CNJ nº 492/2023)</h2>
+              <div id="cnjChecklistContainer"></div>
+            </div>
+          </div>
+
+          <div class="subtab-pane" id="sub-analise-quadro">
+            <div class="surface-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
+                <h2 style="margin:0; font-size:16px; font-weight:700;">Quadro Sinóptico da Imputação</h2>
+                <button type="button" class="btn btn-sm" id="btnOpenMetadataModal">Complementar / corrigir dados dos autos</button>
+              </div>
+              <div id="sinopseCrimeContainer"></div>
+              <div id="alertasExtracaoContainer" style="margin-top:12px;"></div>
+            </div>
+            <div class="surface-card">
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Teses Defensivas Mapeadas (Enfrentamento Obrigatório)</h2>
+              <div id="tesesListContainer"></div>
+            </div>
+          </div>
+
+          <!-- RODAPÉ DE PROGRESSÃO DA ETAPA 2 -->
+          <div class="station-step-footer">
+            <button type="button" class="btn btn-ghost-glass" data-goto-station="autos">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+              <span>Voltar: Etapa 1 (Autos)</span>
+            </button>
+            <button type="button" class="btn btn-primary btn-lg" id="btnNextFromAnalise" data-goto-station="dosimetria">
+              <span>Avançar para Etapa 3: Dosimetria da Pena</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- ESTAÇÃO 3: DOSIMETRIA DA PENA -->
+        <section class="station-panel" data-station-panel="dosimetria">
+          <div class="station-header">
+            <div>
+              <div class="station-eyebrow">Etapa 03 de 04 &bull; Cálculo Trifásico Determinístico</div>
+              <h1 class="station-title">Dosimetria da Pena &amp; Veredictos</h1>
+              <p class="station-subtitle">Deliberação individualizada por delito, 8 circunstâncias judiciais (art. 59 CP), concurso de crimes e prescrição.</p>
+            </div>
+            <div class="subtab-bar" role="tablist" data-subtab-group="dosimetria">
+              <button type="button" class="subtab-btn active" data-subtab="sub-dos-calculo">Dosimetria por Delito</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-dos-prescricao">Prescrição &amp; Intertemporal</button>
+            </div>
+          </div>
+
+          <div class="alert-banner alert-warn" id="dosimetryDadosBanner" hidden>
+            <div id="dosimetryDadosBannerText">Dados insuficientes para calcular a dosimetria.</div>
+            <div class="alert-actions">
+              <button type="button" class="btn btn-sm btn-primary" id="btnDadosBannerComplementar">Informar dados faltantes</button>
+            </div>
+          </div>
+          <div class="alert-banner alert-info" id="dosimetryVeredictoBanner" hidden>
+            <div id="dosimetryVeredictoBannerText"></div>
+          </div>
+
+          <div class="dosimetry-kpi-strip">
+            <div class="kpi-cell">
+              <div class="kpi-label">Pena Unificada</div>
+              <div class="kpi-value mono" id="kpiPenaTotal">—</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Regime Inicial</div>
+              <div class="kpi-value" id="kpiRegime">—</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Sursis (Art. 77 CP)</div>
+              <div class="kpi-value" id="kpiSursis">—</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Detração (Art. 387 §2º)</div>
+              <div class="kpi-value mono" id="kpiDetracao">0 dia(s)</div>
+            </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">Dano Moral (Tema 983)</div>
+              <div class="kpi-value mono" id="kpiDanoMoral">—</div>
+            </div>
+          </div>
+
+          <div class="subtab-pane active" id="sub-dos-calculo">
+            <div class="surface-card">
+              <div class="grid-4" style="align-items:end; margin-bottom:16px;">
+                <div>
+                  <label class="form-label" for="selCriterio1Fase">Critério 1ª Fase (Art. 59 CP)</label>
+                  <select class="form-select" id="selCriterio1Fase">
+                    <option value="um_oitavo_intervalo">1/8 do intervalo (jurisprudencial)</option>
+                    <option value="um_sexto_minima">1/6 da pena mínima</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="selTipoConcurso">Concurso de Crimes</label>
+                  <select class="form-select" id="selTipoConcurso">
+                    <option value="material">Concurso Material (Art. 69 CP)</option>
+                    <option value="formal">Concurso Formal (Art. 70 CP)</option>
+                    <option value="continuado">Crime Continuado (Art. 71 CP)</option>
+                    <option value="nenhum">Sem concurso (crime único)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="selFracaoConcurso">Fração Formal/Continuado</label>
+                  <select class="form-select" id="selFracaoConcurso">
+                    <option value="">Sugerida pelo motor (nº de crimes)</option>
+                    <option value="1/6">1/6</option>
+                    <option value="1/5">1/5</option>
+                    <option value="1/4">1/4</option>
+                    <option value="1/3">1/3</option>
+                    <option value="1/2">1/2</option>
+                    <option value="2/3">2/3</option>
+                  </select>
+                  <div class="muted" style="font-size:11px; margin-top:3px;" id="hintFracaoSugerida"></div>
+                </div>
+                <div>
+                  <label class="form-label" for="inputValorDanoMoral">Dano Moral Mínimo (R$) — fixado pelo juízo</label>
+                  <input class="form-control mono" type="number" id="inputValorDanoMoral" value="" min="0" step="0.01" placeholder="Vazio = valor pedido pelo MP" />
+                  <div class="muted" style="font-size:11px; margin-top:3px;" id="hintDanoMoral"></div>
+                </div>
+              </div>
+
+              <div class="grid-4" style="align-items:end; margin-bottom:16px;">
+                <div>
+                  <label class="form-label" for="inputDataSentenca">Data da sentença</label>
+                  <input class="form-control mono" type="date" id="inputDataSentenca" />
+                </div>
+                <div>
+                  <label class="form-label" for="inputDiasPrisaoCautelar">Prisão cautelar (dias, art. 387 §2º CPP)</label>
+                  <input class="form-control mono" type="number" id="inputDiasPrisaoCautelar" min="0" step="1" placeholder="Vazio = apurado nos autos" />
+                </div>
+                <label class="switch-inline" title="Art. 115 do CP: prazos prescricionais reduzidos pela metade">
+                  <input type="checkbox" id="chkReuMenor21" />
+                  <span>Réu menor de 21 anos na data do fato (art. 115 CP)</span>
+                </label>
+                <label class="switch-inline" title="Art. 115 do CP: prazos prescricionais reduzidos pela metade">
+                  <input type="checkbox" id="chkReuMaior70" />
+                  <span>Réu maior de 70 anos na sentença (art. 115 CP)</span>
+                </label>
+              </div>
+
+              <div class="crime-tab-strip" id="dosimetryCrimeTabs"></div>
+              <div id="dosimetryCrimeEditor"></div>
+            </div>
+            <div class="surface-card" id="dosimetryAlertsCard" hidden>
+              <h2 style="margin:0 0 10px; font-size:15px; font-weight:700;">Alertas do Motor de Dosimetria</h2>
+              <div id="dosimetryAlertsContainer"></div>
+            </div>
+          </div>
+
+          <div class="subtab-pane" id="sub-dos-prescricao">
+            <div class="grid-2">
+              <div class="surface-card">
+                <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Análise de Prescrição (Arts. 109 e 117 CP)</h2>
+                <div id="prescricaoPanelContainer"></div>
+              </div>
+              <div class="surface-card">
+                <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Direito Intertemporal &amp; Leis Aplicáveis</h2>
+                <div id="intertemporalPanelContainer"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RODAPÉ DE PROGRESSÃO DA ETAPA 3 -->
+          <div class="station-step-footer">
+            <button type="button" class="btn btn-ghost-glass" data-goto-station="analise">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+              <span>Voltar: Etapa 2 (Análise)</span>
+            </button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button type="button" class="btn" id="btnSimulateDosimetry">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                <span>Recalcular / Simular</span>
+              </button>
+              <button type="button" class="btn btn-primary btn-lg" id="btnGoToSentenceFromDos" data-goto-station="sentenca">
+                <span>Avançar para Etapa 4: Sentença &amp; Gemini</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTAÇÃO 4: SENTENÇA & GEMINI (TOOLBAR + FOLHA EDITORIAL EXPANSÍVEL) -->
+        <section class="station-panel" data-station-panel="sentenca">
+          <div class="sentence-toolbar" role="toolbar" aria-label="Ações da Sentença e Gemini">
+            <div class="toolbar-group">
+              <label class="switch-inline" title="Pseudonimizar dados sensíveis (Segredo de Justiça / LGPD) antes de enviar ao Gemini">
+                <input type="checkbox" id="chkPseudonimizarScript" checked />
+                <span>Pseudonimizar</span>
+              </label>
+              <select class="form-select toolbar-select" id="selScriptDensidade" title="Densidade do Script Estruturado Py">
+                <option value="compacto" selected>Compacto</option>
+                <option value="integral">Integral</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-gold" id="btnCopyScriptMd" title="Copiar Script Py (.md) para o Gemini">Copiar Script Py (.md)</button>
+              <button type="button" class="btn btn-sm" id="btnOpenScriptModal">Ver Script</button>
+              <button type="button" class="btn btn-sm" id="btnOpenPasteGeminiModal" title="Colar Sentença do Gemini Web/Pro">Colar Gemini</button>
+              <button type="button" class="btn btn-sm btn-primary" id="btnOpenGeminiApiModal" title="Gerar Sentença via API Gemini (exige consentimento de envio externo)">API Gemini</button>
+              <button type="button" class="btn btn-sm" id="btnGenerateSentence" title="Gerar minuta pelo motor local determinístico (exige veredicto por crime)">Gerar (motor local)</button>
+            </div>
+
+            <div class="toolbar-group">
+              <button type="button" class="btn btn-sm" id="btnDownloadDocx" title="Baixar Word (.docx)">Word (.docx)</button>
+              <button type="button" class="btn btn-sm" id="btnCopyPje" title="Copiar HTML formatado para o PJe">PJe</button>
+              <button type="button" class="btn btn-sm" id="btnDownloadPdf" title="Baixar PDF">PDF</button>
+              <button type="button" class="btn btn-sm" id="btnDownloadHtml" title="Baixar HTML">HTML</button>
+              <button type="button" class="btn btn-sm" id="btnAbrirPastaExport" title="Abrir a pasta onde as exportações são guardadas">Pasta</button>
+              <button type="button" class="badge-tag badge-neutral" id="btnOpenAuditDrawer" style="cursor:pointer; min-height:30px;" title="Abrir o laudo de auditoria (forma, conteúdo e rastreabilidade)">
+                <span id="auditScoreBadge">Auditada —</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pendencias-panel" id="sentencePendenciasPanel" hidden></div>
+
+          <div class="sentence-paper-wrapper">
+            <div class="sentence-sheet-bar">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span class="mono muted" style="font-size:11.5px;" id="sentenceGenStatus">Aguardando geração</span>
+                <span class="badge-tag badge-neutral" id="sentenceOriginLabel">SentencIA</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span class="muted" style="font-size:11.5px;">Edição direta na folha ativa (clique em ID-... para abrir a peça)</span>
+                <button type="button" class="btn btn-sm" id="btnOpenRevisao" title="Painel de revisão: pendências do laudo e conferência pelo art. 381 do CPP e pelo manual">Revisão <span class="badge-tag badge-neutral" id="revisaoContagem" hidden>0</span></button>
+                <button type="button" class="btn btn-sm" id="btnOpenVersoes" title="Histórico de versões da minuta e comparação com a sua edição">Versões</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnReauditEdited" disabled>Re-Auditar</button>
+              </div>
+            </div>
+
+            <!-- BARRA DE FORMATAÇÃO (estilo LibreOffice Writer) -->
+            <div class="fmt-toolbar" id="fmtToolbar" role="toolbar" aria-label="Ferramentas de formatação do texto" data-disabled="true">
+              <div class="fmt-group">
+                <button type="button" class="fmt-btn" data-fmt="undo" title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="redo" title="Refazer (Ctrl+Y)" aria-label="Refazer">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>
+                </button>
+              </div>
+              <div class="fmt-group">
+                <select class="form-select fmt-select" id="fmtEstilo" title="Estilo do parágrafo" aria-label="Estilo do parágrafo">
+                  <option value="" selected disabled>Estilo…</option>
+                  <option value="corpo">Corpo do texto</option>
+                  <option value="secao">Título de seção</option>
+                  <option value="subsecao">Subtítulo</option>
+                  <option value="citacao">Citação longa (ABNT)</option>
+                  <option value="ordem">Comando / ordem</option>
+                  <option value="lista">Item de lista</option>
+                  <option value="centro">Centralizado em negrito</option>
+                  <option value="data">Data (à direita)</option>
+                </select>
+                <select class="form-select fmt-select" id="fmtFonte" title="Fonte" aria-label="Fonte">
+                  <option>Times New Roman</option>
+                  <option>Arial</option>
+                  <option>Calibri</option>
+                  <option>Cambria</option>
+                  <option>Garamond</option>
+                  <option>Georgia</option>
+                  <option>Verdana</option>
+                  <option>Courier New</option>
+                </select>
+                <select class="form-select fmt-select fmt-select-sm" id="fmtTamanho" title="Tamanho da fonte (pt)" aria-label="Tamanho da fonte">
+                  <option>8</option><option>9</option><option>10</option><option>11</option><option selected>12</option><option>13</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option>
+                </select>
+              </div>
+              <div class="fmt-group">
+                <button type="button" class="fmt-btn fmt-b" data-fmt="bold" title="Negrito (Ctrl+B)" aria-label="Negrito">N</button>
+                <button type="button" class="fmt-btn fmt-i" data-fmt="italic" title="Itálico (Ctrl+I)" aria-label="Itálico">I</button>
+                <button type="button" class="fmt-btn fmt-u" data-fmt="underline" title="Sublinhado (Ctrl+U)" aria-label="Sublinhado">S</button>
+                <button type="button" class="fmt-btn fmt-s" data-fmt="strikeThrough" title="Tachado" aria-label="Tachado">T</button>
+                <button type="button" class="fmt-btn" data-fmt="superscript" title="Sobrescrito" aria-label="Sobrescrito">x<sup>2</sup></button>
+                <button type="button" class="fmt-btn" data-fmt="subscript" title="Subscrito" aria-label="Subscrito">x<sub>2</sub></button>
+                <label class="fmt-btn fmt-color" title="Cor da fonte" aria-label="Cor da fonte">A<input type="color" id="fmtCor" value="#000000" aria-label="Cor da fonte" /></label>
+              </div>
+              <div class="fmt-group">
+                <button type="button" class="fmt-btn" data-fmt="justifyLeft" data-align="left" title="Alinhar à esquerda (Ctrl+L)" aria-label="Alinhar à esquerda">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 10h12M3 14h18M3 18h12" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="justifyCenter" data-align="center" title="Centralizar (Ctrl+E)" aria-label="Centralizar">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M6 10h12M3 14h18M6 18h12" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="justifyRight" data-align="right" title="Alinhar à direita (Ctrl+R)" aria-label="Alinhar à direita">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M9 10h12M3 14h18M9 18h12" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="justifyFull" data-align="justify" title="Justificar (Ctrl+J)" aria-label="Justificar">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 10h18M3 14h18M3 18h18" /></svg>
+                </button>
+              </div>
+              <div class="fmt-group">
+                <select class="form-select fmt-select fmt-select-sm" id="fmtEntrelinhas" title="Espaçamento entre linhas" aria-label="Espaçamento entre linhas">
+                  <option value="1">1,0</option>
+                  <option value="1.15">1,15</option>
+                  <option value="1.5" selected>1,5</option>
+                  <option value="2">2,0</option>
+                </select>
+                <button type="button" class="fmt-btn" data-fmt="recuoMais" title="Aumentar recuo à esquerda (1,25 cm)" aria-label="Aumentar recuo">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M11 10h10M11 14h10M3 18h18" /><path d="m3 9 3 3-3 3" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="recuoMenos" title="Diminuir recuo à esquerda" aria-label="Diminuir recuo">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M11 10h10M11 14h10M3 18h18" /><path d="m6 9-3 3 3 3" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="primeiraLinha" title="Recuo da primeira linha (1,25 cm) — liga/desliga" aria-label="Recuo da primeira linha">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6h12M3 10h18M3 14h18M3 18h12" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="insertUnorderedList" title="Marcadores" aria-label="Lista com marcadores">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></svg>
+                </button>
+                <button type="button" class="fmt-btn" data-fmt="insertOrderedList" title="Numeração" aria-label="Lista numerada">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 6h11M10 12h11M10 18h11" /><path d="M3.5 5.5 5 5v3M3.5 11h2l-2 2.5h2M3.5 17.5h2v1.5h-1.5 1.5v1.5h-2" stroke-width="1.4" /></svg>
+                </button>
+              </div>
+              <div class="fmt-group fmt-group-pop">
+                <button type="button" class="fmt-btn fmt-btn-text" id="btnFmtMargens" data-pop-toggle="fmtMargensPop" title="Margens da página (como Formatar › Página no LibreOffice)" aria-haspopup="true" aria-expanded="false">Margens</button>
+                <button type="button" class="fmt-btn fmt-btn-text" data-fmt="limpar" title="Limpar formatação direta (Ctrl+M)">Limpar</button>
+                <button type="button" class="fmt-btn fmt-btn-text" id="btnFmtModelos" data-pop-toggle="fmtModelosPop" title="Modelos de formatação do gabinete" aria-haspopup="true" aria-expanded="false">Modelos</button>
+                <button type="button" class="fmt-btn fmt-btn-text" id="btnFmtLocalizar" data-pop-toggle="fmtLocalizarPop" title="Localizar e substituir (Ctrl+H)" aria-haspopup="true" aria-expanded="false">Localizar</button>
+                <button type="button" class="fmt-btn fmt-btn-text" id="btnFmtTrechos" data-pop-toggle="fmtTrechosPop" title="Banco de trechos do gabinete (digite /atalho e Tab)" aria-haspopup="true" aria-expanded="false">Trechos</button>
+                <div class="fmt-popover fmt-popover-wide" id="fmtTrechosPop" hidden>
+                  <div class="fmt-pop-title">Banco de trechos — clique para inserir no cursor</div>
+                  <input type="search" class="form-control" id="fmtTrechosBusca" placeholder="Buscar por título, atalho ou texto…" aria-label="Buscar trechos" />
+                  <div class="trechos-lista" id="fmtTrechosLista" role="list"></div>
+                  <div class="fmt-pop-title" style="margin-top:2px;" id="fmtTrechoFormTitulo">Novo trecho</div>
+                  <input type="text" class="form-control" id="fmtTrechoTitulo" maxlength="80" placeholder="Título (ex.: Rejeição de inépcia)" aria-label="Título do trecho" />
+                  <div class="fmt-margens-grid">
+                    <input type="text" class="form-control" id="fmtTrechoAtalho" maxlength="25" placeholder="atalho (opcional)" aria-label="Atalho do trecho" />
+                    <input type="text" class="form-control" id="fmtTrechoCategoria" maxlength="40" placeholder="Categoria" aria-label="Categoria do trecho" />
+                  </div>
+                  <textarea class="form-textarea" id="fmtTrechoTexto" rows="4" placeholder="Texto do trecho. Use [COMPLETAR PELO JUÍZO: ...] onde o caso concreto exigir." aria-label="Texto do trecho"></textarea>
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm" id="btnFmtTrechoSelecao" title="Copia para o campo acima o texto selecionado na folha">Usar seleção da folha</button>
+                    <button type="button" class="btn btn-sm" id="btnFmtTrechoLimpar">Limpar</button>
+                    <button type="button" class="btn btn-sm btn-gold" id="btnFmtTrechoSalvar">Salvar trecho</button>
+                  </div>
+                </div>
+                <div class="fmt-popover" id="fmtModelosPop" hidden>
+                  <div class="fmt-pop-title">Modelos de formatação do gabinete</div>
+                  <select class="form-select fmt-select" id="fmtModeloSelect" aria-label="Modelo de formatação" style="max-width:none;"></select>
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm" id="btnFmtModeloExcluir">Excluir</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnFmtModeloAplicar">Aplicar à folha</button>
+                  </div>
+                  <div class="fmt-pop-title" style="margin-top:4px;">Salvar a formatação atual como modelo</div>
+                  <input type="text" class="form-control" id="fmtModeloNome" maxlength="60" placeholder="Nome do modelo (ex.: Minha sentença)" aria-label="Nome do novo modelo" />
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm btn-gold" id="btnFmtModeloSalvar">Salvar modelo</button>
+                  </div>
+                </div>
+                <div class="fmt-popover fmt-popover-find" id="fmtLocalizarPop" hidden>
+                  <div class="fmt-pop-title">Localizar e substituir</div>
+                  <input type="text" class="form-control" id="fmtLocalizarTexto" placeholder="Localizar…" aria-label="Texto a localizar" />
+                  <input type="text" class="form-control" id="fmtSubstituirTexto" placeholder="Substituir por…" aria-label="Texto de substituição" />
+                  <label class="fmt-check"><input type="checkbox" id="fmtLocalizarCase" /> Diferenciar maiúsculas/minúsculas</label>
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm" id="btnFmtAnterior">Anterior</button>
+                    <button type="button" class="btn btn-sm" id="btnFmtProximo">Próximo</button>
+                  </div>
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm" id="btnFmtSubstituir">Substituir</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnFmtSubstituirTudo">Substituir tudo</button>
+                  </div>
+                  <div class="muted" id="fmtLocalizarInfo" style="font-size:11.5px;" aria-live="polite"></div>
+                </div>
+                <div class="fmt-popover" id="fmtMargensPop" hidden>
+                  <div class="fmt-pop-title">Margens da página (cm)</div>
+                  <select class="form-select fmt-select" id="fmtMargensPreset" aria-label="Modelo de margens">
+                    <option value="abnt">ABNT NBR 14724 (3 · 3 · 2 · 2)</option>
+                    <option value="lo">Padrão LibreOffice (2 cm)</option>
+                    <option value="moderada">Moderada (2,54 · 1,91)</option>
+                    <option value="estreita">Estreita (1,27 cm)</option>
+                    <option value="larga">Larga (2,54 · 5,08)</option>
+                    <option value="custom">Personalizada</option>
+                  </select>
+                  <label class="fmt-check"><input type="checkbox" id="fmtNumerarPaginas" checked /> Numerar páginas no .docx/.pdf (Página x de y)</label>
+                  <div class="fmt-margens-grid">
+                    <label>Superior<input type="number" class="form-control" id="fmtMargemSuperior" min="0.5" max="6" step="0.1" /></label>
+                    <label>Inferior<input type="number" class="form-control" id="fmtMargemInferior" min="0.5" max="6" step="0.1" /></label>
+                    <label>Esquerda<input type="number" class="form-control" id="fmtMargemEsquerda" min="0.5" max="6" step="0.1" /></label>
+                    <label>Direita<input type="number" class="form-control" id="fmtMargemDireita" min="0.5" max="6" step="0.1" /></label>
+                  </div>
+                  <div class="fmt-pop-actions">
+                    <button type="button" class="btn btn-sm" id="btnFmtMargensFechar">Fechar</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnFmtMargensAplicar">Aplicar</button>
+                  </div>
+                </div>
+              </div>
+              <span class="fmt-dirty muted" id="fmtDirty" hidden>Alterações ainda não salvas</span>
+            </div>
+
+            <div class="sentence-paper-body" id="sentenceRenderBody" contenteditable="false" spellcheck="true" lang="pt-BR">
+              <div class="empty-studio-placeholder">
+                <div class="placeholder-icon-ring" aria-hidden="true">
+                  <svg width="44" height="44" viewBox="0 0 512 512" focusable="false"><use href="#sia-marca" /></svg>
+                </div>
+                <strong>Nenhuma sentença gerada ainda para os autos ativos.</strong><br />
+                Informe o veredicto de cada crime na Etapa 3 e use <strong>Gerar (motor local)</strong>, <strong>Copiar Script Py (.md)</strong> para redigir no Gemini Web/Pro ou <strong>API Gemini</strong> (com consentimento de envio externo).
+              </div>
+            </div>
+          </div>
+
+          <!-- RODAPÉ DE NAVEGAÇÃO DA ETAPA 4 -->
+          <div class="station-step-footer">
+            <button type="button" class="btn btn-ghost-glass" data-goto-station="dosimetria">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+              <span>Voltar: Etapa 3 (Dosimetria da Pena)</span>
+            </button>
+            <div class="muted" style="font-size:12.5px;">Exportação liberada somente com auditoria aprovada; caso contrário, apenas como rascunho com a marca "MINUTA NÃO AUDITADA".</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- GAVETA LATERAL DE AUDITORIA 4 CAMADAS & RASTREABILIDADE -->
+  <div class="modal-backdrop drawer-mode" id="modalAuditDrawer" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="auditDrawerTitle">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="auditDrawerTitle">Auditoria Anti-Alucinação (forma e conteúdo)</h2>
+          <div class="muted" style="font-size:12px;" id="auditDrawerScore">Nenhuma auditoria executada</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close-modal="modalAuditDrawer">Fechar</button>
+      </div>
+      <div style="overflow-y:auto; flex:1; padding-right:4px;">
+        <div id="auditScoreGrid" style="margin-bottom:12px;"></div>
+        <div id="auditLayersSummary" style="margin-bottom:14px;"></div>
+
+        <h3 style="font-size:13px; margin:14px 0 8px;">Verificações de Conteúdo</h3>
+        <div id="auditConteudoContainer" style="margin-bottom:14px;"></div>
+
+        <h3 style="font-size:13px; margin:14px 0 8px;">Rastreabilidade de IDs e Provas</h3>
+        <table class="data-table" style="margin-bottom:16px;">
+          <thead>
+            <tr>
+              <th>ID / Token</th>
+              <th>Status</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="auditTraceabilityTableBody"></tbody>
+        </table>
+
+        <h3 style="font-size:13px; margin:14px 0 8px;">Memória de Cálculo Determinística</h3>
+        <div class="inner-tile" id="calcMemoryContent" style="font-size:12.5px; margin-bottom:16px;"></div>
+
+        <h3 style="font-size:13px; margin:14px 0 8px;">Pipeline Seccional &amp; Regeneração Cirúrgica</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <button type="button" class="btn btn-sm" id="btnGenerateSectional">Gerar em Pipeline Seccional (M4)</button>
+        </div>
+        <div id="sectionalTelemetryGrid" style="margin-bottom:10px;"></div>
+        <div class="inner-tile" style="display:flex; flex-direction:column; gap:8px;">
+          <div class="grid-2" style="gap:8px;">
+            <select class="form-select" id="selRegenSection">
+              <option value="relatorio">Relatório</option>
+              <option value="preliminares">Preliminares</option>
+              <option value="merito">Mérito</option>
+              <option value="dosimetria">Dosimetria</option>
+              <option value="dispositivo">Dispositivo</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-primary" id="btnRegenerateSection">Regenerar Seção</button>
+          </div>
+          <input type="text" class="form-control" id="inputSurgicalNote" placeholder="Instrução cirúrgica opcional para a seção..." />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAVETA LATERAL INSPETOR DE PEÇA / PROVA -->
+  <div class="modal-backdrop drawer-mode" id="modalEvidence" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="evidenceDrawerTitle">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="evidenceDrawerTitle">Inspetor de Peça</h2>
+          <div class="muted mono" style="font-size:11.5px;" id="evidenceDrawerMeta">—</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close-modal="modalEvidence">Fechar</button>
+      </div>
+      <div id="evidenceDrawerEntities" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+      <div id="evidenceDrawerBody" style="overflow-y:auto; flex:1; white-space:pre-wrap; font-size:13px; line-height:1.65; padding:14px; background:var(--bg-surface-2); border:1px solid var(--border-subtle); border-radius:var(--radius-inner);"></div>
+    </div>
+  </div>
+
+  <!-- MODAL TELEMETRIA & MOTORES PY -->
+  <div class="modal-backdrop" id="modalTelemetry" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="telemetryTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="telemetryTitle">Telemetria Local &amp; 5 Motores Python</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalTelemetry">Fechar</button>
+      </div>
+      <p class="muted" style="margin:0 0 12px; font-size:12px;"><span class="mono" id="telemetryAppVersion" style="font-weight:600;">SentencIA v2.1.0</span> · Somente valores efetivamente medidos neste computador; o que não pôde ser medido aparece como "indisponível".</p>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="inner-tile">
+          <div class="kpi-label">GPU / VRAM</div>
+          <div id="telemetryGpuStatus" style="margin-top:4px; font-size:13px;">Verificando...</div>
+        </div>
+        <div class="inner-tile">
+          <div class="kpi-label">LLM Local (Ollama)</div>
+          <div id="telemetryOllamaStatus" style="margin-top:4px; font-size:13px;">Verificando...</div>
+        </div>
+        <div class="inner-tile">
+          <div class="kpi-label">OCR &amp; Transcrição</div>
+          <div id="telemetryOcrStatus" style="margin-top:4px; font-size:13px;">Verificando...</div>
+        </div>
+        <div class="inner-tile">
+          <div class="kpi-label">Privacidade &amp; Classificador</div>
+          <div id="telemetryPrivacyStatus" style="margin-top:4px; font-size:13px;">Verificando...</div>
+        </div>
+      </div>
+      <h3 style="font-size:13px; margin:0 0 8px;">Status dos Motores Determinísticos</h3>
+      <div id="motoresPyStatusList"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ACERVO & ESTILO DO GABINETE (TASK-019) -->
+  <div class="modal-backdrop" id="modalAcervo" hidden>
+    <div class="modal-dialog modal-acervo-dialog" role="dialog" aria-labelledby="acervoTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="acervoTitle">Jurisprudência do Gabinete &amp; Acervo Fechado</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalAcervo">Fechar</button>
+      </div>
+
+      <div class="acervo-tabs" role="tablist" aria-label="Seções do Acervo">
+        <button type="button" class="btn btn-sm active" role="tab" aria-selected="true" data-acervo-tab="acervoTabJuris">Jurisprudência (Oficial &amp; Gabinete)</button>
+        <button type="button" class="btn btn-sm" role="tab" aria-selected="false" data-acervo-tab="acervoTabEstilo">Amostras de Estilo</button>
+      </div>
+
+      <div id="acervoTabJuris" class="acervo-tab-pane">
+        <div class="juris-toolbar">
+          <input class="form-control juris-search" type="search" id="jurisBusca" placeholder="Buscar por referência, título, texto ou matéria..." aria-label="Buscar precedentes" />
+          <select class="form-select juris-filter" id="jurisFiltroOrigem" aria-label="Filtrar por origem">
+            <option value="TODOS">Todas as origens</option>
+            <option value="gabinete">Gabinete</option>
+            <option value="oficial">Acervo oficial</option>
+          </select>
+          <select class="form-select juris-filter" id="jurisFiltroTribunal" aria-label="Filtrar por tribunal">
+            <option value="TODOS">Todos os tribunais</option>
+          </select>
+          <select class="form-select juris-filter" id="jurisFiltroTipo" aria-label="Filtrar por tipo">
+            <option value="TODOS">Todos os tipos</option>
+          </select>
+        </div>
+
+        <div class="juris-io-bar">
+          <span class="muted juris-resumo" id="jurisListaResumo">Carregando acervo…</span>
+          <div class="juris-io-actions">
+            <button type="button" class="btn btn-sm" id="btnJurisExportar">Exportar JSON</button>
+            <button type="button" class="btn btn-sm" id="btnJurisImportarAbrir">Importar JSON…</button>
+            <input type="file" id="jurisImportFile" accept=".json,application/json" hidden />
+          </div>
+        </div>
+
+        <div id="jurisAvisoBanner" class="juris-aviso-banner" role="status" aria-live="polite" hidden></div>
+
+        <div id="jurisImportPreviewBox" class="inner-tile juris-import-box" hidden>
+          <div id="jurisImportPreviewBody" class="juris-import-body"></div>
+          <div class="juris-confirm-actions">
+            <button type="button" class="btn btn-sm" id="btnJurisImportCancelar">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-primary" id="btnJurisImportConfirmar" disabled>Confirmar importação</button>
+          </div>
+        </div>
+
+        <div id="jurisDeleteConfirmBox" class="inner-tile juris-delete-box" hidden>
+          <div id="jurisDeleteConfirmTexto" class="juris-delete-text"></div>
+          <div class="juris-confirm-actions">
+            <button type="button" class="btn btn-sm" id="btnJurisCancelarExclusao">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-danger-ghost" id="btnJurisConfirmarExclusao">Confirmar exclusão</button>
+          </div>
+        </div>
+
+        <div class="juris-layout">
+          <div class="juris-form-col">
+            <h3 class="juris-section-title" id="precFormHeading">Adicionar Precedente do Gabinete</h3>
+            <form id="formCustomPrecedente" class="juris-form">
+              <div>
+                <label class="form-label" for="precReferencia">Referência</label>
+                <input class="form-control" type="text" id="precReferencia" placeholder="Ex.: Súmula 999/STJ ou TJRN, ApCrim 0800..." required />
+                <div id="precLiveNorm" class="muted juris-live-norm" hidden></div>
+              </div>
+              <div class="grid-2">
+                <div>
+                  <label class="form-label" for="precTribunal">Tribunal</label>
+                  <select class="form-select" id="precTribunal">
+                    <option value="TJRN">TJRN</option>
+                    <option value="STJ">STJ</option>
+                    <option value="STF">STF</option>
+                    <option value="CNJ">CNJ</option>
+                    <option value="FONAVID">FONAVID</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label" for="precTipo">Tipo</label>
+                  <select class="form-select" id="precTipo">
+                    <option value="PRECEDENTE_TJ">Precedente TJ</option>
+                    <option value="SUMULA_STJ">Súmula STJ</option>
+                    <option value="SUMULA_STF">Súmula STF</option>
+                    <option value="SUMULA_VINCULANTE_STF">Súmula Vinculante</option>
+                    <option value="TEMA_REPETITIVO_STJ">Tema Repetitivo</option>
+                    <option value="REPERCUSSAO_GERAL_STF">Repercussão Geral</option>
+                    <option value="ENUNCIADO_FONAVID">Enunciado FONAVID</option>
+                    <option value="NORMA_CNJ">Norma CNJ</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="form-label" for="precTitulo">Título</label>
+                <input class="form-control" type="text" id="precTitulo" placeholder="Título resumido do precedente" required />
+              </div>
+              <div>
+                <div class="juris-label-row">
+                  <label class="form-label" for="precTexto">Texto literal</label>
+                  <span class="muted juris-char-count" id="precTextoCount">0 / 20 caracteres mín.</span>
+                </div>
+                <textarea class="form-textarea" id="precTexto" rows="4" placeholder="Texto literal da ementa ou tese (nunca é alterado automaticamente)..." required></textarea>
+              </div>
+              <div id="precLiveFeedback" class="juris-live-feedback" role="status" aria-live="polite" hidden></div>
+              <div class="juris-form-actions">
+                <button type="submit" class="btn btn-sm btn-primary" id="btnPrecSubmit">Adicionar ao Acervo</button>
+                <button type="button" class="btn btn-sm" id="btnPrecCancelarEdicao" hidden>Cancelar edição</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="juris-list-col">
+            <div id="precedentesContainer" class="juris-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="acervoTabEstilo" class="acervo-tab-pane" hidden>
+        <h3 class="juris-section-title">Amostra de Sentença do Gabinete</h3>
+        <form id="formStyleSample" class="juris-form">
+          <input class="form-control" type="text" id="styleSampleTitulo" placeholder="Nome do modelo (ex.: Condenação Lesão)" required />
+          <select class="form-select" id="styleSampleTipo">
+            <option value="CONDENATORIA">Condenatória</option>
+            <option value="ABSOLUTORIA">Absolutória</option>
+            <option value="EXTINTIVA">Extintiva</option>
+          </select>
+          <textarea class="form-textarea" id="styleSampleTexto" rows="4" placeholder="Cole trecho representativo do estilo redacional..." required></textarea>
+          <button type="submit" class="btn btn-sm btn-primary">Registrar Estilo</button>
+        </form>
+        <div id="styleProfileInfo" class="inner-tile" style="margin-top:12px; font-size:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIGURAÇÕES DO GABINETE -->
+  <div class="modal-backdrop" id="modalSettings" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="settingsTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="settingsTitle">Configurações do Gabinete</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalSettings">Fechar</button>
+      </div>
+      <form id="formSettings" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="grid-2">
+          <div>
+            <label class="form-label" for="setTribunal">Tribunal</label>
+            <input class="form-control" type="text" id="setTribunal" />
+          </div>
+          <div>
+            <label class="form-label" for="setJuizado">Juizado / Vara</label>
+            <input class="form-control" type="text" id="setJuizado" />
+          </div>
+          <div>
+            <label class="form-label" for="setComarca">Comarca</label>
+            <input class="form-control" type="text" id="setComarca" />
+          </div>
+          <div>
+            <label class="form-label" for="setMagistrado">Magistrado(a)</label>
+            <input class="form-control" type="text" id="setMagistrado" />
+          </div>
+          <div>
+            <label class="form-label" for="setOllamaUrl">Ollama URL</label>
+            <input class="form-control mono" type="text" id="setOllamaUrl" />
+          </div>
+          <div>
+            <label class="form-label" for="setOllamaModelSelect">Modelo Ollama</label>
+            <select class="form-select mono" id="setOllamaModelSelect">
+              <option value="auto">Automático</option>
+            </select>
+            <input class="form-control mono" type="text" id="setOllamaModel" placeholder="Nome personalizado (ex.: llama3:8b)" style="margin-top:6px;" hidden />
+            <div id="ollamaModelHint" class="muted" style="font-size:11.5px; margin-top:4px;" hidden></div>
+          </div>
+          <div>
+            <label class="form-label" for="setOllamaNumCtx">Contexto Ollama (num_ctx, tokens)</label>
+            <input class="form-control mono" type="number" id="setOllamaNumCtx" min="512" step="1" />
+          </div>
+          <div>
+            <label class="form-label" for="setWhisperModel">Modelo Whisper</label>
+            <input class="form-control mono" type="text" id="setWhisperModel" />
+          </div>
+          <div>
+            <label class="form-label" for="setWhisperDevice">Dispositivo do Whisper</label>
+            <select class="form-select" id="setWhisperDevice">
+              <option value="auto">Automático (GPU NVIDIA se houver; senão CPU)</option>
+              <option value="cuda">GPU NVIDIA (CUDA)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="setModoGpu">Modo de uso da placa de vídeo (GPU)</label>
+            <select class="form-select" id="setModoGpu">
+              <option value="normal">Normal (desempenho padrão)</option>
+              <option value="moderado">Moderado (menos picos de GPU)</option>
+            </select>
+            <div class="muted" style="font-size:11.5px; margin-top:4px;">
+              Reduz picos de uso da placa de vídeo. Indicado quando o computador trava ou desliga a tela durante a geração. A geração fica um pouco mais lenta.
+            </div>
+          </div>
+          <div>
+            <label class="form-label" for="setFonteDocx">Fonte Word (.docx)</label>
+            <input class="form-control" type="text" id="setFonteDocx" />
+          </div>
+          <div>
+            <label class="form-label" for="setFormatoReferenciaPje">Referências de peças no PJe</label>
+            <select class="form-select" id="setFormatoReferenciaPje">
+              <option value="id_hifen">ID-4100201 (padrão atual)</option>
+              <option value="id_ponto">Id. 4100201 (convenção PJe)</option>
+            </select>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label class="form-label" for="setPastaExportacao">Pasta para cópia das sentenças exportadas (opcional)</label>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <input class="form-control mono" type="text" id="setPastaExportacao" placeholder="Ex.: C:\Sentenças (vazio = só baixar pelo navegador)" style="flex:1; min-width:240px;" />
+              <button type="button" class="btn btn-sm" id="btnAbrirPastaSettings">Abrir pasta</button>
+            </div>
+            <label class="switch-inline" style="margin-top:6px;">
+              <input type="checkbox" id="setSubpastaProcesso" />
+              <span>Criar uma subpasta por processo (“Proc. nº…”)</span>
+            </label>
+            <div class="muted" style="font-size:11.5px; margin-top:4px;">
+              Cada exportação continua sendo baixada normalmente e também é copiada para essa pasta. Nunca sobrescrevo um arquivo seu
+              que tenha sido alterado: nesse caso gravo “nome (2)”. Use uma pasta fora da pasta do programa.
+            </div>
+          </div>
+        </div>
+
+        <div class="inner-tile" style="display:flex; flex-direction:column; gap:8px;">
+          <div class="kpi-label">Privacidade (segredo de justiça / LGPD)</div>
+          <label class="switch-inline">
+            <input type="checkbox" id="setPermitirEnvioExterno" />
+            <span>Permitir envio externo de dados do processo (Gemini / Google), sempre mediante consentimento em cada operação</span>
+          </label>
+          <div class="muted" style="font-size:11.5px;">Desligado, nenhum áudio, texto ou nome do processo sai deste computador.</div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+          <button type="submit" class="btn btn-primary">Salvar Configurações</button>
+        </div>
+      </form>
+
+      <div class="inner-tile" style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+        <div class="kpi-label">Chave da API Gemini (cofre do sistema operacional)</div>
+        <div style="font-size:12.5px;" id="geminiVaultStatus">Verificando cofre...</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input class="form-control mono" type="password" id="setGeminiApiKey" placeholder="AQ... ou AIza..." autocomplete="off" style="flex:1; min-width:200px;" />
+          <button type="button" class="btn btn-sm btn-primary" id="btnSaveGeminiSecret">Salvar no cofre</button>
+          <button type="button" class="btn btn-sm" id="btnTestGeminiKey">Testar chave</button>
+          <button type="button" class="btn btn-sm btn-danger-ghost" id="btnDeleteGeminiSecret">Remover chave</button>
+        </div>
+        <div class="gemini-test-result" id="geminiKeyTestResult" role="status" aria-live="polite" hidden></div>
+        <div class="muted" style="font-size:12px;">A chave é guardada no Gerenciador de Credenciais (Windows) / Keychain (macOS) ou, na falta deles, em arquivo protegido na pasta de dados. Ela nunca é exibida de volta nem fica salva no navegador.</div>
+      </div>
+
+      <div class="inner-tile" id="secArquivoMortoRetencao" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+        <div class="kpi-label">Arquivo morto (retenção em data/cases/_arquivados/)</div>
+        <div class="muted" style="font-size:12px;">
+          Defina ao menos um critério (inteiros maiores que zero). Um arquivamento é mantido se atender a qualquer critério informado.
+        </div>
+        <div class="grid-2">
+          <div>
+            <label class="form-label" for="retManterDias">Manter últimos N dias</label>
+            <input class="form-control mono" type="number" id="retManterDias" min="1" step="1" placeholder="Ex.: 90" />
+          </div>
+          <div>
+            <label class="form-label" for="retManterUltimos">Manter os N arquivamentos mais recentes</label>
+            <input class="form-control mono" type="number" id="retManterUltimos" min="1" step="1" placeholder="Ex.: 10" />
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <button type="button" class="btn btn-sm btn-primary" id="btnRetencaoSimular">Simular</button>
+          <button type="button" class="btn btn-sm btn-danger-ghost" id="btnRetencaoAplicar" disabled>Aplicar remoção…</button>
+        </div>
+        <div id="retencaoConfirmBox" class="inner-tile" hidden style="display:flex; flex-direction:column; gap:8px; border-color: var(--semantic-danger);">
+          <div style="font-size:12.5px; font-weight:600;" id="retencaoConfirmResumo">Confirmação de remoção definitiva</div>
+          <label class="switch-inline danger-confirm">
+            <input type="checkbox" id="chkRetencaoConfirmar" />
+            <span>Entendo que a remoção é definitiva</span>
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <button type="button" class="btn btn-sm" id="btnRetencaoCancelarConfirm">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-danger-ghost" id="btnRetencaoConfirmarExec" disabled>Remover definitivamente</button>
+          </div>
+        </div>
+        <div id="retencaoResultado" role="status" aria-live="polite" hidden style="font-size:12.5px; display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL VISUALIZAR SCRIPT PY -->
+  <div class="modal-backdrop" id="modalScriptPreview" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="scriptPreviewTitle" style="max-width:920px;">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="scriptPreviewTitle">Script Estruturado dos 5 Motores Python</h2>
+          <div class="muted mono" style="font-size:11.5px;" id="scriptPreviewMeta">—</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-sm btn-gold" id="btnCopyScriptModal">Copiar Markdown</button>
+          <button type="button" class="btn btn-sm" data-close-modal="modalScriptPreview">Fechar</button>
+        </div>
+      </div>
+      <textarea class="form-textarea mono" id="scriptPreviewArea" rows="20" readonly style="font-size:12px; line-height:1.5;"></textarea>
+    </div>
+  </div>
+
+  <!-- MODAL COLAR SENTENÇA DO GEMINI -->
+  <div class="modal-backdrop" id="modalPasteGemini" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="pasteGeminiTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="pasteGeminiTitle">Colar Sentença Redigida no Gemini Web/Pro</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalPasteGemini">Fechar</button>
+      </div>
+      <p class="muted" style="margin:0 0 10px; font-size:12.5px;">Os tokens de pseudonimização ([OFENDIDA], [ACUSADO], [PROCESSO], [CPF_01]...) são restaurados com o mapa do último script gerado nesta sessão (conferido por hash) e a sentença passa pela auditoria de forma e conteúdo.</p>
+      <div class="muted mono" style="font-size:11.5px; margin-bottom:8px;" id="pasteGeminiMapaInfo"></div>
+      <textarea class="form-textarea" id="textareaPasteGemini" rows="14" placeholder="Cole aqui o texto integral gerado pelo Gemini..."></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap;">
+        <label class="switch-inline" title="Seções ausentes ou reprovadas são substituídas pelo texto do motor local e SINALIZADAS no laudo">
+          <input type="checkbox" id="chkAutoBlindarGemini" />
+          <span>Substituir seções reprovadas pelo motor local (sinalizado no laudo)</span>
+        </label>
+        <button type="button" class="btn btn-primary" id="btnSubmitPasteGemini">Importar, Despseudonimizar e Auditar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GERAR VIA API GEMINI -->
+  <div class="modal-backdrop" id="modalGeminiApi" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="geminiApiTitle" style="max-width:540px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="geminiApiTitle">Gerar Sentença via API Gemini</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalGeminiApi">Fechar</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="inner-tile gemini-status-panel" id="geminiApiStatusPanel">
+          <div class="gemini-status-row">
+            <span class="gemini-status-item" id="geminiStatusChave">Chave: verificando...</span>
+            <button type="button" class="btn-link-inline" id="btnGeminiGoSettingsKey" hidden>Cadastrar chave</button>
+          </div>
+          <div class="gemini-status-row">
+            <span class="gemini-status-item" id="geminiStatusEnvio">Envio externo: verificando...</span>
+            <button type="button" class="btn-link-inline" id="btnGeminiGoSettingsEnvio" hidden>Ativar em Configurações</button>
+          </div>
+          <div class="gemini-status-row">
+            <span class="gemini-status-item" id="geminiStatusModelo">Modelo que será usado: carregando...</span>
+          </div>
+        </div>
+        <div class="inner-tile" style="font-size:12.5px;" id="geminiApiVaultStatus">Verificando chave no cofre...</div>
+        <div>
+          <label class="form-label" for="selGeminiModel">Modelo Gemini</label>
+          <select class="form-select" id="selGeminiModel" disabled>
+            <option value="auto">Automático (carregando modelos...)</option>
+          </select>
+        </div>
+        <div class="consent-box">
+          <label class="switch-inline">
+            <input type="checkbox" id="chkConsentimentoGemini" />
+            <span>Autorizo o envio do script deste processo ao Google Gemini (serviço externo)</span>
+          </label>
+          <div class="muted" style="font-size:11.5px;" id="geminiConsentHint">Recomendado manter a pseudonimização ativa na barra de ferramentas.</div>
+        </div>
+        <label class="switch-inline" title="Seções reprovadas são substituídas pelo motor local e SINALIZADAS no laudo">
+          <input type="checkbox" id="chkAutoBlindarGeminiApi" />
+          <span>Substituir seções reprovadas pelo motor local (sinalizado no laudo)</span>
+        </label>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+          <button type="button" class="btn btn-primary" id="btnRunGeminiApi">Executar Script Py + Gemini API</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOVA SENTENÇA / RESET -->
+  <div class="modal-backdrop" id="modalResetProduction" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="resetModalTitle" style="max-width:520px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="resetModalTitle">Nova Sentença (Zerar Sessão)</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalResetProduction">Cancelar</button>
+      </div>
+      <p style="margin:0 0 12px; font-size:13px;">Limpa a minuta gerada, auditoria e dosimetria em curso para iniciar um novo julgamento sem contaminação entre processos.</p>
+      <label class="switch-inline" style="margin-bottom:10px;">
+        <input type="checkbox" id="chkResetCompleto" />
+        <span>Reset completo (também retira PDFs e mídias do processo da pasta de casos)</span>
+      </label>
+      <div class="inner-tile" id="resetCompletoOpcoes" hidden style="margin-bottom:14px; display:flex; flex-direction:column; gap:8px; font-size:12.5px;">
+        <div>Por padrão, os arquivos do processo são <strong>compactados em data/cases/_arquivados/&lt;data&gt;.zip</strong> (sem duplicar conteúdo já arquivado) e podem ser recuperados depois.</div>
+        <label class="switch-inline">
+          <input type="checkbox" id="chkExcluirDefinitivamente" />
+          <span>Excluir definitivamente, sem arquivar</span>
+        </label>
+        <label class="switch-inline">
+          <input type="checkbox" id="chkApagarArquivoMorto" />
+          <span>Apagar também todo o arquivo morto (_arquivados)</span>
+        </label>
+        <label class="switch-inline danger-confirm" id="wrapConfirmarExclusao" hidden>
+          <input type="checkbox" id="chkConfirmarExclusao" />
+          <span>Confirmo que a exclusão é IRREVERSÍVEL</span>
+        </label>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-danger-ghost" id="btnConfirmResetProduction">Confirmar Nova Sentença</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL COMPLEMENTAÇÃO DE METADADOS (dados não extraídos dos autos) -->
+  <div class="modal-backdrop" id="modalMetadata" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="metadataTitle" style="max-width:720px;">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" id="metadataTitle">Complementar Dados dos Autos</h2>
+          <div class="muted" style="font-size:12px;" id="metadataSubtitle">Informe os dados que não puderam ser extraídos com segurança dos autos. Nada é preenchido automaticamente.</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close-modal="modalMetadata">Fechar</button>
+      </div>
+      <div id="metadataAlertas" style="margin-bottom:12px;"></div>
+      <form id="formMetadata" style="display:flex; flex-direction:column; gap:10px;">
+        <div class="grid-2">
+          <div data-meta-field="numero_processo">
+            <label class="form-label" for="metaNumeroProcesso">Número do processo</label>
+            <input class="form-control mono" type="text" id="metaNumeroProcesso" placeholder="0000000-00.0000.0.00.0000" />
+          </div>
+          <div data-meta-field="autos_mpu_apenso">
+            <label class="form-label" for="metaAutosMpu">Autos de MPU em apenso</label>
+            <input class="form-control mono" type="text" id="metaAutosMpu" />
+          </div>
+          <div data-meta-field="nome_ofendida">
+            <label class="form-label" for="metaNomeOfendida">Nome da ofendida</label>
+            <input class="form-control" type="text" id="metaNomeOfendida" />
+          </div>
+          <div data-meta-field="nome_reu">
+            <label class="form-label" for="metaNomeReu">Nome do réu</label>
+            <input class="form-control" type="text" id="metaNomeReu" />
+          </div>
+          <div data-meta-field="data_fato">
+            <label class="form-label" for="metaDataFato">Data do fato</label>
+            <input class="form-control mono" type="date" id="metaDataFato" />
+          </div>
+          <div data-meta-field="data_recebimento_denuncia">
+            <label class="form-label" for="metaDataRecebimento">Recebimento da denúncia</label>
+            <input class="form-control mono" type="date" id="metaDataRecebimento" />
+          </div>
+          <div data-meta-field="data_intimacao_mpu">
+            <label class="form-label" for="metaDataIntimacaoMpu">Intimação das MPU (art. 24-A)</label>
+            <input class="form-control mono" type="date" id="metaDataIntimacaoMpu" />
+          </div>
+          <div data-meta-field="data_nascimento_reu">
+            <label class="form-label" for="metaDataNascimentoReu">Nascimento do réu (art. 115 CP)</label>
+            <input class="form-control mono" type="date" id="metaDataNascimentoReu" />
+          </div>
+          <div data-meta-field="valor_dano_moral_pedido_mp">
+            <label class="form-label" for="metaValorDanoMoral">Valor de dano moral pedido pelo MP (R$)</label>
+            <input class="form-control mono" type="number" id="metaValorDanoMoral" min="0" step="0.01" placeholder="Vazio = sem valor indicado" />
+          </div>
+        </div>
+        <label class="switch-inline" data-meta-field="pedido_dano_moral_expresso_mp">
+          <input type="checkbox" id="metaPedidoDanoMoral" />
+          <span>Há pedido expresso de reparação mínima (art. 387, IV, CPP / Tema 983 STJ)</span>
+        </label>
+        <div data-meta-field="crimes_imputados">
+          <div class="form-label">Crimes imputados na denúncia</div>
+          <div class="crime-check-grid" id="metaCrimesGrid"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
+          <span class="muted" style="font-size:11.5px;">Campos deixados em branco mantêm o valor extraído dos autos. A minuta e a auditoria anteriores são descartadas.</span>
+          <button type="submit" class="btn btn-primary" id="btnSubmitMetadata">Salvar dados</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL EXPORTAR COMO RASCUNHO -->
+  <!-- MODAL PAINEL DE REVISÃO (pendências do laudo + conferência pelo manual) -->
+  <div class="modal-backdrop" id="modalRevisao" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="revisaoTitle" style="max-width:860px; width:96vw;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="revisaoTitle">Revisão da minuta</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalRevisao">Fechar</button>
+      </div>
+      <div class="muted" style="font-size:12px; margin-bottom:8px;">
+        Apoio à revisão antes de assinar: pendências do laudo de auditoria e conferência pelo art. 381 do CPP e pelo manual da sentença penal
+        que acompanha o sistema. As regras do manual são recomendações para o seu confronto — a decisão é sempre do magistrado.
+        Itens do laudo refletem a última auditoria (use <strong>Re-Auditar</strong> após editar).
+      </div>
+      <div class="versoes-controles">
+        <span id="revisaoResumo" style="font-size:12.5px; font-weight:600;" aria-live="polite"></span>
+        <label class="fmt-check"><input type="checkbox" id="revisaoSoPendentes" checked /> Ocultar itens conferidos</label>
+        <button type="button" class="btn btn-sm" id="btnRevisaoAtualizar">Reconferir folha atual</button>
+      </div>
+      <div class="rev-lista" id="revisaoLista"></div>
+    </div>
+  </div>
+
+  <!-- MODAL HISTÓRICO DE VERSÕES + COMPARAÇÃO -->
+  <div class="modal-backdrop" id="modalVersoes" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="versoesTitle" style="max-width:1040px; width:96vw;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="versoesTitle">Versões da minuta</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalVersoes">Fechar</button>
+      </div>
+      <div class="versoes-layout">
+        <div class="versoes-lista" id="versoesLista" role="listbox" aria-label="Versões da minuta"></div>
+        <div class="versoes-painel">
+          <div class="versoes-controles">
+            <label class="muted" style="font-size:12px;">Comparar a versão selecionada com
+              <select class="form-select fmt-select" id="versoesContra" style="max-width:none; margin-left:4px;"></select>
+            </label>
+            <label class="fmt-check"><input type="checkbox" id="versoesSoAlteracoes" checked /> Só alterações</label>
+            <button type="button" class="btn btn-sm btn-gold" id="btnVersoesRestaurar" title="Coloca o texto da versão selecionada na folha (depois use Re-Auditar)">Restaurar na folha</button>
+          </div>
+          <div class="muted" id="versoesResumo" style="font-size:12px;" aria-live="polite"></div>
+          <div class="diff-view" id="versoesDiff" tabindex="0"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalExportRascunho" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="exportRascunhoTitle" style="max-width:520px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="exportRascunhoTitle">Minuta não aprovada pela auditoria</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalExportRascunho">Cancelar</button>
+      </div>
+      <div id="exportRascunhoBody" style="font-size:13px; margin-bottom:14px;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" data-close-modal="modalExportRascunho">Voltar e resolver pendências</button>
+        <button type="button" class="btn btn-gold" id="btnConfirmExportRascunho">Exportar como rascunho</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MIGRAÇÃO DE CHAVE GEMINI LEGADA (versões antigas guardavam no navegador) -->
+  <div class="modal-backdrop" id="modalLegacyKey" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="legacyKeyTitle" style="max-width:540px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="legacyKeyTitle">Chave Gemini guardada no navegador</h2>
+      </div>
+      <p style="margin:0 0 14px; font-size:13px;">Uma versão anterior do sistema guardou a sua chave da API Gemini no armazenamento do navegador, o que não é seguro. Deseja movê-la para o cofre do sistema operacional? Em qualquer caso, ela será apagada do navegador.</p>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn btn-danger-ghost" id="btnLegacyKeyDiscard">Apenas apagar do navegador</button>
+        <button type="button" class="btn btn-primary" id="btnLegacyKeyMigrate">Mover para o cofre</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PRÉ-ANÁLISE EM LOTE (TASK-018) -->
+  <div class="modal-backdrop" id="modalLote" hidden>
+    <div class="modal-dialog modal-lote-dialog" role="dialog" aria-labelledby="loteModalTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="loteModalTitle">Pré-análise em lote</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalLote">Fechar</button>
+      </div>
+
+      <div class="lote-aviso" id="loteAvisoFixo" role="note">
+        O lote só organiza e pré-analisa; a decisão e a sentença são feitas processo a processo.
+      </div>
+
+      <div class="lote-dropzone" id="loteDropzone" tabindex="0" role="button" aria-label="Arraste vários PDFs ou clique para selecionar">
+        <input type="file" id="loteFileInput" accept=".pdf,application/pdf" multiple hidden />
+        <div class="lote-dropzone-title">Arraste e solte vários PDFs de processos aqui</div>
+        <div class="muted lote-dropzone-sub" id="loteSelectedFiles">Nenhum PDF selecionado.</div>
+        <div class="lote-dropzone-actions">
+          <button type="button" class="btn btn-sm" id="btnLoteEscolherPdfs">Selecionar PDFs…</button>
+          <button type="button" class="btn btn-sm btn-primary" id="btnLoteEnviar" disabled>Iniciar pré-análise</button>
+          <button type="button" class="btn btn-sm btn-danger-ghost" id="btnLoteLimparSelecao" hidden>Limpar seleção</button>
+        </div>
+      </div>
+
+      <div class="lote-toolbar">
+        <label class="form-label lote-select-label" for="loteSelect">Lote exibido</label>
+        <select class="form-control lote-select" id="loteSelect" disabled>
+          <option value="">Nenhum lote anterior</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-danger-ghost" id="btnLoteCancelar" hidden>Cancelar lote</button>
+      </div>
+
+      <div id="loteStatusErro" class="lote-erro-banner" role="alert" hidden></div>
+
+      <div id="loteProgressWrap" class="lote-progress-wrap" hidden>
+        <div class="lote-progress-head">
+          <span id="loteProgressText" class="lote-progress-text">Preparando lote…</span>
+          <div id="loteSummaryPills" class="lote-summary-pills"></div>
+        </div>
+        <div class="lote-progress-track" aria-hidden="true">
+          <div class="lote-progress-fill" id="loteProgressFill" style="width:0%;"></div>
+        </div>
+      </div>
+
+      <div id="loteConfirmTrocaBox" class="inner-tile lote-confirm-box" hidden>
+        <div class="lote-confirm-title" id="loteConfirmTrocaResumo">Há produção ou processo ativo em curso.</div>
+        <label class="switch-inline danger-confirm">
+          <input type="checkbox" id="chkLoteConfirmarTroca" />
+          <span>Entendo que o caso ativo e a produção atual serão substituídos</span>
+        </label>
+        <div class="lote-confirm-actions">
+          <button type="button" class="btn btn-sm" id="btnLoteCancelarTroca">Cancelar</button>
+          <button type="button" class="btn btn-sm btn-danger-ghost" id="btnLoteConfirmarTroca" disabled>Substituir caso ativo e abrir</button>
+        </div>
+      </div>
+
+      <div class="lote-table-wrap" id="loteTableWrap">
+        <table class="lote-table">
+          <thead>
+            <tr>
+              <th>Processo / Arquivo</th>
+              <th>Status</th>
+              <th>Peças</th>
+              <th>Teses</th>
+              <th>Pendências</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="loteTableBody"></tbody>
+        </table>
+        <div class="muted lote-empty-msg" id="loteEmptyMsg">Envie dois ou mais PDFs acima para iniciar a pré-análise em lote.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PALETA DE COMANDOS (Ctrl+K) -->
+  <div class="modal-backdrop" id="modalCommandPalette" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="cmdPaletteTitle" style="max-width:540px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="cmdPaletteTitle">Paleta de comandos</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalCommandPalette">Fechar</button>
+      </div>
+      <input type="search" class="form-control" id="cmdPaletteInput" placeholder="Digite para filtrar (ex.: Tema, Configurações, Nova sentença)..." autocomplete="off" aria-label="Filtrar comandos" />
+      <div class="cmd-palette-list" id="cmdPaletteList" role="listbox" aria-label="Comandos disponíveis"></div>
+    </div>
+  </div>
+
+  <!-- MODAL ASSISTENTE DE PRIMEIRA EXECUÇÃO (TASK-033) -->
+  <div class="modal-backdrop" id="modalAssistente" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="assistenteTitle" style="max-width:680px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="assistenteTitle">Bem-vindo ao SentencIA — Assistente Inicial</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalAssistente">Fechar</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px; font-size:13px;">
+        <p style="margin:0;" class="muted">
+          Conferência rápida deste computador (aparece apenas uma vez; você pode reabrir a qualquer momento em <strong>Menu do logo → Ajuda · Assistente inicial</strong>).
+        </p>
+
+        <div class="inner-tile">
+          <div class="kpi-label" style="margin-bottom:6px;">1. IA Local (Ollama — opcional)</div>
+          <div id="assistenteOllamaBox">Verificando Ollama...</div>
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm btn-primary" id="btnAssistentePullOllama" hidden>Baixar modelo sugerido</button>
+          </div>
+          <div id="assistentePullWrap" hidden style="margin-top:8px;">
+            <div style="height:8px; background:var(--bg-surface-2); border-radius:999px; overflow:hidden;">
+              <div id="assistentePullBar" style="height:100%; width:0%; background:var(--accent-primary); transition:width 0.25s;"></div>
+            </div>
+            <div id="assistentePullStatus" class="muted" style="font-size:12px; margin-top:4px;"></div>
+          </div>
+        </div>
+
+        <div class="inner-tile">
+          <div class="kpi-label" style="margin-bottom:6px;">2. OCR para páginas digitalizadas (Português pt-BR)</div>
+          <div id="assistenteOcrBox">Verificando OCR...</div>
+        </div>
+
+        <div class="inner-tile">
+          <div class="kpi-label" style="margin-bottom:6px;">3. Guia rápido das 4 estações</div>
+          <ol style="margin:0 0 8px; padding-left:18px; line-height:1.55;">
+            <li><strong>Autos &amp; Mídias:</strong> envie o PDF integral do PJe e as gravações das audiências.</li>
+            <li><strong>Análise &amp; Provas:</strong> confira as peças, transcrições citáveis e complete dados faltantes.</li>
+            <li><strong>Dosimetria da Pena:</strong> informe o veredicto de cada crime e ajuste os parâmetros.</li>
+            <li><strong>Sentença &amp; Gemini:</strong> gere a minuta, revise o laudo e copie com segurança para o PJe.</li>
+          </ol>
+          <a href="/guia-usuario" target="_blank" rel="noopener noreferrer" class="btn btn-sm" id="linkAssistenteGuiaUsuario">Abrir Guia do Usuário completo</a>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+          <button type="button" class="btn btn-sm" id="btnAssistenteRefresh">Verificar novamente</button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-sm" data-close-modal="modalAssistente">Fechar por agora</button>
+            <button type="button" class="btn btn-sm btn-primary" id="btnAssistenteConcluir">Concluir assistente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SOBRE O SENTENCIA -->
+  <div class="modal-backdrop" id="modalAboutSentencia" hidden>
+    <div class="modal-dialog" role="dialog" aria-labelledby="aboutSentenciaTitle" style="max-width:500px;">
+      <div class="modal-header">
+        <h2 class="modal-title" id="aboutSentenciaTitle">Sobre o SentencIA</h2>
+        <button type="button" class="btn btn-sm" data-close-modal="modalAboutSentencia">Fechar</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+        <p style="margin:0;"><strong>SentencIA <span id="aboutSentenciaVersion">v2.1.0</span></strong> — redação forense assistida para sentenças penais. A inteligência que auxilia; a decisão é sua.</p>
+        <p style="margin:0;" class="muted"><strong>Privacidade (LGPD / segredo de justiça):</strong> execução 100% local em <code>127.0.0.1</code>. Fontes tipográficas hospedadas localmente (SIL OFL 1.1). Nenhum dado dos autos sai do computador sem habilitação nas Configurações e consentimento explícito em cada operação.</p>
+        <p style="margin:0;" class="muted">Criado por <strong>FChNeto</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="liquid-id-popover" id="liquidIdPopover" hidden></div>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <footer class="app-corner-signature" id="authorSignatureBadge" role="contentinfo">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+    <span>Criado por <strong>FChNeto</strong></span>
+  </footer>
+
+  <script type="module" src="/static/js/app.js?v=2.1.0"></script>
+</body>
+</html>

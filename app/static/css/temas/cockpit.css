@@ -1,0 +1,215 @@
+/* ==========================================================================
+   SENTENCIA — TEMA 03: ALTA DENSIDADE / COCKPIT (TASK-011)
+   Derivado da Proposta 03 (Google Stitch #14825656150893673972).
+   Obsidiana (#0B0E13 / #111319 / #151922), alto contraste, barra superior
+   compacta, números tabulares e folha útil >= 60ch em 1366x768.
+   ========================================================================== */
+
+html[data-design="cockpit"],
+html[data-design="cockpit"][data-theme="light"] {
+  --bg-canvas: #ECEEF2;
+  --bg-backdrop-glow: none;
+  --bg-glass-header: #FFFFFF;
+  --bg-glass-sidebar: #F5F6F9;
+  --bg-surface: #FFFFFF;
+  --bg-surface-solid: #FFFFFF;
+  --bg-surface-2: #F3F5F8;
+  --bg-muted: #E4E8EF;
+  --bg-sheet: #FFFFFF;
+
+  --border-subtle: #CFD6E1;
+  --border-strong: #9AA6B8;
+  --border-hairline: #E2E6EE;
+  --specular-top: none;
+
+  --text-primary: #0D1321;
+  --text-secondary: #333E52;
+  --text-muted: #525E73;
+  --text-on-accent: #FFFFFF;
+
+  --accent-primary: #00315F;
+  --accent-primary-2: #004786;
+  --accent-primary-hover: #001C3A;
+  --accent-primary-soft: #E3ECF8;
+  --accent-gold: #845B06;
+  --accent-gold-2: #A3720C;
+  --accent-gold-soft: #F9F0D8;
+
+  --semantic-emerald: #00522C;
+  --semantic-emerald-soft: #E3F5EA;
+  --semantic-emerald-border: #8CD2A9;
+  --semantic-amber: #8F4104;
+  --semantic-amber-soft: #FDEFE0;
+  --semantic-amber-border: #E8B47D;
+  --semantic-danger: #A91B12;
+  --semantic-danger-soft: #FCE6E5;
+  --semantic-danger-border: #E8A19D;
+  --semantic-neutral: #2B3548;
+  --semantic-neutral-soft: #E8ECF2;
+
+  --shadow-card: 0 1px 2px rgba(13, 19, 33, 0.06);
+  --shadow-card-hover: 0 2px 6px rgba(13, 19, 33, 0.10);
+  --shadow-sheet: 0 2px 8px rgba(13, 19, 33, 0.08);
+  --shadow-elevated: 0 16px 36px rgba(13, 19, 33, 0.24);
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #00315F;
+
+  /* Fontes 100% locais (hospedadas em app/static/fonts/) */
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+  --font-serif: "Newsreader", "Georgia", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+
+  --radius-outer: 10px;
+  --radius-card: 8px;
+  --radius-inner: 5px;
+  --radius-pill: 5px;
+
+  --sidebar-width: 260px;
+  --ribbon-height: 48px;
+  --duration-fast: 110ms;
+}
+
+html[data-design="cockpit"][data-theme="dark"] {
+  --bg-canvas: #0B0E13;
+  --bg-backdrop-glow: none;
+  --bg-glass-header: #111319;
+  --bg-glass-sidebar: #0F1218;
+  --bg-surface: #151922;
+  --bg-surface-solid: #151922;
+  --bg-surface-2: #191C21;
+  --bg-muted: #1D2025;
+  --bg-sheet: #111319;
+
+  --border-subtle: #283347;
+  --border-strong: #445573;
+  --border-hairline: #1E2736;
+  --specular-top: none;
+
+  --text-primary: #F5F7FA;
+  --text-secondary: #C5D0E0;
+  --text-muted: #9AA8BE;
+  --text-on-accent: #09111E;
+
+  --accent-primary: #7CB2FF;
+  --accent-primary-2: #9CC6FF;
+  --accent-primary-hover: #64A1F7;
+  --accent-primary-soft: #14253D;
+  --accent-gold: #F0C65B;
+  --accent-gold-2: #F7D77E;
+  --accent-gold-soft: #2E2612;
+
+  --semantic-emerald: #5CE092;
+  --semantic-emerald-soft: #0E291B;
+  --semantic-emerald-border: #256142;
+  --semantic-amber: #FFC44D;
+  --semantic-amber-soft: #2E230F;
+  --semantic-amber-border: #694D19;
+  --semantic-danger: #FF8780;
+  --semantic-danger-soft: #331618;
+  --semantic-danger-border: #702B2F;
+  --semantic-neutral: #D4DCE8;
+  --semantic-neutral-soft: #1D2025;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-card-hover: 0 3px 10px rgba(0, 0, 0, 0.55);
+  --shadow-sheet: 0 8px 24px rgba(0, 0, 0, 0.65);
+  --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.78);
+  --focus-ring: 0 0 0 2px #0B0E13, 0 0 0 4px #7CB2FF;
+}
+
+/* Superfícies sólidas de alta densidade e números tabulares */
+html[data-design="cockpit"] body {
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-design="cockpit"] .case-hero-ribbon,
+html[data-design="cockpit"] .sidebar-nav,
+html[data-design="cockpit"] .card,
+html[data-design="cockpit"] .modal-dialog {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-design="cockpit"] .case-hero-ribbon {
+  min-height: var(--ribbon-height);
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+html[data-design="cockpit"] .workspace-layout {
+  align-items: stretch;
+  min-height: calc(100vh - var(--ribbon-height, 48px));
+}
+
+html[data-design="cockpit"] .sidebar-nav {
+  background: var(--bg-glass-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  padding: 12px 10px;
+  align-self: stretch;
+  min-height: calc(100vh - var(--ribbon-height, 48px));
+}
+
+html[data-design="cockpit"] .station-btn {
+  padding: 7px 9px;
+  border-radius: var(--radius-inner);
+}
+
+html[data-design="cockpit"] .station-btn.active {
+  border-left: 3px solid var(--accent-primary);
+  background: var(--accent-primary-soft);
+}
+
+html[data-design="cockpit"] .main-workspace {
+  padding: 12px 20px 48px;
+}
+
+html[data-design="cockpit"] .card {
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+/* Folha da sentença: largura útil >= 60ch garantida em 1366x768 (achado 2 da TASK-004) */
+html[data-design="cockpit"] .sentence-paper-wrapper {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-outer);
+}
+
+html[data-design="cockpit"] .sentence-paper-body {
+  max-width: 76ch;
+  margin-inline: auto;
+  padding: 28px 36px 48px;
+  line-height: 1.68;
+}
+
+/* Abaixo de 1440px, garante trilho lateral compacto e gavetas sobrepostas para nunca espremer a folha */
+@media (max-width: 1439px) {
+  html[data-design="cockpit"] {
+    --sidebar-width: 252px;
+  }
+  html[data-design="cockpit"] .sentence-paper-body {
+    padding: 24px 28px 44px;
+  }
+}
+
+/* Achado 2 (TASK-011): texto escuro (--text-on-accent = #09111E) sobre acentos claros no modo escuro (WCAG AA >= 8,7:1) */
+html[data-design="cockpit"][data-theme="dark"] .btn-primary,
+html[data-design="cockpit"][data-theme="dark"] .btn-gold,
+html[data-design="cockpit"][data-theme="dark"] .stepper-node.active,
+html[data-design="cockpit"][data-theme="dark"] .stepper-node.active .stepper-num,
+html[data-design="cockpit"][data-theme="dark"] .station-btn.active .station-icon-box,
+html[data-design="cockpit"][data-theme="dark"] .dosimetry-crime-tab.active,
+html[data-design="cockpit"][data-theme="dark"] .crime-pill.active {
+  color: var(--text-on-accent) !important;
+}
+
+html[data-design="cockpit"][data-theme="dark"] .btn-gold {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold-2);
+}
+
+html[data-design="cockpit"][data-theme="dark"] .btn-primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary-2);
+}
