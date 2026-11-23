@@ -33,6 +33,8 @@ def test_transcricao_sequencial_entrega_hotwords_ao_modelo(tmp_path, monkeypatch
 def test_modelo_automatico_depende_da_vram_e_respeita_preferencia(monkeypatch):
     from app.core import vram_manager as vram
 
+    # Simula placa NVIDIA independentemente do SO do runner (no macOS real o motor sempre usa a CPU).
+    monkeypatch.setattr(vram, "IS_MACOS", False)
     gpu = {"gpu_available": True, "vram_free_mb": 4800}
     fraca = {"gpu_available": True, "vram_free_mb": 2000}
     ausente = {"gpu_available": False}
@@ -51,6 +53,7 @@ def test_modelo_automatico_depende_da_vram_e_respeita_preferencia(monkeypatch):
 
 
 def test_modelo_resolvido_invalida_cache_da_configuracao_automatica(monkeypatch):
+    monkeypatch.setattr(at, "IS_MACOS", False)
     monkeypatch.setattr(at, "_cuda_disponivel", lambda: True)
     monkeypatch.setattr(at, "avaliar_whisper_vram", lambda *_a, **_kw: {"modelo": "turbo"})
     config = SimpleNamespace(whisper_model="auto", whisper_device="auto")
@@ -130,6 +133,9 @@ def test_cuda_falhando_recua_para_cpu_sem_perder_hotwords(tmp_path, monkeypatch)
     chamadas = []
     monkeypatch.setattr(at, "_CUDA_FALHOU", False)
     monkeypatch.setattr(at, "IS_MACOS", False)
+    from app.core import vram_manager as vram
+
+    monkeypatch.setattr(vram, "IS_MACOS", False)  # a decisão de dispositivo também consulta o SO
     monkeypatch.setattr(at, "_ISOLAR_CUDA", True)
     monkeypatch.setattr(at, "_cuda_disponivel", lambda: True)
     monkeypatch.setattr(at, "release_ollama_vram_for_whisper", lambda: True)
