@@ -239,13 +239,12 @@ class TestF08ExtratorTesesDefensivas:
         assert "SUB-01" in codigos
         assert "SUB-02" in codigos
 
-    def test_extracao_peca_generica_injeta_mer01(self):
-        # Peça defensiva que apenas pede absolvição geral sem teses específicas
-        conteudo_generico = "A Defesa vem requerer a improcedência da pretensão punitiva e a absolvição do denunciado."
-        pecas = [{"categoria": "ALEGACOES_FINAIS_DEFESA", "conteudo": conteudo_generico}]
+    def test_extracao_peca_generica_nao_injeta_mer01(self):
+        # TASK-041: peça defensiva sem tese reconhecida NÃO injeta MER-01 artificialmente.
+        conteudo_generico = "A Defesa vem manifestar-se nos termos da lei e requerer o que for de direito."
+        pecas = [{"categoria": "ALEGACOES_FINAIS_DEFESA", "conteudo": conteudo_generico, "doc_id": "ID-DEF-GEN"}]
         teses = extrair_teses_defensivas(pecas)
-        assert len(teses) >= 1
-        assert teses[0].codigo == "MER-01"
+        assert teses == []
 
     def test_extracao_vazia(self):
         assert extrair_teses_defensivas([]) == []
@@ -978,7 +977,7 @@ class TestIntegrationSectionalPipeline:
         with pytest.raises(DecisaoJudicialPendenteError):
             engine.executar_pipeline(bundle_caso_1)
         crimes = obter_contexto(bundle_caso_1).meta.crimes_imputados
-        override = {"crimes_config": [{"codigo": c, "veredicto": "condenar"} for c in crimes]}
+        override = {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
 
         sentenca = engine.executar_pipeline(bundle_caso_1, custom_dosimetria_override=override)
         assert sentenca is not None
@@ -1009,3 +1008,171 @@ class TestIntegrationSectionalPipeline:
         dossie = DossieRestricaoSecao(secao=SecaoTipo.RELATORIO, folhas_permitidas=[], fatos_delimitados=[], teses_defesa=[], diretrizes_jurisprudenciais=[])
         relatorio_util = criticar_secao(rascunho, dossie, use_ollama=False)
         assert isinstance(relatorio_util, RelatorioCriticaAdversarial)
+
+
+@pytest.mark.parametrize(
+    ("codigo", "tipo", "alegacao", "contexto"),
+    [
+        ("MER-11", "MERITO", "Sustenta a embriaguez fortuita como causa de isenção.",
+         "A testemunha descreveu sinais de embriaguez ao sair da festa."),
+        ("MER-12", "MERITO", "Pleiteia a semi-imputabilidade penal em razão do laudo.",
+         "A testemunha foi incapaz de entender a pergunta sobre o horário."),
+        ("MER-13", "MERITO", "Requer a desclassificação do art. 129, § 13, para o § 9º.",
+         "A denúncia transcreveu o § 13 e o § 9º do art. 129."),
+        ("MER-14", "MERITO", "Requer a desclassificação de lesão grave para lesão corporal leve.",
+         "O laudo explica a diferença entre lesão corporal grave e leve."),
+        ("MER-15", "MERITO", "Pede a extinção da punibilidade em razão do desinteresse da vítima.",
+         "A reconciliação posterior foi mencionada no histórico da relação."),
+        ("MER-16", "MERITO", "Invoca o princípio da insignificância para afastar a tipicidade.",
+         "A testemunha considerava a discussão insignificante."),
+        ("MER-17", "MERITO", "Sustenta o consentimento da vítima no descumprimento da medida protetiva.",
+         "A ofendida consentiu no ingresso da equipe de perícia."),
+        ("PREL-05", "PRELIMINAR", "Requer o reconhecimento da prescrição da pretensão punitiva.",
+         "Consta registro de interrupção do prazo para prescrição em outro feito."),
+        ("SUB-03", "SUBSIDIARIA", "Alega bis in idem na dosimetria pela dupla valoração da circunstância judicial.",
+         "Alega omissão de intimação para o cálculo posterior da pena."),
+    ],
+)
+def test_task044_catalogo_reconhece_alegacoes_atribuidas_a_defesa(codigo, tipo, alegacao, contexto):
+    defesa = {"categoria": "ALEGACOES_FINAIS_DEFESA", "doc_id": "ID-DEF-TESTE", "folha": "fl. 4"}
+    teses = extrair_teses_defensivas([{**defesa, "conteudo": alegacao}])
+    tese = next(t for t in teses if t.codigo == codigo)
+    assert tese.tipo == tipo
+    assert (tese.fonte_id, tese.folha, tese.trecho) == ("ID-DEF-TESTE", "fl. 4", alegacao)
+    if codigo in ("MER-13", "MER-14"):
+        assert all(t.codigo != "MER-06" for t in teses)
+
+    assert codigo not in {t.codigo for t in extrair_teses_defensivas([{**defesa, "conteudo": contexto}])}
+    mp = {"categoria": "ALEGACOES_FINAIS_MP", "conteudo": f"O MP comenta os memoriais da defesa. {alegacao}"}
+    assert not extrair_teses_defensivas([mp])
+
+
+@pytest.mark.parametrize(
+    "alegacao",
+    [
+        "O réu reagiu em defesa da sua honra após descobrir a traição.",
+        "A defesa sustenta que o ciúme justificou a agressão.",
+        "A suposta infidelidade torna a reação compreensível.",
+        "Pede que se atenue a pena diante da provocação moral da vítima.",
+        "A defesa invoca legítima defesa da honra como fundamento de absolvição.",
+    ],
+)
+def test_task044_tese_vedada_explicita_ou_dissimulada(alegacao):
+    teses = extrair_teses_defensivas([{
+        "categoria": "ALEGACOES_FINAIS_DEFESA", "conteudo": alegacao, "doc_id": "ID-DEF-TESTE",
+    }])
+    tese = next(t for t in teses if t.codigo == "VED-01")
+    assert tese.tipo == "VEDADA"
+    assert tese.trecho == alegacao
+    assert all(t.codigo != "MER-03" for t in teses)
+
+
+@pytest.mark.parametrize(
+    ("categoria", "texto", "codigos_esperados"),
+    [
+        ("DENUNCIA", "O réu, por ciúmes, ameaçou a vítima.", set()),
+        ("ALEGACOES_FINAIS_DEFESA", "Os depoentes mencionaram que o réu agiu por ciúmes.", set()),
+        ("ALEGACOES_FINAIS_DEFESA", "A defesa não invoca a legítima defesa da honra.", set()),
+        ("RESPOSTA_ACUSACAO", "Alega legítima defesa para repelir agressão injusta atual.", {"MER-03"}),
+        ("RESPOSTA_ACUSACAO", "Alega legítima defesa da honra. Sustenta também agressões recíprocas.", {"MER-03", "VED-01"}),
+    ],
+)
+def test_task044_honra_nao_se_confunde_com_narrativa_ou_legitima_defesa_comum(categoria, texto, codigos_esperados):
+    teses = extrair_teses_defensivas([{"categoria": categoria, "conteudo": texto}])
+    assert {t.codigo for t in teses} & {"MER-03", "VED-01"} == codigos_esperados
+
+
+@pytest.mark.parametrize(
+    ("texto", "repudio"),
+    [
+        ("A materialidade está demonstrada e a autoria foi atribuída ao acusado.", False),
+        ("A ADPF 779/STF consta do acervo. A defesa pediu absolvição.", False),
+        ("O Ministério Público rejeitou a legítima defesa da honra nos memoriais.", False),
+        ("A legítima defesa da honra não é manifestamente inconstitucional.", False),
+        ("A defesa alegou legítima defesa da honra, que rejeito à luz da ADPF 779/STF.", True),
+        ("Acolho a legítima defesa da honra por força da ADPF 779/STF.", False),
+        ("Não rejeito a legítima defesa da honra, invocada expressamente nos memoriais.", False),
+        ("Rejeito a legítima defesa da honra. Ainda assim, acolho a legítima defesa da honra.", False),
+        ("Rejeito a legítima defesa da honra. Ainda assim, a traição justificou a agressão.", False),
+        ("Repudio expressamente a legítima defesa da honra nos termos da ADPF 779/STF.", True),
+        ("A defesa invocou legítima defesa da honra. Essa tese é inadmissível conforme a ADPF 779/STF.", True),
+        ("A traição jamais justifica a agressão. Rejeito o argumento defensivo.", True),
+    ],
+)
+def test_task044_crivos_exigem_repudio_da_ved_01(texto, repudio):
+    from app.generation.hallucination_auditor import auditar_secao_merito, auditar_sentenca
+    from app.generation.sectional_pipeline import default_in_flight_gating_validator
+
+    teses = extrair_teses_defensivas([{
+        "categoria": "ALEGACOES_FINAIS_DEFESA",
+        "conteudo": "O réu reagiu em defesa da sua honra após descobrir a traição.",
+    }])
+    assert [t.codigo for t in teses] == ["VED-01"]
+    rascunho = SecaoRascunho(secao=SecaoTipo.MERITO, texto_redigido=texto)
+    dossie = DossieRestricaoSecao(
+        secao=SecaoTipo.MERITO, folhas_permitidas=[], fatos_delimitados=[],
+        teses_defesa=[f"{t.codigo}: {t.titulo}" for t in teses], diretrizes_jurisprudenciais=[],
+    )
+    critico = AdversarialJudicialCritic(use_ollama=False)
+    critica = critico.criticar_secao(rascunho, dossie)
+    assert (not any("VED-01" in item.descricao for item in critica.itens)) == repudio
+    secao = auditar_secao_merito(texto, [], teses)
+    assert (not any("repúdio" in erro.lower() for erro in secao.erros)) == repudio
+    integral = auditar_sentenca(texto, [], teses)
+    assert (not integral.teses_omitidas and integral.conformidade_estilo_cnj_amb) == repudio
+    gating = default_in_flight_gating_validator(SecaoTipo.MERITO, rascunho, dossie)
+    assert (not any("VED-01" in erro for erro in gating.erros)) == repudio
+
+
+def test_task044_omissao_de_repudio_nao_e_aprovada_pelo_llm(monkeypatch):
+    critico = AdversarialJudicialCritic(use_ollama=False)
+    critico.use_ollama = True
+    llm = MagicMock()
+    monkeypatch.setattr(critico, "_avaliar_llm", llm)
+    rascunho = SecaoRascunho(
+        secao=SecaoTipo.MERITO,
+        texto_redigido="A materialidade foi demonstrada e o juízo passa ao exame da autoria.",
+    )
+    dossie = DossieRestricaoSecao(
+        secao=SecaoTipo.MERITO, folhas_permitidas=[], fatos_delimitados=[],
+        teses_defesa=["VED-01: Legítima Defesa da Honra — Tese Vedada"], diretrizes_jurisprudenciais=[],
+    )
+    assert critico.criticar_secao(rascunho, dossie).tem_falha_critica()
+    llm.assert_not_called()
+
+
+def test_task044_classificador_preserva_ved_01_nos_metadados_e_pedidos():
+    from app.ingestion.laya_classifier import extrair_metadados_processo
+
+    texto = "A defesa sustenta que o acusado reagiu em defesa da sua honra após descobrir a traição."
+    peca = PecaClassificada(
+        doc_id="ID-DEF-TESTE",
+        folha="fl. 4",
+        titulo="Memoriais da Defesa",
+        data_peca="",
+        fase="INSTRUCAO",
+        categoria="ALEGACOES_FINAIS_DEFESA",
+        laya_confidence=0.98,
+        resumo_estruturado="Memoriais com pedido defensivo",
+        conteudo=texto,
+    )
+    meta = extrair_metadados_processo([peca])
+    tese = next(t for t in meta.teses_defesa if t.codigo == "VED-01")
+    pedido = next(p for p in meta.pedidos_defesa if p.tipo == "VED-01")
+    assert tese.tipo == "VEDADA"
+    assert pedido.fonte_id == peca.doc_id
+    assert pedido.folha == peca.folha
+    assert pedido.trecho == texto
+
+
+def test_task044_relatorio_pode_atribuir_o_argumento_a_defesa_sem_acolhe_lo():
+    from app.generation.hallucination_auditor import auditar_secao_relatorio
+
+    mencao = "A defesa, em seus memoriais, alegou legítima defesa da honra como fundamento do pedido."
+    teses = ["VED-01: Legítima Defesa da Honra — Tese Vedada"]
+    auditoria = auditar_secao_relatorio(mencao, [], teses)
+    assert auditoria.conformidade_estilo_cnj_amb
+
+    acolhimento = "Acolho a legítima defesa da honra invocada pela defesa como causa de justificação."
+    auditoria = auditar_secao_relatorio(acolhimento, [], teses)
+    assert not auditoria.conformidade_estilo_cnj_amb

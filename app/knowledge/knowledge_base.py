@@ -109,7 +109,7 @@ _URL_SCON_STJ = "https://scon.stj.jus.br"
 _URL_TJRN = "https://www.tjrn.jus.br"
 _URL_STF_TEMA_1370 = "https://portal.stf.jus.br/jurisprudenciaRepercussao/tema.asp?num=1370"
 _URL_STF_TEMA_1412 = "https://portal.stf.jus.br/jurisprudenciaRepercussao/tema.asp?num=1412"
-_URL_STF_ADPF_779 = "https://portal.stf.jus.br/processos/detalhe.asp?incidente=6079238"
+_URL_STF_ADPF_779 = "https://portal.stf.jus.br/noticias/verNoticiaDetalhe.asp?idConteudo=511556"
 _URL_STF_ADC_19 = "https://portal.stf.jus.br/processos/detalhe.asp?incidente=2584650"
 _URL_STF_ADI_4424 = "https://portal.stf.jus.br/processos/detalhe.asp?incidente=3897992"
 _URL_BDJUR_STJ = "https://bdjur.stj.jus.br"
@@ -128,8 +128,7 @@ def _verif(status: str, fonte_url: str) -> Dict[str, str]:
 
 
 # Base Consolidada e Verificada de Jurisprudência, Súmulas, Temas e Normas (STF, STJ, FONAVID, TJRN e CNJ)
-# NOTA DE COMPATIBILIDADE: Os índices 0 a 10 são estritamente preservados para compatibilidade
-# com chamadas legadas que indexavam SUMULAS_E_TEMAS_VERIFICADOS por posição.
+# Acesso sempre por ID via obter_item_oficial_por_id() — nunca por índice posicional.
 SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
     # 0
     {
@@ -142,6 +141,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "A suspensão condicional do processo e a transação penal não se aplicam na hipótese de delitos sujeitos ao rito da Lei Maria da Penha.",
         "materia": "Processo Penal e Juizados Especiais",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 23/10/2015)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em 16 sentenças.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -156,6 +156,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "A ação penal relativa ao crime de lesão corporal resultante de violência doméstica contra a mulher é pública incondicionada.",
         "materia": "Ação Penal e Condição de Procedibilidade",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 01/10/2015)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): 11 citações à súmula. Em 43 sentenças sobre retratação ou reconciliação, perdão ou retomada da convivência não afastam a ação penal pública incondicionada (ver também ADI 4.424/STF) nem autorizam a insignificância (Súmula 589/STJ).",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -170,6 +171,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "A prática de crime ou contravenção penal contra a mulher com violência ou grave ameaça no ambiente doméstico impossibilita a substituição da pena privativa de liberdade por restritiva de direitos.",
         "materia": "Execução Penal e Penas Alternativas",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 23/02/2017)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): cerca de 116 citações à súmula. Em 72 sentenças sobre substituição e sursis, a violência ou grave ameaça impede a substituição (art. 44, I, do CP), e a suspensão condicional da pena é examinada separadamente (art. 77 do CP).",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -184,6 +186,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "É inaplicável o princípio da insignificância nos crimes ou contravenções penais praticados contra a mulher no âmbito das relações domésticas.",
         "materia": "Tipicidade Material e Bagatela",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 23/02/2017)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): 13 citações à súmula e 16 sentenças sobre a inaplicabilidade da insignificância.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -198,6 +201,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Para a configuração da violência doméstica e familiar prevista no artigo 5º da Lei n. 11.340/2006 (Lei Maria da Penha) não se exige a coabitação entre autor e vítima.",
         "materia": "Competência e Âmbito de Aplicação da LMP",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 24/11/2017)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em 15 sentenças.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -212,6 +216,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "A incidência da circunstância atenuante não pode conduzir à redução da pena abaixo do mínimo legal.",
         "materia": "Dosimetria da Pena (Segunda Fase)",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJ 15/10/1999)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em cerca de 46 sentenças.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -226,6 +231,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "É vedada a utilização de inquéritos policiais e ações penais em curso para agravar a pena-base.",
         "materia": "Dosimetria da Pena (Primeira Fase)",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 13/05/2010)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): cerca de 29 citações à súmula. Sobre maus antecedentes, ver também o Tema 129/STF. A suficiência da folha de antecedentes para comprovar a reincidência é objeto da Súmula 636/STJ.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -240,6 +246,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Quando a confissão for utilizada para a formação do convencimento do julgador, o réu fará jus à atenuante prevista no art. 65, III, d, do Código Penal.",
         "materia": "Dosimetria da Pena (Atenuantes)",
         "fonte_oficial": "Súmula da Terceira Seção do STJ (DJe 03/08/2015)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): cerca de 24 citações à súmula. Em 89 sentenças sobre confissão, a atenuante do art. 65, III, d, do CP é reconhecida quando a confissão é usada na condenação, em regra à fração de 1/6, com possibilidade de compensação e observância do mínimo legal (Súmula 231/STJ).",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -254,6 +261,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Nos casos de violência contra a mulher praticados no âmbito doméstico e familiar, é possível a fixação de valor mínimo indenizatório a título de dano moral, desde que haja pedido expresso da acusação ou da parte ofendida, ainda que não especificada a quantia, e independentemente de instrução probatória.",
         "materia": "Reparação de Danos (Art. 387, IV, CPP)",
         "fonte_oficial": "STJ, Terceira Seção, REsp 1.643.051/MS e REsp 1.675.874/MS, Rel. Min. Rogerio Schietti Cruz, j. 28/02/2018, DJe 08/03/2018",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): cerca de 97 citações ao tema e 98 sentenças sobre dano moral mínimo. A amostra registra fixação sem instrução específica quando há pedido expresso na denúncia. Sem pedido, não há fixação. Correção monetária pela Súmula 362/STJ e juros pela Súmula 54/STJ. Os paradigmas REsp 1.675.874/MS e REsp 1.643.051/MS foram citados em cerca de 21 e 13 sentenças, respectivamente.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _url_tema_stj(983)),
     },
@@ -282,6 +290,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Determina a adoção obrigatória das diretrizes do Protocolo para Julgamento com Perspectiva de Gênero em todo o Poder Judiciário brasileiro, conferindo especial relevância à palavra da mulher vítima em crimes praticados na clandestinidade doméstica e vedando estereótipos de gênero na valoração probatória.",
         "materia": "Hermenêutica Forense e Valoração Probatória",
         "fonte_oficial": "Resolução nº 492/2023 do Conselho Nacional de Justiça",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): cerca de 17 citações à resolução e 27 sentenças sobre julgamento com perspectiva de gênero. O Protocolo é aplicado com observância das garantias processuais e do art. 155 do CPP.",
         "natureza": "RESUMO",
         "verificacao": _verif("verificado", _URL_CNJ_RES_492),
     },
@@ -478,37 +487,18 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "tribunal": "STF",
         "referencia": "ADPF 779/STF",
         "titulo": "Inconstitucionalidade e Nulidade Absoluta da Tese da Legítima Defesa da Honra",
-        "texto_literal": "É inconstitucional a tese da legítima defesa da honra por afrontar a dignidade da pessoa humana, a proteção à vida e a igualdade de gênero. É vedada a sua invocação direta ou indireta por qualquer das partes ou pela autoridade judicial em qualquer fase processual, sob pena de nulidade absoluta do ato e do julgamento.",
+        "texto_literal": (
+            "O STF declarou inconstitucional a tese da legítima defesa da honra, por contrariar a dignidade da pessoa humana, "
+            "a proteção à vida e a igualdade de gênero, e a excluiu do âmbito do instituto da legítima defesa. Nos crimes de "
+            "feminicídio ou de agressão contra mulheres, a defesa, a acusação, a autoridade policial e o juízo não podem "
+            "utilizá-la, direta ou indiretamente, nas fases pré-processual ou processual penal nem no julgamento do Tribunal "
+            "do Júri, sob pena de nulidade do ato e do julgamento."
+        ),
         "materia": "Excludente Inconstitucional e Direitos Fundamentais",
-        "fonte_oficial": "STF, Plenário, ADPF 779/DF, Rel. Min. Dias Toffoli, j. 01/08/2023 (DJe 17/10/2023)",
+        "fonte_oficial": "STF, Plenário, ADPF 779/DF, Rel. Min. Dias Toffoli, mérito julgado em 01/08/2023, por unanimidade",
+        "observacao": "A ADPF 779 veda a legítima defesa da honra em qualquer fase, inclusive de forma indireta. Ciúme, suspeita de traição, término do relacionamento ou conduta da vítima não justificam a agressão nem atenuam sua reprovação. Na amostra do 1º grau do TJRN (2024–2026), 45 sentenças abordaram agressões recíprocas ou legítima defesa comum. O art. 25 do CP exige prova de seus requisitos, e a versão isolada do réu não basta.",
         "natureza": "RESUMO",
-        "verificacao": _verif("parcial", _URL_STF_ADPF_779),
-    },
-    {
-        "id": "TEMA-1412-STF",
-        "tipo": "REPERCUSSAO_GERAL_STF",
-        "categoria": "STF_VINCULANTE",
-        "tribunal": "STF",
-        "referencia": "Tema 1412/STF",
-        "titulo": "Abrangência das Medidas Protetivas em Violência de Gênero (Pendente de Conferência da Tese)",
-        "texto_literal": "Item pendente de conferência da tese oficial publicada no portal do STF (ARE 1.537.713, Tema 1412 da Repercussão Geral). Não utilizar como citação literal até confirmação na fonte primária.",
-        "materia": "Medidas Protetivas e Tutela Ampla de Gênero",
-        "fonte_oficial": "STF, ARE 1.537.713 (Tema 1412 da Repercussão Geral — pendente de confirmação da tese publicada)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_STF_TEMA_1412),
-    },
-    {
-        "id": "TEMA-1370-STF",
-        "tipo": "REPERCUSSAO_GERAL_STF",
-        "categoria": "STF_VINCULANTE",
-        "tribunal": "STF",
-        "referencia": "Tema 1370/STF",
-        "titulo": "Afastamento do Trabalho (Art. 9º, § 2º, II, LMP) e Competência do Juízo Estadual Criminal",
-        "texto_literal": "Compete ao juízo estadual, no exercício da jurisdição criminal, especialmente aquele responsável pela aplicação da Lei nº 11.340/2006 (Lei Maria da Penha), fixar a medida protetiva prevista no art. 9º, § 2º, II, da referida lei, inclusive quanto à requisição de pagamento de prestação pecuniária em favor da vítima afastada do local de trabalho, ainda que o cumprimento material da decisão fique sob o encargo do INSS e do empregador.",
-        "materia": "Afastamento do Trabalho e Competência Especializada",
-        "fonte_oficial": "STF, Plenário, RE 1.520.468/PR (Tema 1370 da Repercussão Geral), Rel. Min. Flávio Dino",
-        "natureza": "RESUMO",
-        "verificacao": _verif("parcial", _URL_STF_TEMA_1370),
+        "verificacao": _verif("verificado", _URL_STF_ADPF_779),
     },
     # Jurisprudência em Teses do STJ — Edição nº 41 (revisada em 16/12/2022, literais verificados)
     # Notas: Tese 4 = Súmula 600/STJ; Tese 5 superada (AgRg na MPUMP 6/DF); Tese 9 superada (Lei 13.641/2018);
@@ -627,6 +617,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Nos crimes praticados no âmbito doméstico e familiar, a palavra da vítima tem especial relevância para fundamentar o recebimento da denúncia ou a condenação, pois normalmente são cometidos sem a presença de testemunhas.",
         "materia": "Valoração Probatória e Depoimento da Vítima",
         "fonte_oficial": "STJ, Jurisprudência em Teses, Edição n. 41 (Violência doméstica e familiar contra mulher), tese 13, revisada em 16/12/2022",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): em 161 sentenças, a clandestinidade do fato confere relevo ao relato da vítima quando firme, coerente e corroborado por elementos como laudo, prontuário, depoimentos policiais ou mídias. O HC 615.661/MS (STJ, 6ª Turma, j. 24/11/2020) foi citado em 9 sentenças da amostra e aguarda conferência da ementa oficial no SCON/STJ para eventual inclusão autônoma.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_TESES_41),
     },
@@ -642,46 +633,6 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "fonte_oficial": "STJ, Jurisprudência em Teses, Edição n. 41 (Violência doméstica e familiar contra mulher), tese 16, revisada em 16/12/2022",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_TESES_41),
-    },
-    # Edição 205: pendente de conferência na fonte primária (mantida apenas visível no painel, sem citação automática)
-    {
-        "id": "TESE-STJ-ED205-01",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "STJ - Jurisprudência em Teses - Edição 205 - Tese 1",
-        "titulo": "Natureza Jurídica Cautelar Penal das Medidas Protetivas (Pendente de Conferência)",
-        "texto_literal": "As medidas protetivas de urgência previstas no art. 22, incisos I, II e III, da Lei nº 11.340/2006 possuem natureza jurídica de medidas cautelares penais, razão pela qual a competência para sua apreciação e fiscalização é das varas criminais e dos juizados especializados.",
-        "materia": "Natureza Cautelar Penal das Medidas Protetivas",
-        "fonte_oficial": "STJ, Jurisprudência em Teses, Edição nº 205 (pendente de conferência na fonte primária)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
-    },
-    {
-        "id": "TESE-STJ-ED205-02",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "STJ - Jurisprudência em Teses - Edição 205 - Tese 2",
-        "titulo": "Natureza Satisfativa e Autonomia das Medidas Protetivas (Pendente de Conferência)",
-        "texto_literal": "As medidas protetivas impostas pela prática de violência doméstica e familiar contra a mulher possuem natureza satisfativa, motivo pelo qual podem ser pleiteadas de forma autônoma, independentemente da existência de outras ações judiciais ou inquérito policial.",
-        "materia": "Autonomia e Natureza Satisfativa das Medidas Protetivas",
-        "fonte_oficial": "STJ, Jurisprudência em Teses, Edição nº 205 (pendente de conferência na fonte primária)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
-    },
-    {
-        "id": "TESE-STJ-ED205-03",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "STJ - Jurisprudência em Teses - Edição 205 - Tese 3",
-        "titulo": "Aplicabilidade das Medidas Protetivas da LMP a Mulheres Trans (Pendente — ver STJ-RESP-1977124-SP)",
-        "texto_literal": "As medidas protetivas previstas na Lei n. 11.340/2006 são aplicáveis às mulheres trans, travestis e transgêneros em situação de violência doméstica, afastado o aspecto meramente biológico e priorizada a identidade de gênero.",
-        "materia": "Identidade de Gênero e Tutela Protetiva da Mulher Trans",
-        "fonte_oficial": "STJ, Jurisprudência em Teses, Edição nº 205 (pendente de conferência; precedente verificado em STJ-RESP-1977124-SP)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
     },
     # Precedentes Verificados do STJ e do STF (Anexo B.3)
     {
@@ -1466,59 +1417,6 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_FONAVID),
     },
-    # Precedentes da Câmara Criminal do TJRN (pendentes de conferência no PJe/jurisprudência do TJRN pelo gabinete)
-    {
-        "id": "TJRN-AP-0801498-50",
-        "tipo": "PRECEDENTE_TJRN",
-        "categoria": "TJRN",
-        "tribunal": "TJRN",
-        "referencia": "TJRN - Apelação Criminal nº 0801498-50.2023.8.20.5114",
-        "titulo": "Especial Relevância da Palavra da Vítima e Rejeição de Legítima Defesa Isolada",
-        "texto_literal": "Em crimes praticados no âmbito doméstico e familiar contra a mulher (arts. 129 e 147 do Código Penal), a palavra da vítima assume especial relevância probatória, de modo que declarações seguras, lineares e corroboradas por exame pericial e mídia audiovisual afastam peremptoriamente a versão isolada de legítima defesa e fragilidade de provas invocada pela defesa técnica.",
-        "materia": "Palavra da Vítima e Prova Testemunhal",
-        "fonte_oficial": "TJRN, Câmara Criminal, Apelação Criminal nº 0801498-50.2023.8.20.5114, Rel. Des. Ricardo Procópio Bandeira de Melo, julgado em 18/12/2025",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_TJRN),
-    },
-    {
-        "id": "TJRN-AP-0800504-82",
-        "tipo": "PRECEDENTE_TJRN",
-        "categoria": "TJRN",
-        "tribunal": "TJRN",
-        "referencia": "TJRN - Apelação Criminal nº 0800504-82.2024.8.20.5115",
-        "titulo": "Dosimetria na Lesão Corporal Qualificada (Art. 129, § 13, CP) e Valoração de Vetores do Art. 59",
-        "texto_literal": "No crime de lesão corporal qualificada contra a mulher (art. 129, § 13, do CP), é plenamente legítima a valoração negativa do vetor motivos da conduta (inconformismo egoístico com término da relação ou sentimento de posse) e das circunstâncias do crime (quando cometido na presença de filhos menores da ofendida), observando-se a proporcionalidade da fração na fixação da pena-base.",
-        "materia": "Dosimetria da Pena (Art. 59 do CP)",
-        "fonte_oficial": "TJRN, Câmara Criminal, Apelação Criminal nº 0800504-82.2024.8.20.5115, Rel. Des. Ricardo Procópio Bandeira de Melo, julgado em 26/01/2026",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_TJRN),
-    },
-    {
-        "id": "TJRN-AP-0859338-03",
-        "tipo": "PRECEDENTE_TJRN",
-        "categoria": "TJRN",
-        "tribunal": "TJRN",
-        "referencia": "TJRN - Apelação Criminal nº 0859338-03.2022.8.20.5001",
-        "titulo": "Suficiência Probatória e Valoração Forense no Juizado da Comarca de Natal",
-        "texto_literal": "Comprovadas a autoria e materialidade delitiva por meio de laudo pericial oficial e firme depoimento da ofendida colhido em audiência de instrução e julgamento perante o Juizado de Violência Doméstica da Comarca de Natal, impõe-se a manutenção integral da sentença condenatória penal.",
-        "materia": "Comarca de Natal e Instrução Probatória",
-        "fonte_oficial": "TJRN, Câmara Criminal, Apelação Criminal nº 0859338-03.2022.8.20.5001, Relatora Desa. Suzana Paula de Araújo Dantas Correa, julgado em 13/10/2026",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_TJRN),
-    },
-    {
-        "id": "TJRN-AP-2015-012842-1",
-        "tipo": "PRECEDENTE_TJRN",
-        "categoria": "TJRN",
-        "tribunal": "TJRN",
-        "referencia": "TJRN - Apelação Criminal nº 2015.012842-1",
-        "titulo": "Inadmissibilidade de Desclassificação para Vias de Fato e Vedação de Benefícios da Lei 9.099/95",
-        "texto_literal": "Havendo demonstração técnica de ofensa à integridade corporal da vítima decorrente de agressão física doméstica, inviável a desclassificação para a contravenção penal de vias de fato. Incide a vedação expressa do art. 41 da Lei nº 11.340/2006, obstando transação penal ou suspensão condicional do processo.",
-        "materia": "Desclassificação Vias de Fato, Art. 41 LMP e Inaplicabilidade de Insignificância",
-        "fonte_oficial": "TJRN, Câmara Criminal, Apelação Criminal nº 2015.012842-1, Rel. Des. Gilson Barbosa, julgado em 23/08/2016",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_TJRN),
-    },
     # Súmulas e Temas Incorporados dos Modelos de Sentença
     {
         "id": "SUMULA-54-STJ",
@@ -1530,6 +1428,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "Os juros moratórios fluem a partir do evento danoso, em caso de responsabilidade extracontratual.",
         "materia": "Reparação de Danos Morais (Art. 387, IV, CPP e Art. 398 CC)",
         "fonte_oficial": "Súmula da Segunda Seção do STJ (DJ 01/10/1992)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em cerca de 23 sentenças.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -1543,6 +1442,7 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "texto_literal": "A correção monetária do valor da indenização do dano moral incide desde a data do arbitramento.",
         "materia": "Reparação de Danos Morais e Atualização Monetária (Art. 387, IV, CPP)",
         "fonte_oficial": "Súmula da Corte Especial do STJ (DJe 03/11/2008)",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em cerca de 29 sentenças.",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
@@ -1558,59 +1458,6 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "fonte_oficial": "STJ, Terceira Seção, REsp 1.947.845/SP e REsp 1.931.145/SP (revisão do Tema 585), Rel. Min. Sebastião Reis Júnior, j. 22/06/2022, DJe 24/06/2022",
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _url_tema_stj(585)),
-    },
-    # Acórdãos do STJ pendentes de conferência no SCON (mantidos visíveis no painel, sem citação automática)
-    {
-        "id": "STJ-AGRG-ARESP-2196736-PR",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "AgRg no AREsp 2.196.736/PR",
-        "titulo": "Especial Relevância da Palavra da Vítima Corroborada por Laudo Pericial e Depoimentos Policiais",
-        "texto_literal": "Nos crimes praticados no âmbito de violência doméstica e familiar contra a mulher, a palavra da vítima possui especial relevância probatória, sobretudo quando firme, coesa e harmônica com os demais elementos de convicção constantes dos autos, tais como o laudo pericial e os depoimentos dos policiais que atenderam à ocorrência.",
-        "materia": "Valoração Probatória, Palavra da Vítima e Depoimentos Policiais",
-        "fonte_oficial": "STJ, AgRg no AREsp n. 2.196.736/PR, Sexta Turma, DJe de 10/03/2023 (pendente de conferência no SCON)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
-    },
-    {
-        "id": "STJ-AGRG-HC-687211-SC",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "AgRg no HC 687.211/SC",
-        "titulo": "Inaplicabilidade do Princípio da Consunção entre Violação de Domicílio e Lesão Corporal ou Ameaça",
-        "texto_literal": "A jurisprudência desta Corte Superior é firme no sentido de que não se aplica o princípio da consunção entre o delito de violação de domicílio e os crimes de lesão corporal ou ameaça praticados no contexto de violência doméstica, porquanto tutelam bens jurídicos diversos e a invasão domiciliar não se configura como meio necessário para a prática das demais infrações.",
-        "materia": "Violação de Domicílio (Art. 150 CP), Concurso Material e Consunção",
-        "fonte_oficial": "STJ, AgRg no HC n. 687.211/SC, Quinta Turma, DJe de 15/10/2021 (pendente de conferência no SCON; ver STJ-INFO-846-CONSUNCAO)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
-    },
-    {
-        "id": "STJ-AGRG-ARESP-2036512-SP",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "AgRg no AREsp 2.036.512/SP",
-        "titulo": "Irrelevância do Estado de Ânimo Exaltado, Raiva ou Ciúme para Configuração do Dolo no Crime de Ameaça",
-        "texto_literal": "O entendimento desta Corte Superior é firme no sentido de que o estado de ânimo exaltado, a raiva ou o ciúme não afastam o dolo do crime de ameaça praticado no âmbito de violência doméstica e familiar contra a mulher, desde que a promessa de mal injusto e grave possua idoneidade intimidatória, como verificado na espécie.",
-        "materia": "Crime de Ameaça (Art. 147 CP) e Estado de Ânimo Exaltado",
-        "fonte_oficial": "STJ, AgRg no AREsp n. 2.036.512/SP, Quinta Turma, DJe de 13/06/2022 (pendente de conferência no SCON; ver STJ-CE-AMEACA-COLERA)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
-    },
-    {
-        "id": "STJ-AGRG-HC-698316-SC",
-        "tipo": "TESE_JURISPRUDENCIA_STJ",
-        "categoria": "TESES_STJ",
-        "tribunal": "STJ",
-        "referencia": "AgRg no HC 698.316/SC",
-        "titulo": "Vedação de Substituição por Restritivas (Súmula 588/STJ) e Cabimento do Sursis Penal (Art. 77 do CP)",
-        "texto_literal": "PENAL. AGRAVO REGIMENTAL NO HABEAS CORPUS. LESÃO CORPORAL NO ÂMBITO DE VIOLÊNCIA DOMÉSTICA. SUBSTITUIÇÃO DA PENA PRIVATIVA DE LIBERDADE POR RESTRITIVA DE DIREITOS. IMPOSSIBILIDADE. SÚMULA N. 588/STJ. SURSIS PENAL. ART. 77 DO CÓDIGO PENAL. POSSIBILIDADE DE ANÁLISE DOS REQUISITOS.",
-        "materia": "Suspensão Condicional da Pena (Sursis Penal — Art. 77 CP) e Súmula 588/STJ",
-        "fonte_oficial": "STJ, AgRg no HC n. 698.316/SC, Quinta Turma, DJe de 19/11/2021 (pendente de conferência no SCON)",
-        "natureza": "RESUMO",
-        "verificacao": _verif("pendente", _URL_SCON_STJ),
     },
     # Citadas pelo motor de dosimetria (prescrição por crime e fração da continuidade delitiva)
     {
@@ -1639,6 +1486,118 @@ SUMULAS_E_TEMAS_VERIFICADOS: List[Dict[str, Any]] = [
         "natureza": "LITERAL",
         "verificacao": _verif("verificado", _URL_STJ_SUMULAS),
     },
+    {
+        "id": "SUMULA-636-STJ",
+        "tipo": "SUMULA_STJ",
+        "categoria": "SUMULAS",
+        "tribunal": "STJ",
+        "referencia": "Súmula 636/STJ",
+        "titulo": "Folha de Antecedentes Criminais como Prova dos Maus Antecedentes e da Reincidência",
+        "texto_literal": "A folha de antecedentes criminais é documento suficiente a comprovar os maus antecedentes e a reincidência.",
+        "materia": "Dosimetria da Pena (Primeira e Segunda Fases)",
+        "fonte_oficial": "STJ, Terceira Seção, Súmula 636, DJe 27/06/2019",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em 6 sentenças. A folha deve indicar o trânsito em julgado. A prova pode ser questionada se a folha estiver incompleta.",
+        "natureza": "LITERAL",
+        "verificacao": _verif("verificado", "https://scon.stj.jus.br/SCON/sumstj/toc.jsp?sumula=636.num."),
+    },
+    {
+        "id": "TEMA-129-STF",
+        "tipo": "TEMA_REPERCUSSAO_GERAL_STF",
+        "categoria": "STF_VINCULANTE",
+        "tribunal": "STF",
+        "referencia": "Tema 129/STF",
+        "titulo": "Inquéritos e Ações Penais sem Trânsito em Julgado na Dosimetria",
+        "texto_literal": "A existência de inquéritos policiais ou de ações penais sem trânsito em julgado não pode ser considerada como maus antecedentes para fins de dosimetria da pena.",
+        "materia": "Dosimetria da Pena (Primeira Fase)",
+        "fonte_oficial": "STF, Tema 129 da repercussão geral, RE 591.054, j. 17/12/2014",
+        "observacao": "Amostra do 1º grau do TJRN (2024–2026): precedente citado em 7 sentenças. Ver também a Súmula 444/STJ.",
+        "natureza": "LITERAL",
+        "verificacao": _verif("verificado", "https://noticias.stf.jus.br/?p=36083"),
+    },
+    {
+        "id": "TJRN-1G-INSUFICIENCIA-PROBATORIA",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — In Dubio Pro Reo na Valoração da Palavra da Vítima",
+        "titulo": "In Dubio Pro Reo na Valoração da Palavra da Vítima",
+        "texto_literal": "O in dubio pro reo é afastado quando a palavra da vítima encontra corroboração. Se o relato é isolado ou contraditório e a prova é insuficiente, aplica-se o art. 386, VII, do CPP.",
+        "materia": "Valoração Probatória e Absolvição",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "73 sentenças tratam do tema.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
+    {
+        "id": "TJRN-1G-EMBRIAGUEZ-VOLUNTARIA",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — Embriaguez Voluntária e Imputabilidade",
+        "titulo": "Embriaguez Voluntária e Imputabilidade",
+        "texto_literal": "A embriaguez voluntária não exclui a imputabilidade (art. 28, II, do CP, actio libera in causa).",
+        "materia": "Imputabilidade Penal",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "41 sentenças tratam do tema.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
+    {
+        "id": "TJRN-1G-DESCLASSIFICACAO",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — Desclassificação da Lesão Corporal",
+        "titulo": "Desclassificação da Lesão Corporal",
+        "texto_literal": "As sentenças examinam os pedidos de desclassificação à luz da prova pericial, como na passagem do § 13 para o § 9º do art. 129 do CP ou de lesão grave para leve na falta de laudo complementar.",
+        "materia": "Lesão Corporal e Prova Pericial",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "50 sentenças tratam do tema.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
+    {
+        "id": "TJRN-1G-BIS-IN-IDEM",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — Bis in Idem na Dosimetria",
+        "titulo": "Bis in Idem na Dosimetria",
+        "texto_literal": "A motivação de gênero já contida na qualificadora (art. 147, § 1º, ou art. 129, § 13, do CP) não pode ser valorada novamente como circunstância judicial. Para a agravante do art. 61, II, f, do CP, ver o Tema 1.197/STJ.",
+        "materia": "Dosimetria da Pena (Primeira Fase)",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "37 sentenças tratam do tema.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
+    {
+        "id": "TJRN-1G-CIENCIA-MPU",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — Ciência Prévia da Medida Protetiva",
+        "titulo": "Ciência Prévia da Medida Protetiva",
+        "texto_literal": "As sentenças examinadas exigem prova de ciência inequívoca da medida protetiva mediante intimação pessoal anterior ao fato.",
+        "materia": "Descumprimento de Medida Protetiva (Art. 24-A da Lei Maria da Penha)",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "Amostra sem contagem específica informada para o tema.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
+    {
+        "id": "TJRN-1G-CONCURSO-MATERIAL",
+        "tipo": "PRATICA_1G_TJRN",
+        "categoria": "TJRN",
+        "tribunal": "TJRN",
+        "referencia": "TJRN — Síntese do 1º grau — Concurso Material em Condutas Autônomas",
+        "titulo": "Concurso Material em Condutas Autônomas",
+        "texto_literal": "As sentenças aplicam o concurso material e somam as penas quando ameaça e dano ou lesão e ameaça decorrem de condutas autônomas (art. 69 do CP).",
+        "materia": "Concurso de Crimes (Art. 69 do CP)",
+        "fonte_oficial": "Banco de Jurisprudência do TJRN, sentenças de 1º grau, amostra de 295 (2024–2026)",
+        "observacao": "Recorrência em várias sentenças, sem contagem específica informada.",
+        "natureza": "SINTESE_DO_ENTENDIMENTO",
+        "verificacao": _verif("verificado", "https://jurisprudencia.tjrn.jus.br/"),
+    },
 ]
 
 #: Enunciados FONAVID revogados (não podem constar no acervo vigente).
@@ -1658,19 +1617,6 @@ DOUTRINA_VERIFICADA: List[Dict[str, Any]] = [
             "a palavra da ofendida assume especial relevo probatório quando coerente e corroborada pelos demais elementos indiciários e periciais dos autos."
         ),
         "verificacao": _verif("verificado", _URL_BDJUR_STJ),
-    },
-    {
-        "id": "DOUT-02",
-        "autor": "Valéria Diez Scarance Fernandes",
-        "obra": "Lei Maria da Penha: O Processo Penal no Caminho da Efetividade (Ed. Atlas)",
-        "referencia_abnt": "FERNANDES, Valéria Diez Scarance. Lei Maria da Penha: o processo penal no caminho da efetividade. São Paulo: Atlas, 2015.",
-        "tema": "Natureza Autônoma das Medidas Protetivas e Crime do Art. 24-A",
-        "natureza": "SINTESE_DO_ENTENDIMENTO",
-        "sintese": (
-            "O crime de descumprimento de medida protetiva de urgência (art. 24-A da Lei nº 11.340/2006) tutela simultaneamente a administração da justiça e a incolumidade "
-            "física e psíquica da mulher em situação de violência, consumando-se quando o agente, ciente da ordem judicial, transgride as proibições impostas."
-        ),
-        "verificacao": _verif("parcial", _URL_BDJUR_STJ),
     },
     {
         "id": "DOUT-03",
@@ -1699,45 +1645,6 @@ DOUTRINA_VERIFICADA: List[Dict[str, Any]] = [
         "verificacao": _verif("verificado", _URL_BDJUR_STJ),
     },
     {
-        "id": "DOUT-05",
-        "autor": "Guilherme de Souza Nucci",
-        "obra": "Leis Penais e Processuais Penais Comentadas (Ed. Forense)",
-        "referencia_abnt": "NUCCI, Guilherme de Souza. Leis Penais e Processuais Penais Comentadas. 14. ed. Rio de Janeiro: Forense, 2023.",
-        "tema": "Inaplicabilidade de Bagatela e Vedação a Penas Alternativas na Violência de Gênero",
-        "natureza": "SINTESE_DO_ENTENDIMENTO",
-        "sintese": (
-            "Não cabe a aplicação do princípio da insignificância nas relações domésticas, e a vedação da substituição da pena privativa de liberdade por restritivas de direitos "
-            "busca assegurar a eficácia preventiva e protetiva da resposta penal."
-        ),
-        "verificacao": _verif("parcial", _URL_BDJUR_STJ),
-    },
-    {
-        "id": "DOUT-06",
-        "autor": "Soraia da Rosa Mendes",
-        "obra": "Processo Penal Feminista (Ed. Atlas)",
-        "referencia_abnt": "MENDES, Soraia da Rosa. Processo Penal Feminista. 2. ed. São Paulo: Atlas, 2021.",
-        "tema": "Perspectiva Epistêmica Não Sexista e Prova Testemunhal da Ofendida",
-        "natureza": "SINTESE_DO_ENTENDIMENTO",
-        "sintese": (
-            "A valoração probatória orientada por uma perspectiva antidiscriminatória exige superar estereótipos históricos de suspeição sobre o relato da mulher agredida, "
-            "lendo o testemunho da vítima à luz da realidade concreta de vulnerabilidade e risco."
-        ),
-        "verificacao": _verif("parcial", _URL_BDJUR_STJ),
-    },
-    {
-        "id": "DOUT-07",
-        "autor": "Cezar Roberto Bitencourt",
-        "obra": "Tratado de Direito Penal: Parte Especial (Ed. Saraiva Educação)",
-        "referencia_abnt": "BITENCOURT, Cezar Roberto. Tratado de Direito Penal: Parte Especial. 23. ed. São Paulo: Saraiva Educação, 2023.",
-        "tema": "Crime Formal de Ameaça (Art. 147 do CP) e Irrelevância do Estado de Exaltação Anímica",
-        "natureza": "SINTESE_DO_ENTENDIMENTO",
-        "sintese": (
-            "O crime de ameaça (art. 147 do Código Penal) tem natureza formal e se consuma quando a vítima toma conhecimento do mal injusto e grave prometido, "
-            "sem que o estado de exaltação anímica, raiva ou ciúme afaste o dolo quando presente a idoneidade intimidatória."
-        ),
-        "verificacao": _verif("parcial", _URL_BDJUR_STJ),
-    },
-    {
         "id": "DOUT-08",
         "autor": "Maria Berenice Dias",
         "obra": "A Lei Maria da Penha e os novos avanços (Ed. JusPodivm)",
@@ -1759,6 +1666,15 @@ def obter_item_oficial_por_id(item_id: str) -> Dict[str, Any]:
         if str(item.get("id", "")).upper() == alvo:
             return item
     raise KeyError(f"Item oficial não encontrado no acervo: {item_id!r}")
+
+
+def obter_doutrina_por_id(item_id: str) -> Dict[str, Any]:
+    """Localiza um verbete doutrinário em ``DOUTRINA_VERIFICADA`` por ID exato (sem I/O de disco)."""
+    alvo = item_id.strip().upper()
+    for item in DOUTRINA_VERIFICADA:
+        if str(item.get("id", "")).upper() == alvo:
+            return item
+    raise KeyError(f"Item de doutrina não encontrado no acervo: {item_id!r}")
 
 
 def pode_citar_literal(item: Dict[str, Any]) -> bool:
@@ -1936,7 +1852,7 @@ def get_all_knowledge_base(categoria: Optional[str] = None, busca: Optional[str]
             {"id": "STF_VINCULANTE", "label": "STF (ADC / ADI / ADPF / Rep. Geral)"},
             {"id": "TESES_STJ", "label": "Jurisprudência em Teses STJ"},
             {"id": "FONAVID", "label": "Enunciados FONAVID"},
-            {"id": "TJRN", "label": "Câmara Criminal TJRN"},
+            {"id": "TJRN", "label": "Jurisprudência do TJRN"},
             {"id": "NORMAS_CNJ", "label": "Resoluções CNJ"},
             {"id": "GABINETE", "label": "Precedentes do Gabinete"},
         ],

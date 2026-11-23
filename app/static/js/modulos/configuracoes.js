@@ -132,8 +132,9 @@ function preencherFormSettings() {
   $("setOllamaUrl").value = s.ollama_url || "";
   $("setOllamaModel").value = s.ollama_model && s.ollama_model !== "auto" ? s.ollama_model : "";
   $("setOllamaNumCtx").value = s.ollama_num_ctx ? String(s.ollama_num_ctx) : "";
-  $("setWhisperModel").value = s.whisper_model || "";
+  $("setWhisperModel").value = s.whisper_model || "auto";
   $("setWhisperDevice").value = s.whisper_device || "auto";
+  if ($("setWhisperPreprocessar")) $("setWhisperPreprocessar").checked = s.whisper_preprocessar !== false;
   if ($("setModoGpu")) $("setModoGpu").value = s.modo_gpu || "normal";
   $("setFonteDocx").value = s.fonte_docx || "";
   if ($("setFormatoReferenciaPje")) $("setFormatoReferenciaPje").value = s.formato_referencia_pje || "id_hifen";
@@ -163,7 +164,6 @@ async function confirmarReset() {
       confirmar_exclusao_definitiva: (excluir || apagarMorto) && confirmado,
     });
     state.generationId = res.generation_id || 0;
-    state.scriptMapa = null;
     hooks.renderSentenceOnSheet({ sentenca: null, auditoria: null, html_pje: "" });
     if (res.active_case) await hooks.applyActiveCase(res.active_case, { clearSentence: true });
     closeModal("modalResetProduction");
@@ -226,8 +226,9 @@ function bindConfiguracoesEvents() {
       magistrado_nome: $("setMagistrado").value,
       ollama_url: $("setOllamaUrl").value,
       ollama_model: ollamaModel,
-      whisper_model: $("setWhisperModel").value,
+      whisper_model: $("setWhisperModel").value.trim() || "auto",
       whisper_device: $("setWhisperDevice").value || "auto",
+      whisper_preprocessar: $("setWhisperPreprocessar")?.checked !== false,
       modo_gpu: $("setModoGpu")?.value || "normal",
       fonte_docx: $("setFonteDocx").value || "Times New Roman",
       formato_referencia_pje: $("setFormatoReferenciaPje")?.value || "id_hifen",

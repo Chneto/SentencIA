@@ -364,6 +364,7 @@ def ambiente_transcricao(monkeypatch):
     monkeypatch.setattr("app.core.config.load_settings", lambda: estado["settings"])
     monkeypatch.setattr(at, "release_ollama_vram_for_whisper", lambda: True)
     monkeypatch.setattr(at, "_duracao_midia_segundos", lambda p: None)
+    monkeypatch.setattr(at, "_CUDA_FALHOU", False)
     monkeypatch.setattr(at, "_cuda_disponivel", lambda: False)
     monkeypatch.setattr(at, "_ISOLAR_CUDA", False)  # o Whisper falso roda no próprio processo
     monkeypatch.setattr(at, "_aguardar_vram_livre", lambda *a, **k: True)
@@ -550,7 +551,7 @@ class TestTranscricao:
         assert "Fernanda" not in caplog.text and "Souza" not in caplog.text
         assert at.rotulo_log_arquivo(midia.name) in caplog.text
 
-    def test_lote_descarrega_modelo_whisper(self, monkeypatch):
+    def test_lote_descarrega_modelo_whisper(self, monkeypatch, tmp_path):
         import app.main as main_module
 
         chamadas = []
@@ -561,11 +562,39 @@ class TestTranscricao:
 
         monkeypatch.setattr(main_module, "_transcrever", boom)
         monkeypatch.setattr(main_module, "_nomes_conhecidos", lambda docs: ([], "", "", ""))
+        from app.core.case_manifest import descrever_arquivo_caso, montar_manifesto_caso
+
+        monkeypatch.setattr(main_module, "CASES_DIR", tmp_path)
+        pdf, midia = tmp_path / "autos.pdf", tmp_path / "x.mp4"
+        pdf.write_bytes(b"autos ficticios")
+        midia.write_bytes(b"audio ficticio")
+        manifesto = montar_manifesto_caso([descrever_arquivo_caso(tmp_path, pdf, "PDF")], [])
+        bundle = {"raw_documents": [{"doc_id": "ID-FICTICIO"}], "manifesto_caso": manifesto}
         with pytest.raises(RuntimeError):
-            main_module._processar_arquivos_upload_sync(
-                [], [Path("x.mp4")], {}, "D", {"raw_documents": []}, False, 1
-            )
+            main_module._processar_arquivos_upload_sync([], [midia], {}, "D", bundle, False, 1)
         assert chamadas == [1]  # finally executa mesmo na falha
+
+    def test_cache_de_transcricao_preserva_contexto_do_manifesto(self, tmp_path, monkeypatch, ambiente_transcricao):
+        from app.transcription import pos_processamento
+
+        midia = tmp_path / "gravacao.mp4"
+        midia.write_bytes(b"audiencia ficticia")
+        chamadas = []
+
+        def aprimorar(segmentos, *, nomes, numero_processo):
+            chamadas.append(numero_processo)
+            return segmentos
+
+        monkeypatch.setattr(pos_processamento, "aprimorar_segmentos", aprimorar)
+        monkeypatch.setattr(at, "_numero_cnj_vizinho", lambda _: pytest.fail("O caso já foi identificado"))
+        _instalar_fake_whisper(monkeypatch)
+        primeiro = at.transcrever_midia_audiencia(midia, identidade_caso="caso-a", numero_processo="FICTICIO-A")
+        novamente = at.transcrever_midia_audiencia(midia, identidade_caso="caso-a", numero_processo="FICTICIO-A")
+        segundo = at.transcrever_midia_audiencia(midia, identidade_caso="caso-b", numero_processo="FICTICIO-B")
+
+        assert primeiro["status"] == segundo["status"] == "OK"
+        assert novamente == primeiro
+        assert chamadas == ["FICTICIO-A", "FICTICIO-B"]
 
     def test_ids_estaveis_por_conteudo_independentes_de_vizinhos(self, tmp_path, monkeypatch, ambiente_transcricao):
         _instalar_fake_whisper(monkeypatch)

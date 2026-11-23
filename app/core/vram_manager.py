@@ -172,6 +172,16 @@ def avaliar_whisper_vram(
     pref = (preferencia or "auto").strip().lower()
     modo = _normalizar_modo_gpu(modo_gpu)
     beam_size = MODO_GPU_MODERADO_WHISPER_BEAM if modo == "moderado" else None
+    hw = gpu_status
+    modelo_automatico = not modelo or modelo.strip().lower() == "auto"
+    if modelo_automatico:
+        modelo = "small"
+        if not IS_MACOS and pref != "cpu":
+            hw = hw if hw is not None else get_gpu_vram_status()
+            livre = hw.get("vram_free_mb")
+            if hw.get("gpu_available") and isinstance(livre, (int, float)):
+                if decidir_dispositivo_whisper(int(livre), "turbo")[0] == "cuda":
+                    modelo = "turbo"
     fam, req_fp16, req_int8 = requisitos_whisper_mb(modelo)
 
     if IS_MACOS or pref == "cpu":
@@ -196,7 +206,7 @@ def avaliar_whisper_vram(
             "alerta": None,
         }
 
-    hw = gpu_status if gpu_status is not None else get_gpu_vram_status()
+    hw = hw if hw is not None else get_gpu_vram_status()
     gpu_ok = bool(hw.get("gpu_available"))
     vram_livre = hw.get("vram_free_mb")
     vram_medida = gpu_ok and isinstance(vram_livre, (int, float))
@@ -270,7 +280,11 @@ def avaliar_whisper_vram(
         }
 
     device, compute_type = decidir_dispositivo_whisper(vram_livre_int, modelo)
-    if device == "cuda" and modo == "moderado":
+    if device == "cuda" and (
+        modo == "moderado"
+        or (modelo_automatico and fam == "turbo" and vram_livre_int < req_fp16 + 2048)
+    ):
+        # Em placas menores, a precisão mista deixa VRAM para o lote da transcrição.
         compute_type = "int8_float16"
     if device == "cuda":
         motivo = (
@@ -482,7 +496,7 @@ def obter_politica_vram(
     modo = _normalizar_modo_gpu(getattr(cfg, "modo_gpu", "normal"))
     whisper_pol = avaliar_whisper_vram(
         str(getattr(cfg, "whisper_device", "auto") or "auto"),
-        str(getattr(cfg, "whisper_model", "small") or "small"),
+        str(getattr(cfg, "whisper_model", "auto") or "auto"),
         gpu_status=hw,
         modo_gpu=modo,
     )

@@ -421,6 +421,7 @@ def executar_crivo_duplo(
         pecas_autos,
         teses_defesa,
         ids_midias=ids_midias,
+        comandos_dispositivo=dossie.comandos_dispositivo,
     )
 
     # ------------------------------------------------------------------

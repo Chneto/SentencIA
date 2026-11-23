@@ -131,7 +131,7 @@ def _veredictos_condenatorios(bundle: dict) -> dict:
     from app.core.case_context import obter_contexto
 
     crimes = obter_contexto(bundle).meta.crimes_imputados
-    return {"crimes_config": [{"codigo": c, "veredicto": "condenar"} for c in crimes]}
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
 
 
 def _ids_midias_do_bundle(bundle: dict) -> list:

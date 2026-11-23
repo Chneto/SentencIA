@@ -208,6 +208,8 @@ def test_v2_studio_editorial_liquid_glass_ui_contract():
 def test_dosimetria_override_synchronization_in_sentence_generation():
     """Garante que os vetores extras da calculadora (motivos, circunstâncias, consequências, reincidência) sincronizam com a sentença gerada."""
     client = TestClient(app)
+    r_demo = client.post("/api/cases/load-demo")
+    assert r_demo.status_code == 200
     payload = {
         "use_ollama": False,
         "criterio_primeira_fase": "um_oitavo_intervalo",

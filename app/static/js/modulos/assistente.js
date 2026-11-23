@@ -4,6 +4,7 @@ import { $, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.1.
 import { apiJson, handleApiError, postJson } from "./api.js?v=2.1.0";
 
 let _pullTimer = null;
+let _pullAcompanhado = false;
 let _modeloSugeridoAtual = "";
 
 function _pararPollingPull() {
@@ -105,6 +106,10 @@ function _atualizarUiPull(pull) {
   if (btn) btn.disabled = !!pull.ativo;
   if (!pull.ativo) {
     _pararPollingPull();
+    // Só avisa uma vez, ao fim de um download acompanhado nesta tela. O diagnóstico recarregado abaixo devolve o
+    // mesmo status "completed"; sem esta trava, cada recarga gerava outro aviso, sem fim.
+    if (!_pullAcompanhado) return;
+    _pullAcompanhado = false;
     if (pull.status === "completed") {
       showToast(`Modelo ${pull.modelo || ""} baixado com sucesso.`, "success");
       carregarDiagnosticoAssistente();
@@ -133,6 +138,7 @@ async function carregarDiagnosticoAssistente() {
 
 function _iniciarPollingPull() {
   _pararPollingPull();
+  _pullAcompanhado = true;
   _pullTimer = setInterval(async () => {
     try {
       const st = await apiJson("/api/assistente/ollama/pull-status");
@@ -174,6 +180,7 @@ async function _baixarModeloSugerido() {
   if (btn) btn.disabled = true;
   try {
     const st = await postJson("/api/assistente/ollama/pull", { modelo: _modeloSugeridoAtual });
+    _pullAcompanhado = true;
     _atualizarUiPull(st);
     if (st.ativo) _iniciarPollingPull();
   } catch (err) {

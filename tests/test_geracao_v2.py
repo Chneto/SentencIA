@@ -52,7 +52,7 @@ def _cenario(n: int = 1) -> dict:
 
 def _veredictos(bundle: dict, veredicto: str = "condenar", **extra) -> dict:
     crimes = obter_contexto(bundle).meta.crimes_imputados
-    return {"crimes_config": [{"codigo": c, "veredicto": veredicto, **extra} for c in crimes]}
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": veredicto, **extra} for c in crimes]}
 
 
 def _peca(doc_id: str, categoria: str, titulo: str, conteudo: str, data: str = "") -> PecaClassificada:
@@ -219,7 +219,7 @@ def test_detracao_conta_da_prisao_em_flagrante_ate_a_soltura():
     assert inferir_detracao_cautelar(pecas[:1]) == (0, "")
 
 
-def test_recorrer_em_liberdade_so_com_documento_nos_autos():
+def test_recorrer_em_liberdade_exige_decisao_registrada_pelo_juizo():
     bundle = _cenario(1)
     sent = gerar_sentenca_estruturada(bundle, _veredictos(bundle), use_ollama_if_available=False)
     assert MARCADOR_PRISAO in sent.marcadores_pendentes
@@ -237,9 +237,20 @@ def test_recorrer_em_liberdade_so_com_documento_nos_autos():
         }
     )
     sent2 = gerar_sentenca_estruturada(com_alvara, _veredictos(com_alvara), use_ollama_if_available=False)
-    assert MARCADOR_PRISAO not in sent2.marcadores_pendentes
-    assert "CONCEDO ao réu o direito de recorrer em liberdade" in sent2.secao_dispositivo
-    assert "ID-2010199" in sent2.secao_dispositivo
+    assert MARCADOR_PRISAO in sent2.marcadores_pendentes
+    assert "CONCEDO ao réu o direito de recorrer em liberdade" not in sent2.secao_dispositivo
+
+    opcoes = _veredictos(com_alvara)
+    opcoes["decisao_cautelar"] = {
+        "decisao": "conceder",
+        "fundamento": "Fundamento cautelar fictício, registrado após exame da situação atual.",
+        "referencias": [{"fonte_id": "ID-2010199", "trecho": "Expeça-se alvará de soltura."}],
+    }
+    sent3 = gerar_sentenca_estruturada(com_alvara, opcoes, use_ollama_if_available=False)
+    assert MARCADOR_PRISAO not in sent3.marcadores_pendentes
+    assert "CONCEDO ao réu o direito de recorrer em liberdade" in sent3.secao_dispositivo
+    assert "ID-2010199" in sent3.secao_dispositivo
+    assert "não sobrevieram fundamentos" not in sent3.secao_dispositivo
 
 
 # ==============================================================================
@@ -264,8 +275,8 @@ def test_absolvicao_texto_por_inciso_e_inciso_pendente_no_caso_real():
 
     m_ii = _merito({"veredicto": "absolver", "fundamento_absolvicao_art386": "II"})
     m_vii = _merito({"veredicto": "absolver", "fundamento_absolvicao_art386": "VII"})
-    assert "art. 386, inciso II" in m_ii and "materialidade delitiva não restou demonstrada" in m_ii
-    assert "art. 386, inciso VII" in m_vii and "in dubio pro reo" in m_vii
+    assert "art. 386, inciso II" in m_ii and "não haver prova da existência do fato" in m_ii
+    assert "art. 386, inciso VII" in m_vii and "não existir prova suficiente para a condenação" in m_vii
     m_sem = _merito({"veredicto": "absolver"})
     assert "[COMPLETAR PELO JUÍZO: inciso do art. 386 do CPP aplicável]" in m_sem
 
@@ -280,14 +291,38 @@ def test_dano_moral_pedido_sem_valor_nao_diz_ausencia_de_pedido():
 
 
 def test_dosimetria_cita_prescricao_por_crime():
+    """TASK-046 (ordem do usuário): sem prescrição, a sentença não abre tópico de prescrição; o cálculo por crime
+    continua disponível nos dados (``prescricao_dados``) para quando houver prescrição."""
     bundle = _cenario(1)
     sent = gerar_sentenca_estruturada(bundle, _veredictos(bundle), use_ollama_if_available=False)
-    assert "Da Prescrição pela Pena Aplicada a Cada Crime" in sent.secao_dosimetria
-    assert "art. 119 do Código Penal" in sent.secao_dosimetria
     por_crime = sent.prescricao_dados["por_crime"]
     assert {p["crime_code"] for p in por_crime} == {"art_129_p13_cp", "art_147_cp"}
-    bullets = [l for l in sent.secao_dosimetria.splitlines() if l.startswith("• ")]
-    assert len([b for b in bullets if "prescri" in b.lower()]) >= len(por_crime)
+    houve = any(p.get("prescricao_reconhecida") or not p.get("verificacao_completa", True) for p in por_crime)
+    assert ("Da Prescrição pela Pena Aplicada a Cada Crime" in sent.secao_dosimetria) == houve
+    if not houve:
+        assert "Da Ausência de Prescrição" not in sent.secao_preliminares
+        assert "Da Prescrição" not in sent.secao_preliminares
+
+
+def test_topico_de_prescricao_so_quando_ha_prescricao_ou_verificacao_incompleta():
+    from types import SimpleNamespace
+
+    from app.generation.sentence_generator import prescricao_exige_topico, texto_prescricao_preliminares
+
+    def _p(reconhecida, completa):
+        return SimpleNamespace(
+            prescricao_reconhecida=reconhecida, verificacao_completa=completa, prescricao_abstrata_reconhecida=reconhecida,
+            crime_nome="Ameaça", artigo_formatado="art. 147 do CP",
+        )
+
+    sem = SimpleNamespace(por_crime=[_p(False, True)], fundamentacao="")
+    assert not prescricao_exige_topico(sem)
+    assert texto_prescricao_preliminares(sem) == ("", "")
+    incompleta = SimpleNamespace(por_crime=[_p(False, False)], fundamentacao="")
+    titulo, texto = texto_prescricao_preliminares(incompleta)
+    assert titulo == "Da Prescrição" and "COMPLETAR" in texto.upper()
+    com = SimpleNamespace(por_crime=[_p(True, True)], fundamentacao="")
+    assert texto_prescricao_preliminares(com)[0] == "Da Prescrição da Pretensão Punitiva"
 
 
 def test_resolver_dosimetria_exige_veredicto_quando_pedido():
@@ -350,6 +385,7 @@ def test_pipeline_ollama_usa_num_ctx_e_contexto_resumido():
 def test_pipeline_llm_aprovado_rotula_ollama_e_sem_fallback():
     demo = get_demo_case_bundle()
     textos = {}
+    dispositivo_completo = calcular_secoes_deterministicas(demo).secao("dispositivo")
 
     def falso_gerar_texto(prompt, **kwargs):
         secao = re.search(r"a seção: (\w+)", prompt).group(1).lower()
@@ -362,7 +398,7 @@ def test_pipeline_llm_aprovado_rotula_ollama_e_sem_fallback():
                 "Culpabilidade, antecedentes, conduta social, personalidade, motivos, circunstâncias, consequências "
                 "e comportamento da vítima foram valorados conforme o cálculo do motor."
             ),
-            "dispositivo": "III – DISPOSITIVO\n\nCONDENO o réu. Intime-se a ofendida (art. 21 da Lei nº 11.340/2006).",
+            "dispositivo": dispositivo_completo,
         }[secao]
 
     with mock.patch.object(sp_mod, "gerar_texto", side_effect=falso_gerar_texto):
@@ -412,7 +448,8 @@ def test_dossies_reais_sem_fatos_inventados():
     assert "CONDENAÇÃO" in txt
     dos = construir_dossie_secao(SecaoTipo.DOSIMETRIA, bundle, resultado=res)
     assert "prescricao" in dos.parametros_dosimetria
-    assert any("art. 119" in f for f in dos.fatos_delimitados)
+    # Regra do usuário (TASK-046/071): sem prescrição, o dossiê manda não abrir o tópico; com prescrição, cita o art. 119.
+    assert any("art. 119" in f or "NÃO abra tópico de prescrição" in f for f in dos.fatos_delimitados)
     # Sem certidão de antecedentes nos autos, a minuta não afirma o conteúdo de uma certidão inexistente.
     texto_dos = res.secao(SecaoTipo.DOSIMETRIA)
     assert "revelam que o acusado detém primariedade" not in texto_dos
@@ -456,3 +493,44 @@ def test_duplo_crivo_continua_reprovando_id_inventado_mesmo_com_marcador():
     )
     assert r.aprovado is False
     assert any("ID-99999999" in e for e in r.erros_auditor)
+
+
+def test_prescricao_mista_mantem_marcador_do_item_inconclusivo():
+    """Revisão cruzada do CODEX (TASK-046): um crime prescrito e outro com marco ausente."""
+    from types import SimpleNamespace
+
+    from app.generation.sentence_generator import texto_prescricao_preliminares
+
+    def _p(nome, reconhecida, completa):
+        return SimpleNamespace(
+            prescricao_reconhecida=reconhecida, verificacao_completa=completa, prescricao_abstrata_reconhecida=reconhecida,
+            crime_nome=nome, artigo_formatado="art. 147 do CP",
+        )
+
+    misto = SimpleNamespace(por_crime=[_p("Ameaça", True, True), _p("Dano", False, False)], fundamentacao="")
+    titulo, texto = texto_prescricao_preliminares(misto)
+    assert titulo == "Da Prescrição da Pretensão Punitiva"
+    assert "Dano" in texto and "COMPLETAR" in texto.upper()
+
+
+def test_script_e_seccional_nao_mandam_citar_prescricao_inexistente():
+    from types import SimpleNamespace
+
+    from app.generation.sentence_generator import prescricao_exige_topico
+
+    assert not prescricao_exige_topico(SimpleNamespace(prescricao_reconhecida=False, por_crime=[]))
+    assert prescricao_exige_topico(SimpleNamespace(prescricao_reconhecida=True, por_crime=[]))
+    assert not prescricao_exige_topico(None)
+
+def test_script_externo_completo_da_demo_sem_prescricao_nao_manda_abrir_topico():
+    """Revisão cruzada do CODEX (TASK-071): exercita a saída completa do script, não só o predicado."""
+    from app.demo.demo_case import get_demo_case_bundle
+    from app.generation.case_script_engine import gerar_script_estruturado_caso
+    from app.generation.sentence_generator import prescricao_exige_topico
+
+    script = gerar_script_estruturado_caso(get_demo_case_bundle())
+    md = script.script_markdown
+    presc = script.prescricao_calculada if hasattr(script, "prescricao_calculada") else None
+    if presc is None or not prescricao_exige_topico(presc):
+        assert "NÃO abra tópico nem mencione a prescrição" in md
+        assert "Análise de Prescrição (Arts. 109 e 117, I, CP)" not in md

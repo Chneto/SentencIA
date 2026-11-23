@@ -113,7 +113,7 @@ def test_prescricao_usa_metade_do_prazo_com_reu_menor_de_21():
         teses_defesa=[],
         data_nascimento_reu="2005-06-20",
     )
-    override = {"crimes_config": [{"codigo": "art_147_cp", "veredicto": "condenar"}], "data_sentenca": "2026-11-18"}
+    override = {"crimes_config": [{"codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput"}], "data_sentenca": "2026-11-18"}
     _dos, prescricao, *_ = resolver_dosimetria_e_decisoes(
         [], meta, [], False, datetime.date(2025, 2, 10), datetime.date(2025, 3, 1), override,
         exigir_veredicto=True, data_sentenca=datetime.date(2026, 11, 18),

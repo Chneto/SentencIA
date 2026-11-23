@@ -249,7 +249,10 @@ def test_veredictos_por_crime_procedencia_parcial_absolvicao_e_concurso():
     assert "IMPROCEDENTE" in abs_data["sentenca"]["secao_dispositivo"]
     assert "previsto(s) no ," not in abs_data["sentenca"]["secao_relatorio"]
     assert "art. 129, § 13" in abs_data["sentenca"]["secao_relatorio"]
-    assert abs_data["auditoria"]["aprovada_sem_alucinacao"] is True
+    assert abs_data["auditoria"]["conformidade_oito_circunstancias_art59"] is True
+    assert abs_data["auditoria"]["penas_divergentes"] == []
+    assert abs_data["auditoria"]["aprovada_sem_alucinacao"] is False
+    assert "[COMPLETAR PELO JUÍZO: autoria da imputação]" in abs_data["auditoria"]["marcadores_pendentes"]
 
     # 2b. Condenação apenas em delito sem violência ou grave ameaça (Art. 24-A LMP) + tentativa_fracao="1/3"
     payload_nv = {
@@ -267,7 +270,8 @@ def test_veredictos_por_crime_procedencia_parcial_absolvicao_e_concurso():
     assert "vedada a substituição por restritivas de direitos (Súmula 588/STJ)" not in nv_data["sentenca"]["secao_dispositivo"]
     assert nv_data["auditoria"]["ids_inexistentes"] == []
     assert nv_data["auditoria"]["citacoes_nao_autorizadas"] == []
-    assert nv_data["auditoria"]["marcadores_pendentes"] == ["[COMPLETAR PELO JUÍZO: situação prisional do réu]"]
+    assert "[COMPLETAR PELO JUÍZO: situação prisional do réu]" in nv_data["auditoria"]["marcadores_pendentes"]
+    assert "[COMPLETAR PELO JUÍZO: ciência prévia da imputação]" in nv_data["auditoria"]["marcadores_pendentes"]
 
     # 3. Desclassificação Art. 383 CPP (Lesão -> Vias de Fato) + Concurso Material Benéfico automático (Art. 70, § único)
     payload_desc = {
@@ -280,7 +284,7 @@ def test_veredictos_por_crime_procedencia_parcial_absolvicao_e_concurso():
                 "veredicto": "desclassificar",
                 "crime_desclassificado": "art_21_lcp",
             },
-            {"codigo": "art_147_cp", "veredicto": "condenar"},
+            {"codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput"},
         ],
     }
     r_desc = client.post("/api/dosimetria/simulate", json=payload_desc)
@@ -348,7 +352,10 @@ def test_update_and_audit_progress_timbre_docx_e_desambiguacao_ofendida(tmp_path
     r_empty = client.post("/api/sentence/update-and-audit", json={"texto_completo": "   "})
     assert r_empty.status_code == 422
 
-    r_upd = client.post("/api/sentence/update-and-audit", json={"texto_completo": texto_editado})
+    r_upd = client.post("/api/sentence/update-and-audit", json={
+        "texto_completo": texto_editado,
+        "revisao_esperada": r_gen.json()["sentenca"]["revisao_documento"],
+    })
     assert r_upd.status_code == 200
     upd_data = r_upd.json()
     assert upd_data["status"] == "updated"
@@ -543,6 +550,7 @@ def test_audio_transcriber_gemini_files_api_large_audio_and_whisper_prompt(tmp_p
 
         def transcribe(self, path, language=None, vad_filter=None, initial_prompt="", **_extra):
             calls["prompt_seen"] = initial_prompt
+            calls["hotwords_seen"] = _extra.get("hotwords", "")
             return [SimpleNamespace(start=0, end=12, text="Confirmou os fatos.")], {}
 
     fake_fw = types.ModuleType("faster_whisper")
@@ -557,6 +565,8 @@ def test_audio_transcriber_gemini_files_api_large_audio_and_whisper_prompt(tmp_p
         known_reu="Carlos Souza",
         usar_cache=False,
     )
-    assert "Lei Maria da Penha" in calls["prompt_seen"]
-    assert "Maria Silva" in calls["prompt_seen"]
+    assert "Audiência judicial" in calls["prompt_seen"]
+    assert "Maria Silva" not in calls["prompt_seen"]
+    assert "Maria Silva" in calls["hotwords_seen"]
+    assert "medida protetiva" in calls["hotwords_seen"]
     assert res_fw["engine"].startswith("faster-whisper")

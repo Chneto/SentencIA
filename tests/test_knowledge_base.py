@@ -20,13 +20,13 @@ from app.main import app
 def test_acervo_completo_integridade_e_veracidade():
     """Garante a completude, autenticidade e campos obrigatórios do acervo oficial."""
     assert len(SUMULAS_E_TEMAS_VERIFICADOS) >= 35, f"Acervo deve conter no mínimo 35 verbetes (atual: {len(SUMULAS_E_TEMAS_VERIFICADOS)})"
-    assert len(DOUTRINA_VERIFICADA) >= 6, f"Doutrina verificada deve conter no mínimo 6 autores (atual: {len(DOUTRINA_VERIFICADA)})"
+    assert len(DOUTRINA_VERIFICADA) >= 4, f"Doutrina verificada deve conter no mínimo 4 obras verificadas (atual: {len(DOUTRINA_VERIFICADA)})"
 
     tribunais = {item.get("tribunal") for item in SUMULAS_E_TEMAS_VERIFICADOS}
-    assert {"STF", "STJ", "TJRN", "FONAVID", "CNJ"}.issubset(tribunais), f"Tribunais incompletos: {tribunais}"
+    assert {"STF", "STJ", "FONAVID", "CNJ"}.issubset(tribunais), f"Tribunais incompletos: {tribunais}"
 
     categorias = {item.get("categoria") for item in SUMULAS_E_TEMAS_VERIFICADOS}
-    assert {"SUMULAS", "TEMAS_REPETITIVOS", "STF_VINCULANTE", "TESES_STJ", "FONAVID", "TJRN", "NORMAS_CNJ"}.issubset(categorias)
+    assert {"SUMULAS", "TEMAS_REPETITIVOS", "STF_VINCULANTE", "TESES_STJ", "FONAVID", "NORMAS_CNJ"}.issubset(categorias)
 
     # Cada item deve conter chaves mínimas válidas
     for it in SUMULAS_E_TEMAS_VERIFICADOS:
@@ -36,14 +36,11 @@ def test_acervo_completo_integridade_e_veracidade():
         assert it.get("texto_literal"), f"Item {it['id']} sem texto_literal"
         assert len(it["texto_literal"]) >= 20, f"Texto literal muito curto no item {it['id']}"
 
-    # Validação de autores doutrinários clássicos
+    # Validação de autores doutrinários verificados
     autores_esperados = [
         "Maria Berenice Dias",
-        "Valéria Diez Scarance Fernandes",
         "Rogério Sanches Cunha",
         "Alice Bianchini",
-        "Guilherme de Souza Nucci",
-        "Soraia da Rosa Mendes",
     ]
     autores_presentes = " ".join(d["autor"] for d in DOUTRINA_VERIFICADA)
     for esperado in autores_esperados:
@@ -86,9 +83,9 @@ def test_busca_precedente_por_id_ou_referencia():
     assert item_adc19 is not None
     assert "constitucionalidade" in item_adc19["texto_literal"]
 
-    item_tjrn = buscar_precedente_por_id_ou_referencia("TJRN - Apelação Criminal nº 0801498-50.2023.8.20.5114")
-    assert item_tjrn is not None
-    assert "Ricardo Procópio" in item_tjrn["fonte_oficial"]
+    item_adpf779 = buscar_precedente_por_id_ou_referencia("ADPF 779/STF")
+    assert item_adpf779 is not None
+    assert "legítima defesa da honra" in item_adpf779["texto_literal"].lower()
 
 
 def test_auditor_valida_novas_categorias_e_bloqueia_ficticias():
@@ -99,13 +96,13 @@ def test_auditor_valida_novas_categorias_e_bloqueia_ficticias():
 
     sentenca_base = gerar_sentenca_estruturada(case_bundle=demo, use_ollama_if_available=False)
 
-    # Injeta citações 100% autênticas do STF, FONAVID e TJRN
+    # Injeta citações 100% autênticas do STF, FONAVID e STJ
     texto_com_citacoes_oficiais = sentenca_base.texto_completo + (
         "\nFundamentação suplementar com base em precedentes autênticos do acervo:\n"
         "1. Conforme ADC 19/STF e ADI 4424/STF, reafirma-se a natureza pública incondicionada e a validade da LMP;\n"
         "2. Aplica-se o Enunciado 47 FONAVID quanto à ineficácia de consentimento da ofendida no art. 24-A;\n"
-        "3. Em consonância com a jurisprudência consolidada no TJRN - Apelação Criminal nº 0801498-50.2023.8.20.5114, "
-        "a palavra da vítima assume especial relevância probatória nos delitos de violência doméstica;\n"
+        "3. Em consonância com a jurisprudência consolidada no Tema Repetitivo 1197/STJ, "
+        "a aplicação da agravante da violência doméstica observa a sistemática legal vigente;\n"
         "4. Observa-se a diretriz da ADPF 779/STF quanto à vedação da tese da legítima defesa da honra."
     )
 
@@ -147,15 +144,15 @@ def test_api_knowledge_endpoints_and_filtering():
     assert r_all.status_code == 200
     data_all = r_all.json()
     assert len(data_all["knowledge"]["sumulas_e_temas"]) >= 35
-    assert len(data_all["knowledge"]["doutrina"]) >= 6
+    assert len(data_all["knowledge"]["doutrina"]) >= 4
 
-    # 2. Filtro por Categoria TJRN
-    r_tjrn = client.get("/api/knowledge?categoria=TJRN")
-    assert r_tjrn.status_code == 200
-    data_tjrn = r_tjrn.json()
-    items_tjrn = data_tjrn["knowledge"]["sumulas_e_temas"]
-    assert len(items_tjrn) >= 4
-    assert all("TJRN" in it["tribunal"] or it["categoria"] == "TJRN" for it in items_tjrn)
+    # 2. Filtro por Categoria SUMULAS
+    r_sum = client.get("/api/knowledge?categoria=SUMULAS")
+    assert r_sum.status_code == 200
+    data_sum = r_sum.json()
+    items_sum = data_sum["knowledge"]["sumulas_e_temas"]
+    assert len(items_sum) >= 4
+    assert all(it["categoria"] == "SUMULAS" for it in items_sum)
 
     # 3. Filtro por Categoria FONAVID
     r_fonavid = client.get("/api/knowledge?categoria=FONAVID")
@@ -178,9 +175,8 @@ def test_api_knowledge_endpoints_and_filtering():
     assert r_q.status_code == 200
     data_q = r_q.json()
     items_q = data_q["knowledge"]["sumulas_e_temas"]
-    assert len(items_q) >= 2
+    assert len(items_q) >= 1
     assert any("589" in it["referencia"] for it in items_q)
-    assert any("2015.012842-1" in it["referencia"] for it in items_q)
 
 
 def test_auditor_bloqueia_variacoes_sintaticas_de_citacoes_ficticias():
@@ -221,10 +217,10 @@ def test_auditor_bloqueia_variacoes_sintaticas_de_citacoes_ficticias():
         "\nCitações autênticas em formatos variados:\n"
         "1. Conforme Súmula 588 do STJ e Súmula nº 231/STJ;\n"
         "2. Aplica-se a Súmula Vinculante 56 do STF;\n"
-        "3. Em consonância com o Tema 983 do STJ, Tema 1249/STJ, Tema 1186 do STJ e Tema 1412 do STF;\n"
+        "3. Em consonância com o Tema 983 do STJ, Tema 1249/STJ, Tema 1186 do STJ e Tema 1197 do STJ;\n"
         "4. Observa-se o Enunciado FONAVID nº 45, o Enunciado 1 do FONAVID, o Enunciado 45/FONAVID e o Enunciado 37 (FONAVID);\n"
         "5. Conforme Resolução CNJ nº 492/2023;\n"
-        "6. Conforme TJRN - Apelação Criminal nº 0801498-50.2023.8.20.5114;\n"
+        "6. Conforme ADPF 779/STF;\n"
         "7. Conforme REsp 1.675.874/MS, Recurso Especial 1.675.874/MS e REsp 2.070.717/MG."
     )
 
@@ -410,7 +406,7 @@ def test_task024_todos_itens_oficiais_tem_verificacao_natureza_e_ids_unicos():
 
     status_validos = {"verificado", "parcial", "pendente"}
     for it in SUMULAS_E_TEMAS_VERIFICADOS:
-        assert it.get("natureza") in {"LITERAL", "RESUMO"}, f"{it['id']} sem natureza válida"
+        assert it.get("natureza") in {"LITERAL", "RESUMO", "SINTESE_DO_ENTENDIMENTO"}, f"{it['id']} sem natureza válida"
         ver = it.get("verificacao")
         assert isinstance(ver, dict), f"{it['id']} sem verificacao"
         assert ver.get("status") in status_validos, f"{it['id']} status inválido: {ver}"
@@ -462,8 +458,18 @@ def test_task024_formatar_citacao_nunca_poe_aspas_em_resumo_parcial_ou_pendente(
 
     literal_ok = buscar_precedente_por_id_ou_referencia("SUMULA-589-STJ")
     resumo_ok = buscar_precedente_por_id_ou_referencia("ADC-19-STF")
-    parcial_item = buscar_precedente_por_id_ou_referencia("TEMA-1370-STF")
-    pendente_item = buscar_precedente_por_id_ou_referencia("TEMA-1412-STF")
+    parcial_item = {
+        "id": "SYNTH-PARCIAL",
+        "texto_literal": "Resumo sintético de teste parcial.",
+        "natureza": "RESUMO",
+        "verificacao": {"status": "parcial", "fonte_url": "https://portal.stf.jus.br"},
+    }
+    pendente_item = {
+        "id": "SYNTH-PENDENTE",
+        "texto_literal": "Resumo sintético de teste pendente.",
+        "natureza": "RESUMO",
+        "verificacao": {"status": "pendente", "fonte_url": "https://scon.stj.jus.br"},
+    }
     dout_item = DOUTRINA_VERIFICADA[0]
 
     assert pode_citar_literal(literal_ok) is True
@@ -516,4 +522,141 @@ def test_task024_secao_2_1_cita_tese_13_e_nao_tema_983():
     assert tema_983 not in merito
     assert tema_983 in sent_demo.secao_dosimetria
 
+
+def test_task040_acervo_100_por_cento_verificado_e_com_fonte_url():
+    """Todo item do acervo oficial e da doutrina deve estar 'verificado' e com fonte_url preenchida."""
+    for lista_nome, lista in (
+        ("SUMULAS_E_TEMAS_VERIFICADOS", SUMULAS_E_TEMAS_VERIFICADOS),
+        ("DOUTRINA_VERIFICADA", DOUTRINA_VERIFICADA),
+    ):
+        assert lista, f"{lista_nome} não pode estar vazia"
+        for it in lista:
+            verif = it.get("verificacao") or {}
+            assert verif.get("status") == "verificado", (
+                f"Item não verificado em {lista_nome}: {it.get('id')} ({verif.get('status')})"
+            )
+            url = str(verif.get("fonte_url") or "").strip()
+            assert url.startswith(("http://", "https://")), (
+                f"Item sem fonte_url válida em {lista_nome}: {it.get('id')} -> {url!r}"
+            )
+
+
+def test_task040_nenhum_acesso_posicional_ao_acervo_em_app():
+    """Proíbe indexação posicional de SUMULAS_E_TEMAS_VERIFICADOS[n] ou DOUTRINA_VERIFICADA[n] em app/."""
+    import re
+
+    raiz_app = Path(__file__).resolve().parent.parent / "app"
+    padrao = re.compile(r"(?:SUMULAS_E_TEMAS_VERIFICADOS|DOUTRINA_VERIFICADA)\[\s*\d+")
+    violacoes = []
+    for arq in sorted(raiz_app.rglob("*.py")):
+        texto = arq.read_text(encoding="utf-8")
+        for num, linha in enumerate(texto.splitlines(), start=1):
+            if padrao.search(linha):
+                violacoes.append(f"{arq.relative_to(raiz_app.parent)}:{num}: {linha.strip()}")
+    assert not violacoes, "Acessos posicionais proibidos ao acervo em app/:\n" + "\n".join(violacoes)
+
+
+def test_task040_adpf_779_verificada_e_crivo_reprova_legitima_defesa_da_honra():
+    """ADPF-779-STF permanece verificada no acervo e os crivos reprovam legítima defesa da honra sem repúdio."""
+    from app.generation.adversarial_critic import AdversarialJudicialCritic
+    from app.knowledge.knowledge_base import obter_item_oficial_por_id
+
+    adpf = obter_item_oficial_por_id("ADPF-779-STF")
+    assert adpf["verificacao"]["status"] == "verificado"
+    assert str(adpf["verificacao"].get("fonte_url", "")).startswith("https://")
+
+    texto_inadmissivel = (
+        "No mérito, reconheço que o acusado agiu sob legítima defesa da honra "
+        "ao agredir a ofendida após discussão doméstica, impondo-se a absolvição."
+    )
+    rel_auditor = auditar_sentenca(texto_inadmissivel, pecas_autos=[], teses_defesa=[])
+    assert rel_auditor.aprovada_sem_alucinacao is False
+    assert any(
+        "legítima defesa da honra" in str(d).lower() or "adpf 779" in str(d).lower()
+        for d in rel_auditor.detalhes_camadas
+    ), rel_auditor.detalhes_camadas
+
+    critic = AdversarialJudicialCritic()
+    apontamentos = critic._crivo_standard_probatorio_e_genero(texto_inadmissivel, secao=None, dossie=None)
+    assert any("779" in str(a.descricao) or "honra" in str(a.descricao).lower() for a in apontamentos), apontamentos
+
+
+def test_task040_demo_e_geracao_local_sem_referencia_vazia():
+    """Demo e geração local produzem sentença completa sem None, [] ou citação quebrada."""
+    from app.knowledge.knowledge_base import obter_doutrina_por_id
+
+    assert obter_doutrina_por_id("DOUT-01")["autor"] == "Maria Berenice Dias"
+    demo = get_demo_case_bundle()
+    sent = gerar_sentenca_estruturada(case_bundle=demo, use_ollama_if_available=False)
+    texto = sent.texto_completo
+    assert len(texto) > 10000
+    assert "None" not in texto
+    assert "[]" not in texto
+    assert "()" not in texto
+    assert "Valéria Diez Scarance" not in texto
+    assert "ADPF 779" in texto
+    assert "art. 24-A" in texto
+
+
+def test_task039_precedentes_novos_verificados():
+    from app.knowledge.knowledge_base import obter_item_oficial_por_id
+
+    esperados = {
+        "SUMULA-636-STJ": (
+            "A folha de antecedentes criminais é documento suficiente a comprovar "
+            "os maus antecedentes e a reincidência."
+        ),
+        "TEMA-129-STF": (
+            "A existência de inquéritos policiais ou de ações penais sem trânsito "
+            "em julgado não pode ser considerada como maus antecedentes para fins de dosimetria da pena."
+        ),
+    }
+    for item_id, texto in esperados.items():
+        item = obter_item_oficial_por_id(item_id)
+        assert item["texto_literal"] == texto
+        assert item["natureza"] == "LITERAL"
+        assert item["verificacao"]["status"] == "verificado"
+    assert "Súmula 444/STJ" in obter_item_oficial_por_id("TEMA-129-STF")["observacao"]
+
+
+def test_task039_sinteses_tjrn_sem_cnj_e_sem_aspas():
+    import re
+
+    from app.knowledge.knowledge_base import formatar_citacao_acervo
+
+    itens_tjrn = [item for item in SUMULAS_E_TEMAS_VERIFICADOS if item["tribunal"] == "TJRN"]
+    assert {
+        "TJRN-1G-INSUFICIENCIA-PROBATORIA",
+        "TJRN-1G-EMBRIAGUEZ-VOLUNTARIA",
+        "TJRN-1G-DESCLASSIFICACAO",
+        "TJRN-1G-BIS-IN-IDEM",
+        "TJRN-1G-CIENCIA-MPU",
+        "TJRN-1G-CONCURSO-MATERIAL",
+    } <= {item["id"] for item in itens_tjrn}
+    padrao_cnj = re.compile(r"\b\d{7}-\d{2}[._]\d{4}[._]\d[._]\d{2}[._]\d{4}\b")
+    for item in itens_tjrn:
+        assert item["natureza"] == "SINTESE_DO_ENTENDIMENTO", item["id"]
+        assert item["verificacao"]["status"] == "verificado", item["id"]
+        assert not padrao_cnj.search(json.dumps(item, ensure_ascii=False)), item["id"]
+        assert formatar_citacao_acervo(item) == item["texto_literal"], item["id"]
+
+
+def test_task039_teses_existentes_recebem_recorrencia():
+    from app.knowledge.knowledge_base import obter_item_oficial_por_id
+
+    recorrencias = {
+        "TESE-STJ-ED41-13": "161",
+        "ADPF-779-STF": "45",
+        "SUMULA-542-STJ": "43",
+        "SUMULA-589-STJ": "16",
+        "SUMULA-588-STJ": "72",
+        "TEMA-983-STJ": "98",
+        "SUMULA-545-STJ": "89",
+        "RES-CNJ-492-2023": "27",
+    }
+    for item_id, total in recorrencias.items():
+        assert f"{total} sentenças" in obter_item_oficial_por_id(item_id)["observacao"]
+    assert obter_item_oficial_por_id("ADPF-779-STF")["observacao"].startswith(
+        "A ADPF 779 veda a legítima defesa da honra"
+    )
 

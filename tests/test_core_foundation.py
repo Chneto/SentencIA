@@ -330,7 +330,8 @@ def test_settings_novos_campos_e_sem_gemini_api_key():
     assert "gemini_api_key" not in core_config.UserSettings.model_fields
     assert s.permitir_envio_externo is False
     assert s.ollama_num_ctx == 8192
-    assert s.whisper_model == "small"
+    assert s.whisper_model == "auto"
+    assert s.whisper_preprocessar is True
     assert s.whisper_device == "auto"
     assert s.max_upload_mb_pdf == 600
     assert s.max_upload_mb_midia == 4096

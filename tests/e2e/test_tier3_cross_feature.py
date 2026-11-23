@@ -69,6 +69,8 @@ class TestCross01_IngestaoToDefenseMining:
     case_data = load_fixture_case("1")
     pecas = classificar_pecas_autos(case_data["raw_documents"])
     meta = extrair_metadados_processo(pecas)
+    assert len(meta.teses_defesa) > 0
+    assert meta.nome_reu
 
     pecas_ids = {p.doc_id for p in pecas}
     pecas_categorias = {p.categoria.upper() for p in pecas}
@@ -170,9 +172,11 @@ class TestCross03_DefenseMiningToOmissionLock:
         meta.teses_defesa + [tese_fantasma],
         ids_midias,
     )
-    # Must flag the omitted thesis and drop the score below the clean audit
+    # Pendências probatórias podem zerar o score nas duas versões. A camada de teses deve distingui-las.
+    for audit, esperado in ((audit_ok, "APROVADO"), (audit_bad, "REPROVADO")):
+        camada_teses = next(item for item in audit.verificacoes_conteudo if item["verificacao"] == "teses_defensivas")
+        assert camada_teses["status"] == esperado
     assert len(audit_bad.teses_omitidas) >= 1
-    assert audit_bad.score_confiabilidade < audit_ok.score_confiabilidade
     assert audit_bad.aprovada_sem_alucinacao is False
 
 
@@ -236,6 +240,7 @@ class TestCross04_InFlightGatingStateMachine:
         use_ollama=False, max_retries=2, gating_validator=mock_validator
     )
     sent = engine.executar_pipeline(case_data, custom_dosimetria_override=veredictos_condenatorios(case_data))
+    assert sent.texto_completo and len(sent.secao_merito) > 50
 
     # Merito must have recorded 2 attempts
     assert len(engine.estado.historico_tentativas[SecaoTipo.MERITO]) == 2
@@ -278,6 +283,7 @@ class TestCross05_SurgicalAutoCorrectionRetrySuccess:
         gating_validator=mock_surgical_validator,
     )
     sent = engine.executar_pipeline(case_data, custom_dosimetria_override=veredictos_condenatorios(case_data))
+    assert sent.texto_completo and len(sent.secao_dosimetria) > 50
 
     assert attempts_log.count(SecaoTipo.DOSIMETRIA) == 2
     assert engine.estado.status_secoes[SecaoTipo.DOSIMETRIA] == StatusSecao.APROVADO
@@ -346,10 +352,6 @@ class TestCross07_DosimetriaToAuditorCamada4:
   def test_cross_dosimetria_to_auditor_camada4(self, load_fixture_case):
     """Dosimetria text must strictly evaluate all 8 vectors, enforce Súmula 231, and pass Camada 4."""
     case_data = load_fixture_case("4")  # Case 4: Multirreincidente + Súmula 444
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
     sent = gerar_sentenca_caso_real(case_data)
     audit = auditar_com_dosimetria(sent, case_data)
 
@@ -484,6 +486,7 @@ class TestCrossFeatureFaultInjection:
 
     engine = SectionalPipelineEngine(use_ollama=True, max_retries=2)
     sentenca = engine.executar_pipeline(case, use_ollama=True, custom_dosimetria_override=veredictos_condenatorios(case))
+    assert sentenca.texto_completo and len(sentenca.secao_preliminares) > 50
 
     prel_tentativas = engine.estado.historico_tentativas[SecaoTipo.PRELIMINARES]
     assert any(
@@ -505,6 +508,7 @@ class TestCrossFeatureFaultInjection:
 
     engine = SectionalPipelineEngine(use_ollama=True, max_retries=2)
     sentenca = engine.executar_pipeline(case, use_ollama=True, custom_dosimetria_override=veredictos_condenatorios(case))
+    assert sentenca.texto_completo and "ID-9999999" not in sentenca.texto_completo
 
     rel_tentativas = engine.estado.historico_tentativas[SecaoTipo.RELATORIO]
     assert len(rel_tentativas) == 2

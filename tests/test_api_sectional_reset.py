@@ -101,7 +101,7 @@ def veredictos_condenatorios(bundle: Dict[str, Any]) -> Dict[str, Any]:
     """
     crimes = list(obter_contexto(bundle).meta.crimes_imputados) or list(bundle.get("crimes_imputados") or [])
     assert crimes, "O cenário precisa ter crimes imputados para o teste."
-    return {"crimes_config": [{"codigo": c, "veredicto": "condenar"} for c in crimes]}
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
 
 
 def _generate(client: TestClient, bundle: Dict[str, Any] | None = None, *, com_veredicto: bool = True, **overrides):

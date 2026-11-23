@@ -3,6 +3,26 @@ import { hooks, state } from "./estado.js?v=2.1.0";
 import { $, envioExternoPermitido, escapeHtml, fmtDateBr, openModal, showToast } from "./dom.js?v=2.1.0";
 import { ApiError, acompanharJob, apiFetch, atualizarBarraProgresso, esconderProgresso, handleApiError, lerJson, mostrarProgresso, postJson, startProgressPolling, stopProgressPolling } from "./api.js?v=2.1.0";
 
+function realcarTrecho(texto, trecho) {
+  const termos = String(trecho || "").trim().replace(/\.\.\.$/, "").split(/\s+/).filter(Boolean);
+  if (!termos.length) return null;
+  const expressao = termos.map((termo) => termo.replace(/[.*+?^\x24{}()|[\]\\]/g, "\\$&")).join("\\s+");
+  const match = new RegExp(expressao, "iu").exec(texto);
+  if (!match) return null;
+  return escapeHtml(texto.slice(0, match.index)) + '<mark class="pd-trecho" tabindex="-1">' +
+    escapeHtml(match[0]) + '</mark>' + escapeHtml(texto.slice(match.index + match[0].length));
+}
+
+function focarTrecho(body, botaoFechar) {
+  const alvo = body.querySelector(".pd-trecho");
+  if (alvo) {
+    alvo.focus({ preventScroll: true });
+    alvo.scrollIntoView({ block: "center" });
+  } else {
+    botaoFechar.focus();
+  }
+}
+
 function initDropzones() {
   const setupZone = (zoneId, inputId, badgeId, emptyLabel) => {
     const zone = $(zoneId);
@@ -406,7 +426,9 @@ export {
   bindAutosEvents,
   carregarAutosDoDisco,
   enviarUpload,
+  focarTrecho,
   initDropzones,
+  realcarTrecho,
   refazerOcrPdf,
   renderDiskBanner,
   renderOcrBanner,

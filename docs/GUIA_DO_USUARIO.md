@@ -20,7 +20,7 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
   1. **Autos & Mídias**
   2. **Análise & Provas**
   3. **Dosimetria da Pena**
-  4. **Sentença & Gemini**
+  4. **Sentença**
 - No canto superior esquerdo, clique no **logo SentencIA** para abrir o **menu do aplicativo**, onde
   estão:
   - **Temas e aparência** (4 desenhos + modo claro/escuro);
@@ -51,6 +51,12 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
      peças nem as transcrições.
 4. **Transcrição das audiências:** ocorre localmente com o Whisper. Mídias sem fala ou com falha
    ficam sinalizadas explicitamente como **FALHOU** (nada é inventado).
+5. **Troca de caso segura:** ao abrir outro processo, o SentencIA registra uma "impressão digital" de
+   cada arquivo (PDF e gravações). Se a troca não puder ser concluída — por exemplo, um arquivo mudou ou
+   ficou indisponível —, o sistema avisa e o **caso anterior continua aberto**, sem misturar dados.
+6. **Gravação sem processo identificado:** se não for possível ter certeza de que uma gravação pertence
+   ao processo aberto, ela aparece como **pendente de vinculação**. Confira o processo da gravação e
+   envie o arquivo pela área de **Mídias de Audiência**; nada é anexado por suposição.
 
 ### Estação 2 — Análise & Provas
 
@@ -59,6 +65,10 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
 2. **Complementação de dados:** tudo o que não foi encontrado com segurança nos autos aparece listado
    para conferência (data do fato, data de recebimento da denúncia, data de nascimento do réu, crimes
    imputados, nomes das partes). Preencha o que faltar — o sistema nunca inventa datas, crimes ou valores.
+   - **Nomes das partes:** quando as peças trazem o mesmo nome com mais ou menos sobrenomes, o
+     SentencIA adota a **forma mais completa**. Se as peças trouxerem nomes realmente diferentes para a
+     vítima ou para o acusado, aparece o alerta "nome diverge entre as peças dos autos" para você
+     conferir antes de gerar a sentença.
 3. **Provas orais citáveis:** cada depoimento mostra a transcrição integral com minutagem e o botão
    **Citar**, que copia o trecho literal já identificado por depoente, mídia e minuto.
 
@@ -76,8 +86,10 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
 3. **Simulação instantânea:** o painel calcula pena-base, intermediária, definitiva, **regime inicial
    por espécie de pena**, **prescrição por crime** (art. 119 do CP e Súmula 497/STF) e alertas jurídicos
    (por exemplo, vedação de substituição ou sursis quando há vetor judicial negativo).
+4. **Prescrição na minuta:** o tópico de prescrição só é escrito na sentença quando há prescrição a
+   reconhecer. Se não houver, a minuta não abre esse tópico.
 
-### Estação 4 — Sentença & Gemini
+### Estação 4 — Sentença
 
 1. **Gerar a minuta:** escolha o modo de geração (seccional ou monolítico) e o motor:
    - **Motor determinístico / Ollama local** (100% na sua máquina);
@@ -94,6 +106,14 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
 3. **Auditoria anti-alucinação:** toda minuta recebe um laudo verificando forma, referências e
    aderência numérica das penas. A exportação definitiva exige auditoria aprovada; antes disso, você
    pode exportar um **rascunho** com a marca d'água **MINUTA NÃO AUDITADA**.
+4. **Teses da defesa:** cada tese defensiva é respondida no tópico **"Da Apreciação Individualizada das
+   Teses Defensivas"** (art. 381, III, do CPP).
+5. **Versão desatualizada:** se a minuta tiver sido alterada em outra janela ou regenerada, ao salvar,
+   regenerar ou copiar aparece o aviso "A revisão da minuta mudou. Reabra a versão atual". Isso evita
+   sobrescrever um trabalho mais recente.
+6. **Exportação congelada:** o arquivo exportado (Word, PDF, HTML ou cópia para o PJe) é uma cópia fixa
+   da mesma versão da minuta que foi auditada; se a minuta mudou depois, a exportação avisa em vez de
+   misturar versões.
 
 ---
 
@@ -183,6 +203,12 @@ No menu do logo → **Configurações**:
 | Chave do Gemini | **Sim** | Guardada no cofre do sistema (Credential Manager / Keychain), nunca no navegador |
 | Redação/refinamento com **Gemini** (opcional) | **Sai só com 2 autorizações** | Exige habilitar envio externo nas Configurações **e** consentir na operação; vai pseudonimizado |
 | Transcrição em nuvem (opcional) | **Sai só com 2 autorizações** | Só é usada se você habilitar e consentir expressamente |
+| Ollama em outro computador (remoto, opcional) | **Sai só com 2 autorizações** | Exige habilitar nas Configurações **e** confirmar o destino a cada operação |
+
+- **Autorização a cada operação:** todo envio para fora da máquina (Ollama remoto, revisão crítica
+  pela IA na nuvem, transcrição na nuvem) pede sua confirmação naquela operação. Sem ela, o SentencIA
+  **recusa o envio** e avisa; nada sai por padrão. Se o endereço do Ollama remoto mudar, a confirmação
+  é pedida de novo. Antes de sair, nomes e números de processo são **pseudonimizados**.
 
 - O servidor do SentencIA escuta **apenas em `127.0.0.1`** (inacessível a outros computadores da rede)
   e exige token de sessão renovado a cada abertura.

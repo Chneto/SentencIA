@@ -217,7 +217,5 @@ html[data-design="moderno"] .card {
 }
 
 html[data-design="moderno"] .sentence-paper-body {
-  max-width: 74ch;
-  margin-inline: auto;
   line-height: 1.72;
 }

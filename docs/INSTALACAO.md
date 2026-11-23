@@ -110,7 +110,7 @@ Ao concluir a instalação (ou ao clicar no atalho **SentencIA**), o servidor lo
 - **Assistente de primeira execução:** na primeira abertura (e sempre que desejar pelo menu do logo → **Ajuda / Assistente**), o SentencIA mostra:
   1. O estado da **IA local (Ollama)** e o modelo recomendado para a sua memória/placa de vídeo;
   2. A disponibilidade do **motor de OCR nativo** (`winocr` no Windows / `ocrmac` no macOS);
-  3. O resumo prático das **4 estações de trabalho** (*I. Autos & Mídias*, *II. Análise & Provas*, *III. Dosimetria* e *IV. Sentença & Gemini*) e o link para o **[Guia do Usuário](GUIA_DO_USUARIO.md)**.
+  3. O resumo prático das **4 estações de trabalho** (*I. Autos & Mídias*, *II. Análise & Provas*, *III. Dosimetria* e *IV. Sentença*) e o link para o **[Guia do Usuário](GUIA_DO_USUARIO.md)**.
 
 ---
 

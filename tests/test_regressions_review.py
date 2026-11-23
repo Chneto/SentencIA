@@ -180,7 +180,7 @@ def test_subsegmentacao_laudos_aij_e_sentenca_limpa():
         "crimes_config": [
             {"codigo": "art_129_p13_cp", "veredicto": "condenar"},
             {"codigo": "art_150_p1_cp", "veredicto": "desclassificar", "crime_desclassificado": "art_150_cp"},
-            {"codigo": "art_147_cp", "veredicto": "condenar"},
+            {"codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput"},
         ]
     }
     sent = gerar_sentenca_estruturada(bundle, custom_dosimetria_override=override, use_ollama_if_available=False)
@@ -325,9 +325,8 @@ def test_gemini_import_reparo_cirurgico_preserva_secoes_validas():
 
 def test_load_real_case_from_disk_isolates_coexisting_cases_and_medias(tmp_path, monkeypatch):
     """
-    Regressão: quando dois processos coexistem em data/cases/, o autoload de disco
-    deve carregar exclusivamente as mídias vinculadas ao processo ativo (por data da AIJ
-    e nomes das partes), sem contaminação cruzada nem nomes hardcoded.
+    Com dois PDFs na pasta, a seleção explícita só vincula mídias identificadas
+    com o número do processo selecionado.
     """
     import app.main as main_module
     from app.transcription.audio_transcriber import _infer_speaker_and_role
@@ -364,8 +363,8 @@ def test_load_real_case_from_disk_isolates_coexisting_cases_and_medias(tmp_path,
 
     pdf_a = tmp_path / nome_pdf_a
     pdf_b = tmp_path / nome_pdf_b
-    pdf_a.write_bytes(b"%PDF-1.4\n")
-    pdf_b.write_bytes(b"%PDF-1.4\n")
+    pdf_a.write_bytes(b"%PDF-1.4\nArquivo ficticio A")
+    pdf_b.write_bytes(b"%PDF-1.4\nArquivo ficticio B")
 
     nomes_midias = [
         "div_Audiências do 3JVD-20260305_100511-Depoimento da Vítima Helena_001.mp4",
@@ -381,7 +380,8 @@ def test_load_real_case_from_disk_isolates_coexisting_cases_and_medias(tmp_path,
         "div_Audiências do 3JVD-20260323_111830-Interrogatório do Acusado Roberto_003.mp4",
     ]
     for nome in nomes_midias:
-        (tmp_path / nome).write_bytes(b"\x00" * 64)
+        processo = (nome_pdf_a if "20260305" in nome else nome_pdf_b).removesuffix(".pdf")
+        (tmp_path / f"{processo}-{nome}").write_bytes(b"\x00" * 64)
 
     def _fake_segmentar(pdf_path, remover_em_falha=True):
         return docs_by_name[pdf_path.name]
@@ -404,10 +404,8 @@ def test_load_real_case_from_disk_isolates_coexisting_cases_and_medias(tmp_path,
     monkeypatch.setattr(main_module, "_segmentar_pdf_seguro", _fake_segmentar)
     monkeypatch.setattr(main_module, "transcrever_midia_audiencia", _fake_transcrever)
 
-    # 1. Caso ativo = 0807222-22 (Helena, AIJ 05/03/2026) mais recente
-    os.utime(pdf_b, (1_700_000_100, 1_700_000_100))
-    os.utime(pdf_a, (1_700_000_200, 1_700_000_200))
-    bundle_a = main_module._load_real_case_from_disk_if_present()
+    # 1. Caso ativo = 0807222-22 (Helena, AIJ 05/03/2026) selecionado por caminho explícito
+    bundle_a = main_module._load_real_case_from_disk_if_present(pdf_selecionado=pdf_a)
     assert bundle_a is not None
     assert bundle_a["numero_processo"] == "0807222-22.2025.8.20.0001"
     arqs_a = [t["arquivo"] for t in bundle_a["transcriptions"]]
@@ -418,10 +416,8 @@ def test_load_real_case_from_disk_isolates_coexisting_cases_and_medias(tmp_path,
         for a in arqs_a
     )
 
-    # 2. Caso ativo = 0807111-11 (Camila / Roberto, AIJ 23/03/2026) mais recente
-    os.utime(pdf_a, (1_700_000_100, 1_700_000_100))
-    os.utime(pdf_b, (1_700_000_300, 1_700_000_300))
-    bundle_b = main_module._load_real_case_from_disk_if_present()
+    # 2. Caso ativo = 0807111-11 (Camila / Roberto, AIJ 23/03/2026) selecionado por caminho explícito
+    bundle_b = main_module._load_real_case_from_disk_if_present(pdf_selecionado=pdf_b)
     assert bundle_b is not None
     assert bundle_b["numero_processo"] == "0807111-11.2025.8.20.0001"
     arqs_b = [t["arquivo"] for t in bundle_b["transcriptions"]]

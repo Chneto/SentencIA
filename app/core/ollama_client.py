@@ -16,6 +16,7 @@ import httpx
 
 from app.core import config as _cfg
 from app.core.config import load_settings, ollama_url_loopback
+from app.core.envio_externo import preparar_prompt_ollama, restaurar_resposta_ollama
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ def criar_cliente(timeout: float) -> httpx.Client:
 
 
 def url_ollama_autorizada(url: str, permitir_envio_externo: bool) -> bool:
-    """Loopback sempre; outro host somente com ``permitir_envio_externo=True``."""
+    """Consultas técnicas e comandos sem conteúdo: loopback sempre; outro host somente com ``permitir_envio_externo=True``."""
     return ollama_url_loopback(url) or bool(permitir_envio_externo)
 
 
@@ -314,9 +315,11 @@ def gerar_texto(
     try:
         settings = load_settings()
         url = _url_base(settings.ollama_url)
-        if not url_ollama_autorizada(url, settings.permitir_envio_externo):
-            logger.warning("Ollama em host remoto bloqueado: habilite permitir_envio_externo para usar %s.", url)
+        preparado = preparar_prompt_ollama(url, settings, prompt)
+        if preparado is None:
+            logger.warning("Ollama remoto bloqueado: operação sem autorização ou pseudonimização incompleta.")
             return None
+        prompt, mapa = preparado
         from app.core.vram_manager import calcular_opcoes_ollama, registrar_ultima_chamada_ollama, reservar_gpu
 
         configurado = settings.ollama_model
@@ -443,7 +446,7 @@ def gerar_texto(
         if not isinstance(texto, str) or not texto.strip():
             logger.warning("Ollama retornou resposta vazia.")
             return None
-        return texto.strip()
+        return restaurar_resposta_ollama(texto, mapa).strip()
     except Exception as err:
         logger.warning("Falha ao gerar texto no Ollama: %s: %s", type(err).__name__, err)
         return None

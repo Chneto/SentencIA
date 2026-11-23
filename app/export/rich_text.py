@@ -528,7 +528,7 @@ class _Leitor(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self._ignorar or not data:
             return
-        texto = data.replace("​", "").replace(" ", " ")
+        texto = data.replace("\u200B", "").replace(" ", " ")
         texto = re.sub(r"[ \t\r\n\f]+", " ", texto)
         if not texto:
             return

@@ -48,10 +48,6 @@ async function buildScript() {
   });
   const sc = res.script || {};
   state.lastScriptMarkdown = sc.script_markdown || "";
-  state.scriptMapa =
-    sc.mapa_reversao && Object.keys(sc.mapa_reversao).length
-      ? { mapa_reversao: sc.mapa_reversao, mapa_hash: sc.mapa_hash || "", caseKey: state.caseKey }
-      : null;
   return sc;
 }
 
@@ -77,9 +73,7 @@ async function verScript() {
     $("scriptPreviewArea").value = sc.script_markdown || "";
     const kb = Math.round((sc.script_markdown || "").length / 1024);
     const alertas = (sc.alertas || []).length ? ` | ${sc.alertas.length} alerta(s): ${sc.alertas.join(" · ")}` : "";
-    $("scriptPreviewMeta").textContent = `Densidade: ${sc.densidade || "compacto"} | ~${kb} KB | Pseudonimizado: ${sc.pseudonimizado ? "Sim" : "Não"}${
-      sc.mapa_hash ? ` | Mapa ${sc.mapa_hash.slice(0, 12)}…` : ""
-    }${alertas}`;
+    $("scriptPreviewMeta").textContent = `Densidade: ${sc.densidade || "compacto"} | ~${kb} KB | Pseudonimizado: ${sc.pseudonimizado ? "Sim" : "Não"}${alertas}`;
     openModal("modalScriptPreview");
   } catch (err) {
     handleApiError(err, { retry: verScript });
@@ -307,10 +301,6 @@ async function importarSentencaGemini() {
       auto_blindar_auditoria: !!$("chkAutoBlindarGemini").checked,
       custom_dosimetria_override: hooks.buildDosimetryPayload(),
     };
-    if (state.scriptMapa && state.scriptMapa.caseKey === state.caseKey) {
-      corpo.mapa_reversao = state.scriptMapa.mapa_reversao;
-      corpo.mapa_hash = state.scriptMapa.mapa_hash || null;
-    }
     const res = await postJson("/api/gemini/import-sentence", corpo);
     renderSentenceOnSheet(res);
     closeModal("modalPasteGemini");
@@ -339,12 +329,7 @@ function bindGeminiEvents() {
   $("btnOpenPasteGeminiModal")?.addEventListener("click", () => {
     const info = $("pasteGeminiMapaInfo");
     if (info) {
-      info.textContent =
-        state.scriptMapa && state.scriptMapa.caseKey === state.caseKey
-          ? `Mapa de pseudonimização do último script: ${Object.keys(state.scriptMapa.mapa_reversao).length} token(s)${
-              state.scriptMapa.mapa_hash ? `, hash ${state.scriptMapa.mapa_hash.slice(0, 12)}…` : ""
-            }.`
-          : "Nenhum script pseudonimizado gerado nesta página: o servidor usará o mapa do último script do mesmo caso, se houver.";
+      info.textContent = "O servidor usa o mapa local do caso ativo para restaurar o texto pseudonimizado.";
     }
     openModal("modalPasteGemini");
   });

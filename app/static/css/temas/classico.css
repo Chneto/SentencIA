@@ -190,8 +190,6 @@ html[data-design="classico"] .sentence-paper-wrapper {
 }
 
 html[data-design="classico"] .sentence-paper-body {
-  max-width: 74ch;
-  margin-inline: auto;
   font-family: var(--font-serif);
   line-height: 1.72;
 }

@@ -1,7 +1,321 @@
 // SentencIA — Módulo ES: estacao-analise.js (TASK-015)
+import { focarTrecho, realcarTrecho } from "./estacao-autos.js?v=2.1.0";
 import { META_CAMPOS_FORM, META_CAMPOS_LABELS, hooks, state } from "./estado.js?v=2.1.0";
 import { $, closeModal, codigosCatalogo, escapeHtml, fmtDateBr, fmtMoeda, isoDate, openModal, rotuloCrime, showToast } from "./dom.js?v=2.1.0";
-import { ApiError, acompanharJob, apiFetch, apiJson, handleApiError, lerJson, postJson } from "./api.js?v=2.1.0";
+import { acompanharJob, apiJson, consentirOllamaNaOperacao, handleApiError, postJson } from "./api.js?v=2.1.0";
+
+
+const PONTOS = {
+  data_nascimento_reu: { titulo: "Nascimento do réu", pena: true, campos: [["", "Data de nascimento", "date"]] },
+  antecedentes: { titulo: "Antecedentes", pena: true, campos: [
+    ["classificacao", "Classificação", "select", { primario: "Primário", neutro_em_curso: "Ações ou inquéritos em curso", reincidencia: "Reincidência", maus_antecedentes: "Maus antecedentes", condenacao_sem_data: "Condenação sem data", verificar_periodo_depurador: "Verificar período depurador", verificar_data_do_fato: "Verificar data do fato" }],
+    ["data_transito", "Trânsito em julgado", "date"],
+  ] },
+  confissao: { titulo: "Confissão", pena: true, campos: [
+    ["tipo", "Tipo", "select", { total: "Total", parcial: "Parcial", qualificada: "Qualificada", ausente: "Ausente" }],
+    ["minuto", "Minutagem", "text"],
+  ] },
+  prisao_provisoria: { titulo: "Prisão provisória", pena: true, campos: [
+    ["data_prisao", "Início da prisão", "date"], ["data_soltura", "Soltura", "date"],
+  ] },
+  representacao: { titulo: "Representação", campos: [
+    ["presente", "Há representação?", "sim-nao"], ["data", "Data da representação", "date"],
+  ] },
+  intimacao_mpu: { titulo: "Intimação da medida protetiva", campos: [
+    ["intimidado_pessoalmente", "Houve intimação pessoal?", "sim-nao"], ["data", "Data da intimação", "date"],
+  ] },
+  pedido_dano_moral: { titulo: "Pedido de reparação por dano moral", campos: [
+    ["presente", "Há pedido expresso?", "sim-nao"], ["valor", "Valor pedido (R$)", "number"],
+  ] },
+  vitima_condicao: { titulo: "Condições da vítima", pena: true, opcoes: {
+    gestante: "Gestante", idosa: "Idosa", deficiencia: "Pessoa com deficiência", presenca_descendente: "Presença de descendente",
+  } },
+  revelia: { titulo: "Revelia", campos: [["presente", "Houve revelia?", "sim-nao"]] },
+  reu_preso: { titulo: "Situação prisional do réu", campos: [
+    ["", "Situação", "select", { preso: "Preso", solto: "Solto" }],
+  ] },
+};
+
+const ROTULO_PEDIDO = {
+  condenacao_total: "Condenação total",
+  condenacao_parcial: "Condenação parcial",
+  absolvicao: "Absolvição",
+  desclassificacao: "Desclassificação",
+  dano_moral: "Dano moral",
+  agravante_qualificadora: "Agravante ou qualificadora",
+  atenuante: "Atenuante",
+  regime: "Regime inicial",
+  outro: "Outro pedido",
+};
+const TESE_HONRA = /leg[ií]tima\s+defesa\s+da\s+honra/i;
+const SIM_NAO = { sim: "Sim", nao: "Não" };
+const pontosAtuais = () => state.activeCase?.metadados?.pontos_decisivos || [];
+
+function trechoBotao(item, rotulo = "Ver trecho") {
+  if (!item.fonte_id) return "";
+  return '<button type="button" class="btn btn-sm" data-inspect-id="' + escapeHtml(item.fonte_id) +
+    '" data-inspect-folha="' + escapeHtml(item.folha) + '" data-inspect-trecho="' +
+    escapeHtml(item.trecho) + '">' + rotulo + '</button>';
+}
+
+function rotuloFonte(item) {
+  return [item.fonte_id, item.folha].filter(Boolean).join(" · ");
+}
+
+function teseHonra(pedido) {
+  return TESE_HONRA.test([pedido.descricao, pedido.titulo, pedido.descricao_defesa, pedido.trecho].join(" "));
+}
+
+function renderPedidos(c, meta) {
+  const grupos = new Map();
+  for (const [parte, pedidos] of [["mp", meta.pedidos_mp || []], ["defesa", meta.pedidos_defesa || []]]) {
+    for (const pedido of pedidos) {
+      const crime = pedido.crime || "";
+      if (!grupos.has(crime)) grupos.set(crime, { mp: [], defesa: [] });
+      grupos.get(crime)[parte].push(pedido);
+    }
+  }
+
+  const honraEmPedido = (meta.pedidos_defesa || []).some(teseHonra);
+  const tese = (meta.teses_defesa || []).find(teseHonra);
+  const peca = (c.pecas || []).find((p) =>
+    ["RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA"].includes(p.categoria) && TESE_HONRA.test(p.conteudo || ""));
+  const alerta = '<strong class="pd-honra">Tese vedada (ADPF 779/STF): repudiar expressamente</strong>';
+  const alertaGeral = !honraEmPedido && (tese || peca)
+    ? '<div class="pd-alerta-honra">' + alerta + ' ' +
+      trechoBotao(tese?.fonte_id ? tese : { fonte_id: peca?.doc_id, folha: peca?.folha, trecho: peca?.conteudo?.match(TESE_HONRA)?.[0] }) + '</div>'
+    : "";
+  const coluna = (pedidos, defesa) => pedidos.length
+    ? '<ul class="pd-pedidos">' + pedidos.map((pedido) => {
+        const vedada = defesa && teseHonra(pedido);
+        const tipo = ROTULO_PEDIDO[pedido.tipo] || String(pedido.tipo || "Pedido").replaceAll("_", " ");
+        return '<li' + (vedada ? ' class="pd-alerta-honra"' : '') + '><span class="pd-tipo">' +
+          escapeHtml(tipo) + '</span><p>' + escapeHtml(pedido.descricao) + '</p>' +
+          (vedada ? alerta : "") + '<div class="pd-fonte">' + escapeHtml(rotuloFonte(pedido)) +
+          trechoBotao(pedido) + '</div></li>';
+      }).join("") + '</ul>'
+    : '<p class="muted">Sem pedido identificado.</p>';
+  const linhas = [...grupos].sort(([a], [b]) => Number(!a) - Number(!b)).map(([crime, partes]) =>
+    '<tr><th scope="rowgroup" colspan="2">' + escapeHtml(crime ? rotuloCrime(crime) : "Pedidos sem crime individualizado") +
+    '</th></tr><tr><td>' + coluna(partes.mp, false) + '</td><td>' + coluna(partes.defesa, true) + '</td></tr>');
+  return alertaGeral + '<table class="pd-quadro" aria-label="MP pede × Defesa pede"><thead><tr>' +
+    '<th scope="col">MP pede</th><th scope="col">Defesa pede</th></tr></thead>' +
+    (linhas.length ? linhas.map((linha) => "<tbody>" + linha + "</tbody>").join("") :
+      '<tbody><tr><td colspan="2">Nenhum pedido identificado nas alegações finais.</td></tr></tbody>') +
+    '</table>';
+}
+
+const ANTECEDENTES_A_CONFERIR = new Set([
+  "condenacao_sem_data", "verificar_periodo_depurador", "verificar_data_do_fato",
+]);
+
+const EFEITO_ANTECEDENTES = {
+  primario: "Sem agravante por reincidência nem valoração negativa dos antecedentes.",
+  neutro_em_curso: "Ações penais em curso e inquéritos são neutros na dosimetria.",
+  reincidencia: "Agravante da reincidência na segunda fase da dosimetria (art. 61, I, do CP).",
+  maus_antecedentes: "Valoração dos maus antecedentes na primeira fase da dosimetria (art. 59 do CP).",
+};
+
+function antecedentesIncompletos(ponto) {
+  return ponto.chave === "antecedentes" && ANTECEDENTES_A_CONFERIR.has(ponto.valor?.classificacao);
+}
+
+function idadeAnos(nascimento, referencia) {
+  const a = isoDate(nascimento);
+  const b = isoDate(referencia);
+  if (!a || !b || a > b) return null;
+  return Number(b.slice(0, 4)) - Number(a.slice(0, 4)) - Number(b.slice(5) < a.slice(5));
+}
+
+function valorDoPonto(ponto, meta) {
+  if (ponto.chave === "data_nascimento_reu" && meta.data_nascimento_reu) return meta.data_nascimento_reu;
+  return ponto.valor;
+}
+
+function estadoDoPonto(ponto, meta) {
+  if (antecedentesIncompletos(ponto)) return "pendente";
+  if (ponto.confirmado || (ponto.chave === "data_nascimento_reu" && meta.data_nascimento_reu)) return "confirmado";
+  return ponto.estado === "ausente" ? "ausente" : "pendente";
+}
+
+function campoValor(valor, chave, tipo, opcoes) {
+  const bruto = chave ? (typeof valor === "boolean" && chave === "presente" ? valor : valor?.[chave]) : valor;
+  if (bruto === undefined || bruto === null || bruto === "") return "";
+  if (tipo === "sim-nao") return bruto ? "Sim" : "Não";
+  if (tipo === "select") return opcoes[bruto] || bruto;
+  if (tipo === "date") return fmtDateBr(bruto);
+  if (tipo === "number") return fmtMoeda(bruto);
+  return bruto;
+}
+
+function textoValorPonto(valor, def) {
+  if (def.opcoes) return Array.isArray(valor) ? valor.map((v) => def.opcoes[v] || v).join(", ") || "Nenhuma condição" : "";
+  return def.campos.map(([chave, rotulo, tipo, opcoes]) => {
+    const exibido = campoValor(valor, chave, tipo, opcoes);
+    return exibido && (chave ? rotulo.replace(/\?$/, "") + ": " + exibido : exibido);
+  }).filter(Boolean).join(" · ");
+}
+
+function idadeEfeito(valor, meta) {
+  const idade = idadeAnos(valor, meta.data_fato);
+  if (idade === null) return "";
+  return idade + " anos na data do fato" + (idade < 21 ? " → atenuante do art. 65, I, do CP" : "");
+}
+
+
+function avisoPontosPendentes(meta) {
+  const n = (meta.pontos_decisivos || []).filter((p) =>
+    PONTOS[p.chave]?.pena && estadoDoPonto(p, meta) === "pendente").length;
+  if (!n) return "";
+  return n + (n === 1 ? " ponto a confirmar pode" : " pontos a confirmar podem") +
+    " alterar a pena. Confira Pontos decisivos na etapa 2.";
+}
+
+function renderPontosDecisivos(c) {
+  const meta = c?.metadados || {};
+  const pontos = meta.pontos_decisivos || [];
+  const n = pontos.filter((p) => estadoDoPonto(p, meta) === "pendente").length;
+  $("pdContador").textContent = n + (n === 1 ? " ponto a confirmar" : " pontos a confirmar");
+  $("pdContador").hidden = !c || c.empty;
+  $("pdAvisoGeracao").textContent = avisoPontosPendentes(meta);
+  $("pdAvisoGeracao").hidden = !$("pdAvisoGeracao").textContent;
+  $("pdQuadro").innerHTML = c && !c.empty ? renderPedidos(c, meta) : '<p class="muted">Nenhum processo carregado.</p>';
+  $("pdCards").innerHTML = pontos.filter((p) => PONTOS[p.chave]).map((p) => {
+    const def = PONTOS[p.chave];
+    const estado = estadoDoPonto(p, meta);
+    const rotulo = { confirmado: "Confirmado", pendente: "A confirmar", ausente: "Ausente" }[estado];
+    const valor = valorDoPonto(p, meta);
+    const idade = p.chave === "data_nascimento_reu" ? idadeEfeito(valor, meta) : "";
+    const fonte = rotuloFonte(p);
+    const efeito = p.chave === "antecedentes" && estado === "confirmado"
+      ? EFEITO_ANTECEDENTES[valor?.classificacao] || p.efeito : p.efeito;
+    const confissaoAuto = p.chave === "confissao" && estado === "pendente"
+      ? '<p class="pd-aviso-confissao">Confissão aplicada automaticamente: confirme ou corrija.</p>' : "";
+    const titulo = escapeHtml(def.titulo);
+    return '<article class="pd-cartao inner-tile" data-ponto="' + p.chave + '" data-estado="' + estado + '">' +
+      '<div class="pd-cartao-topo"><h3 tabindex="-1">' + titulo + '</h3><span class="pd-estado">' + rotulo + '</span></div>' +
+      '<p class="pd-valor">' + escapeHtml(p.chave === "confissao" && valor === "" ? "Ausente" : textoValorPonto(valor, def) || "Sem dado registrado") + '</p>' +
+      (idade ? '<p>' + escapeHtml(idade) + '</p>' : '') + '<p>' + escapeHtml(efeito || "") + '</p>' + confissaoAuto +
+      '<div class="pd-fonte">' + escapeHtml(fonte ? "Fonte: " + fonte : estado === "confirmado" ? "Fonte: informado pelo juízo" : "Fonte não localizada") +
+      (fonte ? trechoBotao(p, "Ver fonte") : "") + '</div>' +
+      '<div class="pd-acoes">' + (estado === "pendente" && valor != null && !antecedentesIncompletos(p)
+        ? '<button type="button" class="btn btn-sm btn-primary" data-pd-confirmar aria-label="Confirmar ' + titulo + '">Confirmar</button>'
+        : '') + '<button type="button" class="btn btn-sm" data-pd-corrigir aria-label="Corrigir ' + titulo + '">Corrigir</button></div></article>';
+  }).join("");
+}
+
+function campoCorrecao([chave, rotulo, tipo, opcoes], valor) {
+  const nome = chave || "valor";
+  const bruto = chave ? (typeof valor === "boolean" && chave === "presente" ? valor : valor?.[chave]) : valor;
+  const label = '<label class="form-label pd-campo">' + escapeHtml(rotulo);
+  if (tipo === "select" || tipo === "sim-nao") {
+    const atual = tipo === "sim-nao" && typeof bruto === "boolean" ? (bruto ? "sim" : "nao") : bruto;
+    const opcoesHtml = Object.entries(opcoes || SIM_NAO).map(([k, v]) =>
+      '<option value="' + k + '"' + (k === atual ? " selected" : "") + '>' + escapeHtml(v) + '</option>').join("");
+    return label + '<select class="form-select" name="' + nome + '" required><option value="">Selecione</option>' + opcoesHtml + '</select></label>';
+  }
+  const exibido = tipo === "date" ? isoDate(bruto) : bruto ?? "";
+  const atributos = (!chave ? " required" : "") + (tipo === "number" ? ' min="0" step="0.01"' : "");
+  return label + '<input class="form-control" name="' + nome + '" type="' + tipo + '" value="' +
+    escapeHtml(exibido) + '"' + atributos + '></label>';
+}
+
+function abrirCorrecao(ponto, botao) {
+  const dialogo = $("pdCorrecao");
+  const def = PONTOS[ponto.chave];
+  let valor = valorDoPonto(ponto, state.activeCase.metadados);
+  if (ponto.chave === "confissao" && valor === "") valor = { tipo: "ausente" };
+  dialogo.dataset.corrigirPonto = ponto.chave;
+  $("pdCorrecaoTitulo").textContent = "Corrigir " + def.titulo.toLowerCase();
+  $("pdCorrecaoErro").textContent = "";
+  $("pdCorrecaoCampos").innerHTML = def.opcoes
+    ? Object.entries(def.opcoes).map(([k, v]) => '<label class="pd-opcao"><input type="checkbox" name="condicao" value="' +
+      k + '"' + (valor?.includes(k) ? " checked" : "") + '> ' + escapeHtml(v) + '</label>').join("")
+    : def.campos.map((campo) => campoCorrecao(campo, valor)).join("");
+  dialogo.addEventListener("close", () => {
+    if (botao.isConnected) botao.focus();
+  }, { once: true });
+  dialogo.showModal();
+}
+
+function lerCorrecao(form, chave) {
+  const dados = new FormData(form);
+  const def = PONTOS[chave];
+  if (def.opcoes) return dados.getAll("condicao");
+  const valores = Object.fromEntries(def.campos.map(([nome, , tipo]) => {
+    const bruto = dados.get(nome || "valor");
+    const valor = tipo === "sim-nao" ? bruto === "sim" : tipo === "number" ? (bruto ? Number(bruto) : null) : bruto;
+    return [nome || "valor", valor];
+  }));
+  if (chave === "antecedentes" && ANTECEDENTES_A_CONFERIR.has(valores.classificacao)) {
+    throw new Error("Confira os dados da certidão e selecione a classificação apurada.");
+  }
+  if (chave === "prisao_provisoria") {
+    const { data_prisao, data_soltura } = valores;
+    if (!data_prisao && !data_soltura) throw new Error("Informe o início da prisão ou a data de soltura.");
+    if (data_prisao && data_soltura && data_soltura < data_prisao) throw new Error("A soltura não pode anteceder o início da prisão.");
+    valores.dias = data_prisao && data_soltura ? (Date.parse(data_soltura) - Date.parse(data_prisao)) / 86400000 : null;
+  }
+  // O cálculo usa a verdade lógica do valor confirmado da confissão.
+  if (chave === "confissao" && valores.tipo === "ausente") return "";
+  return def.campos[0][0] ? valores : valores.valor;
+}
+
+let salvandoPonto = false;
+
+async function salvarPonto(ponto, correcao, botao) {
+  if (salvandoPonto) return;
+  const c = state.activeCase;
+  let valor = correcao ?? valorDoPonto(ponto, c.metadados);
+  if (ponto.chave === "revelia" && typeof valor === "boolean") valor = { presente: valor };
+  const metadados = {
+    pontos_decisivos_confirmados: { ...(c.metadados_override?.pontos_decisivos_confirmados || {}), [ponto.chave]: valor },
+  };
+  if (ponto.chave === "data_nascimento_reu") metadados.data_nascimento_reu = valor;
+  salvandoPonto = true;
+  botao.disabled = true;
+  try {
+    const resposta = await postJson("/api/cases/metadata-override", { metadados });
+    if (state.activeCase?.case_id !== c.case_id) return;
+    await hooks.applyActiveCase(resposta.active_case, { clearSentence: true });
+    if ($("pdCorrecao").open) $("pdCorrecao").close();
+    $("pdCards").querySelector('[data-ponto="' + ponto.chave + '"] h3')?.focus({ preventScroll: true });
+    showToast("Ponto confirmado. A minuta anterior foi descartada.", "success");
+  } catch (err) {
+    if ($("pdCorrecao").open) $("pdCorrecaoErro").textContent = err.message;
+    else handleApiError(err);
+  } finally {
+    salvandoPonto = false;
+    botao.disabled = false;
+  }
+}
+
+function bindPontosDecisivos() {
+  $("pdCards").addEventListener("click", (e) => {
+    const botao = e.target.closest("[data-pd-confirmar],[data-pd-corrigir]");
+    if (!botao || salvandoPonto) return;
+    const ponto = pontosAtuais().find((p) => p.chave === botao.closest("[data-ponto]").dataset.ponto);
+    if (!ponto) return;
+    if (botao.hasAttribute("data-pd-corrigir")) abrirCorrecao(ponto, botao);
+    else salvarPonto(ponto, null, botao);
+  });
+  $("pdCancelarCorrecao").addEventListener("click", () => $("pdCorrecao").close());
+  $("pdCorrecaoForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const ponto = pontosAtuais().find((p) => p.chave === $("pdCorrecao").dataset.corrigirPonto);
+    if (!ponto) return;
+    try {
+      salvarPonto(ponto, lerCorrecao(e.currentTarget, ponto.chave), $("pdSalvarCorrecao"));
+    } catch (err) {
+      $("pdCorrecaoErro").textContent = err.message;
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-aviso-pontos]")) return;
+    const aviso = avisoPontosPendentes(state.activeCase?.metadados || {});
+    if (aviso) showToast(aviso, "warn");
+  }, { capture: true });
+}
 
 function rotuloCoerencia(valor) {
   const v = String(valor || "");
@@ -82,6 +396,7 @@ function renderAlertasExtracao(c) {
 
 function renderAnaliseProvas() {
   const c = state.activeCase;
+  renderPontosDecisivos(c);
   if (!c || c.empty) {
     $("timelineContainer").innerHTML = `<p class="muted">Nenhum processo carregado.</p>`;
     $("oralConsolidadoContainer").innerHTML = `<p class="muted">Sem prova oral carregada.</p>`;
@@ -385,11 +700,11 @@ function renderAlegacoesOrais() {
 async function analisarFalas() {
   const btn = $("btnAnalisarFalas");
   if (btn) btn.disabled = true;
-  showToast("Analisando falas e alegações com a IA local. Pode levar alguns minutos.", "info");
   try {
-    const resp = await apiFetch("/api/cases/oral/analisar", { method: "POST" });
-    const body = await lerJson(resp);
-    if (!resp.ok) throw new ApiError(resp.status, body);
+    const consentimento = await consentirOllamaNaOperacao("identificar falantes e alegações");
+    if (consentimento === null) return;
+    showToast("Analisando falas e alegações. Pode levar alguns minutos.", "info");
+    const body = await postJson("/api/cases/oral/analisar", consentimento);
     const resultado = await acompanharJob(body.job_id);
     state.analisesOrais = resultado.analises || {};
     renderAlegacoesOrais();
@@ -401,7 +716,7 @@ async function analisarFalas() {
   }
 }
 
-function openEvidenceInspector(rawId) {
+function openEvidenceInspector(rawId, { folha = "", trecho = "" } = {}) {
   const idClean = String(rawId || "").replace(/^FONTE:\s*/i, "").trim().split("/")[0].trim();
   const pecas = state.activeCase?.pecas || [];
   const deps = state.activeCase?.matriz_oral?.depoentes || [];
@@ -411,15 +726,17 @@ function openEvidenceInspector(rawId) {
 
   if (peca) {
     $("evidenceDrawerTitle").textContent = `${peca.doc_id} — ${peca.titulo}`;
-    $("evidenceDrawerMeta").textContent = `${peca.categoria} | ${fmtDateBr(peca.data_peca, "data não identificada")} | ${peca.folha || ""}`;
+    $("evidenceDrawerMeta").textContent = [peca.categoria, fmtDateBr(peca.data_peca, "data não identificada"), folha || peca.folha].filter(Boolean).join(" | ");
     const ents = (peca.entidades_extraidas || []).filter((e) => e && e.valor);
     $("evidenceDrawerEntities").innerHTML = ents
       .slice(0, 12)
       .map((e) => `<span class="badge-tag badge-neutral">${escapeHtml(e.tipo ? `${e.tipo}: ${e.valor}` : e.valor)}</span>`)
       .join("");
-    let bodyHtml = escapeHtml(peca.conteudo || peca.resumo_estruturado || "");
+    const textoPeca = peca.conteudo || peca.resumo_estruturado || "";
+    const realce = realcarTrecho(textoPeca, trecho);
+    let bodyHtml = realce || escapeHtml(textoPeca);
     const valores = Array.from(new Set(ents.map((e) => String(e.valor || "").trim()).filter((v) => v.length >= 4))).sort((a, b) => b.length - a.length);
-    if (valores.length) {
+    if (valores.length && !realce) {
       const alt = valores.map((v) => escapeHtml(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
       bodyHtml = bodyHtml.replace(new RegExp(`(${alt})`, "gi"), '<mark class="forensic-entity-mark">$1</mark>');
     }
@@ -430,6 +747,7 @@ function openEvidenceInspector(rawId) {
     }
     $("evidenceDrawerBody").innerHTML = bodyHtml;
     openModal("modalEvidence");
+    if (trecho) focarTrecho($("evidenceDrawerBody"), $("modalEvidence").querySelector("[data-close-modal]"));
     return;
   }
 
@@ -451,7 +769,7 @@ function openEvidenceInspector(rawId) {
           <div class="trans-seg" style="display:flex; gap:10px; align-items:flex-start; padding:5px 0; border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.2));">
             <span class="mono muted" style="flex:0 0 96px; font-size:11.5px;">${escapeHtml(s.timestamp || "--:--")}</span>
             ${falantes[i] ? `<span class="badge-tag ${falantes[i] === "INCERTO" ? "badge-neutral" : "badge-success"}" title="Sugestão da IA local; confira com o áudio" style="flex:0 0 auto;">${escapeHtml(ROTULO_FALANTE[falantes[i]] || falantes[i])}</span>` : ""}
-            <span style="flex:1;">${escapeHtml(s.texto_literal)}${s.texto_whisper ? ` <span class="muted" style="font-size:11px;" title="Texto original do Whisper: ${escapeHtml(s.texto_whisper)}">(nome/número ajustado: ${escapeHtml(Array.isArray(s.ajustes) ? s.ajustes.join("; ") : (s.ajustes || ""))})</span>` : ""}</span>
+            <span style="flex:1;">${realcarTrecho(s.texto_literal, trecho) || escapeHtml(s.texto_literal)}${s.texto_whisper ? ` <span class="muted" style="font-size:11px;" title="Texto original do Whisper: ${escapeHtml(s.texto_whisper)}">(nome/número ajustado: ${escapeHtml(Array.isArray(s.ajustes) ? s.ajustes.join("; ") : (s.ajustes || ""))})</span>` : ""}</span>
             <button type="button" class="btn btn-sm" data-citar-media="${escapeHtml(dep.media_id)}" data-citar-idx="${i}">Citar</button>
           </div>`
           )
@@ -459,6 +777,7 @@ function openEvidenceInspector(rawId) {
         `<div style="margin-top:10px;"><button type="button" class="btn btn-sm" data-citar-tudo="${escapeHtml(dep.media_id)}">Copiar transcrição integral</button></div>`;
     }
     openModal("modalEvidence");
+    if (trecho) focarTrecho($("evidenceDrawerBody"), $("modalEvidence").querySelector("[data-close-modal]"));
     return;
   }
 
@@ -466,6 +785,7 @@ function openEvidenceInspector(rawId) {
 }
 
 function bindAnaliseEvents() {
+  bindPontosDecisivos();
   // Clique delegado: inspeção de peças/mídias, marcadores e atalhos de complementação.
   document.addEventListener("click", (e) => {
     const goto = e.target.closest("[data-marcador-goto]");
@@ -518,7 +838,7 @@ function bindAnaliseEvents() {
     const target = e.target.closest("[data-inspect-id]");
     if (target) {
       e.preventDefault();
-      openEvidenceInspector(target.dataset.inspectId);
+      openEvidenceInspector(target.dataset.inspectId, { folha: target.dataset.inspectFolha, trecho: target.dataset.inspectTrecho });
     }
   });
 

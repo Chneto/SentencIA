@@ -43,13 +43,12 @@ def test_new_docx_models_and_knowledge_base_entries():
     assert "SUMULA-54-STJ" in refs
     assert "SUMULA-362-STJ" in refs
     assert "TEMA-585-STJ" in refs
-    assert "STJ-AGRG-ARESP-2196736-PR" in refs
-    assert "STJ-AGRG-HC-687211-SC" in refs
-    assert "STJ-AGRG-ARESP-2036512-SP" in refs
-    assert "STJ-AGRG-HC-698316-SC" in refs
+    assert "STJ-INFO-846-CONSUNCAO" in refs
+    assert "STJ-CE-AMEACA-COLERA" in refs
+    assert "ADPF-779-STF" in refs
 
     dout_ids = {d["id"] for d in kb["doutrina"]}
-    assert "DOUT-07" in dout_ids
+    assert {"DOUT-01", "DOUT-03", "DOUT-04", "DOUT-08"}.issubset(dout_ids)
 
 
 CRIMES_IMPUTADOS_SINTETICO = ["art_129_p13_cp", "art_150_p1_cp", "art_147_cp"]
@@ -62,7 +61,7 @@ CRIMES_CONFIG_SINTETICO = [
         "crime_desclassificado": "art_150_cp",
         "fundamentacao": "Emendatio libelli (art. 383 do CPP): os fatos narrados amoldam-se ao caput do art. 150 do CP.",
     },
-    {"codigo": "art_147_cp", "veredicto": "condenar"},
+    {"codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput"},
 ]
 
 
@@ -272,7 +271,7 @@ def test_split_upload_endpoints_and_gemini_dual_path_with_pseudonymization(tmp_p
     assert "CAMILA ROCHA AZEVEDO" not in scr["script_markdown"]
     assert "ROBERTO GOMES SILVEIRA" not in scr["script_markdown"]
     assert "0807111-11.2025.8.20.0001" not in scr["script_markdown"]
-    assert scr["mapa_hash"]
+    assert {"mapa_hash", "mapa_reversao"}.isdisjoint(scr)
     assert len(scr["motores_status"]) == 5
 
     # 6. Geração via /api/gemini/generate (sem chave: motor local) e importação via /api/gemini/import-sentence
@@ -285,14 +284,16 @@ def test_split_upload_endpoints_and_gemini_dual_path_with_pseudonymization(tmp_p
     assert r_gen.status_code == 200
     gen_data = r_gen.json()
     assert gen_data["telemetria"]["gemini_utilizado"] is False
+    assert {"mapa_hash", "mapa_reversao"}.isdisjoint(gen_data["script"])
     _assert_auditoria_honesta(gen_data["auditoria"], gen_data["marcadores_pendentes"])
     assert "CAMILA ROCHA AZEVEDO" in gen_data["sentenca"]["texto_completo"]
     assert "ROBERTO GOMES SILVEIRA" in gen_data["sentenca"]["texto_completo"]
 
-    texto_pseudonimizado = pseudonimizar_texto(
-        gen_data["sentenca"]["texto_completo"],
-        scr["mapa_reversao"],
-    )
+    from app.main import ACTIVE_CASE_STATE, _mapa_guardado
+
+    mapa, _ = _mapa_guardado(ACTIVE_CASE_STATE["bundle"])
+    assert mapa
+    texto_pseudonimizado = pseudonimizar_texto(gen_data["sentenca"]["texto_completo"], mapa)
     assert "[OFENDIDA]" in texto_pseudonimizado
     assert "[ACUSADO]" in texto_pseudonimizado
 

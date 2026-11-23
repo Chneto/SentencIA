@@ -388,7 +388,7 @@ class TestSectionalContrato:
 
         monkeypatch.setattr(main_module, "_executar_pipeline_seccional", _espia)
         client.post("/api/cases/load-demo")
-        cfg = [{"codigo": "art_147_cp", "veredicto": "condenar"}]
+        cfg = [{"codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput"}]
         with pytest.raises(RuntimeError):
             client.post("/api/sentence/generate-sectional", json={"use_ollama": False, "crimes_config": cfg})
         assert recebidos["override"]["crimes_config"] == cfg
@@ -412,15 +412,18 @@ class TestPresuncaoDeCondenacao:
         _ativar(bundle)
         return bundle
 
-    def test_veredicto_vazio_nao_conta_como_informado(self):
-        from app.generation.case_script_engine import _detectar_presuncao, _veredictos_informados
+    @pytest.mark.parametrize(("veredicto", "presumido"), [("", True), ("talvez", True), ("Condenar", False)])
+    def test_veredicto_vazio_nao_conta_como_informado(self, veredicto, presumido):
+        from app.generation.sentence_generator import planejar_sentenca
 
-        assert _veredictos_informados({"crimes_config": [{"codigo": "art_147_cp", "veredicto": ""}, {"codigo": "x"}]}) == {}
-        assert _veredictos_informados({"crimes_config": [{"codigo": "a", "veredicto": "Condenar"}]}) == {"a": "condenar"}
-        assert _veredictos_informados({"crimes_config": [{"codigo": "a", "veredicto": "talvez"}]}) == {}
-        # a lista de decisoes por crime fica dentro da tupla do resultado
-        assert _detectar_presuncao((object(), object(), [{"presumido": True, "simulacao_presume_condenacao": True}]), object())
-        assert not _detectar_presuncao((object(), object(), [{"presumido": False}]), object())
+        bundle = self._caso_real()
+        codigo = obter_contexto(bundle).meta.crimes_imputados[0]
+        plano = planejar_sentenca(
+            bundle, {"crimes_config": [{"codigo": codigo, "veredicto": veredicto}]},
+            exigir_veredicto=False,
+        )
+        decisao = next(d for d in plano.decisoes_crimes if d["crime_code"] == codigo)
+        assert decisao["presumido"] is presumido
 
     def test_motores_sinalizam_presuncao_com_veredicto_vazio(self):
         from app.generation.case_script_engine import executar_motores_completo
@@ -455,7 +458,10 @@ class TestPresuncaoDeCondenacao:
         texto = gerada.json()["sentenca"]["texto_completo"]
         ok = client.post(
             "/api/sentence/update-and-audit",
-            json={"texto_completo": texto, "custom_dosimetria_override": _veredictos(bundle)},
+            json={
+                "texto_completo": texto, "custom_dosimetria_override": _veredictos(bundle),
+                "revisao_esperada": gerada.json()["sentenca"]["revisao_documento"],
+            },
         )
         assert ok.status_code == 200
         assert ok.json()["simulacao_presume_condenacao"] is False
@@ -463,7 +469,10 @@ class TestPresuncaoDeCondenacao:
     def test_demo_continua_simulando_com_sinalizacao(self, client: TestClient):
         client.post("/api/cases/load-demo")
         gerada = client.post("/api/sentence/generate", json={"use_ollama": False}).json()
-        r = client.post("/api/sentence/update-and-audit", json={"texto_completo": gerada["sentenca"]["texto_completo"]})
+        r = client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": gerada["sentenca"]["texto_completo"],
+            "revisao_esperada": gerada["sentenca"]["revisao_documento"],
+        })
         assert r.status_code == 200
         assert r.json()["simulacao_presume_condenacao"] is True
         assert r.json()["sentenca"]["simulacao_presume_condenacao"] is True

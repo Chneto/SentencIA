@@ -102,7 +102,7 @@ def _dosimetria_sintetica() -> dict:
 _DISPOSITIVO_CORRETO = (
     "Ante o exposto, JULGO PROCEDENTE a denúncia para CONDENAR o acusado às penas definitivas de "
     "2 (dois) anos, 4 (quatro) meses e 15 (quinze) dias de reclusão e 2 (dois) meses de detenção, "
-    "além de 10 (dez) dias-multa."
+    "além de 10 (dez) dias-multa. A soma das penas privativas de liberdade é de 2 anos, 6 meses e 15 dias."
 )
 
 
@@ -359,3 +359,113 @@ def test_cache_do_indice_invalidado_quando_gabinete_cadastra_precedente(tmp_path
     assert depois.citacoes_nao_autorizadas == []
     assert any("0809999-11.2024.8.20.5001" in c for c in depois.citacoes_juridicas_verificadas)
     _limpar_cache_base_fechada()
+
+
+@pytest.mark.parametrize(("alterar", "mensagem"), [
+    (lambda t: t.replace("2 (dois) anos, 4 (quatro) meses e 15 (quinze) dias", "1 (um) ano"), "pena total da espécie"),
+    (lambda t: t.replace(" e 2 (dois) meses de detenção", ""), "detenção não consta"),
+    (lambda t: t.replace("reclusão", "detenção"), "pena total da espécie"),
+    (lambda t: t.replace(", além de 10 (dez) dias-multa", ""), "10 dias-multa não consta"),
+    (lambda t: t.replace("10 (dez) dias-multa", "5 (cinco) dias-multa"), "não corresponde à calculada"),
+    (lambda t: t.replace("2 (dois) meses de detenção", "2 (dois) meses de detenção e 2 meses de detenção"), "repetida"),
+    (lambda t: t.replace("2 anos, 6 meses e 15 dias", "2 anos"), "Soma explícita"),
+    (lambda t: t.split(" A soma das penas")[0], "A soma das penas privativas de liberdade"),
+])
+def test_dispositivo_exige_totais_e_multa_sem_omissoes_ou_repeticoes(alterar, mensagem):
+    dados = _dosimetria_sintetica()
+    dados["crimes_calculados"][0]["pena_definitiva"]["anos"] = 1
+    dados["crimes_calculados"][1]["dias_multa"] = 5
+    dados["crimes_calculados"].append({
+        "crime_spec": {"especie_pena": "reclusao"},
+        "pena_definitiva": {"anos": 1},
+        "dias_multa": 5,
+    })
+    laudo = auditar_sentenca(f"III – DISPOSITIVO\n\n{alterar(_DISPOSITIVO_CORRETO)}", [], [], dosimetria_dados=dados)
+    assert not laudo.aprovada_sem_alucinacao
+    assert any(mensagem in erro for erro in laudo.penas_divergentes), laudo.penas_divergentes
+
+
+def test_dispositivo_misto_confere_veredictos_fundamento_regimes_e_reparacao():
+    dados = _dosimetria_sintetica()
+    dados["crimes_calculados"][0]["crime_spec"]["artigo_formatado"] = "art. 129, § 13, do CP"
+    dados["crimes_calculados"][1]["crime_spec"]["artigo_formatado"] = "art. 147, caput, do CP"
+    dados["crimes_nao_condenados"] = [{
+        "crime_code": "art_150_cp", "artigo_formatado": "art. 150, caput, do CP",
+        "veredicto": "absolver", "fundamento_legal": "art. 386, inciso VII, do CPP",
+    }]
+    dados["regime_por_especie"] = {"reclusao": "fechado", "detencao": "semiaberto"}
+    dados["indenizacao_dano_moral_tema983"] = 1250.50
+    dispositivo = (
+        "III – DISPOSITIVO\n\n"
+        "CONDENAR pelo art. 129, § 13, do Código Penal e pelo art. 147, caput, do CP.\n\n"
+        "ABSOLVER quanto ao art. 150, caput, do CP, com fulcro no art. 386, inciso VII, do CPP.\n\n"
+        "Fixo 2 anos, 4 meses e 15 dias de reclusão e 2 meses de detenção, além de 10 dias-multa. "
+        "Regime inicial fechado quanto à pena de reclusão e regime inicial semiaberto quanto à pena de detenção. "
+        "A soma das penas privativas de liberdade é de 2 anos, 6 meses e 15 dias.\n\n"
+        "Fixo reparação mínima em R$ 1.250,50."
+    )
+    assert auditar_sentenca(dispositivo, [], [], dosimetria_dados=dados).penas_divergentes == []
+    alterado = (
+        dispositivo.replace("art. 147, caput, do CP", "art. 147, § 1º, do CP")
+        .replace("art. 129, § 13, do Código Penal", "art. 129, § 13, da Lei nº 11.340/2006")
+        .replace("inciso VII", "inciso II")
+        .replace("semiaberto", "aberto")
+        .replace("R$ 1.250,50", "R$ 1.250,00")
+    )
+    erros = auditar_sentenca(alterado, [], [], dosimetria_dados=dados).penas_divergentes
+    for mensagem in (
+        "condenar para art. 147", "condenar para art. 129", "Fundamento do comando absolver",
+        "Regime aberto divergente", "Valor de reparação",
+    ):
+        assert any(mensagem in erro for erro in erros), erros
+
+
+def test_dispositivo_sem_condenacao_rejeita_multa_e_reparacao_indevidas():
+    dados = {"sem_condenacao": True}
+    dispositivo = (
+        "III – DISPOSITIVO\n\nABSOLVER o acusado. Fixo 10 dias-multa. "
+        "Regime inicial aberto. Fixo reparação mínima em R$ 200,00."
+    )
+    erros = auditar_sentenca(dispositivo, [], [], dosimetria_dados=dados).penas_divergentes
+    for mensagem in ("Multa citada", "Regime aberto", "Valor de reparação"):
+        assert any(mensagem in erro for erro in erros), erros
+
+
+@pytest.mark.parametrize(("texto", "mensagem"), [
+    ("Fixo um ano de reclusão.", "Quantifique em algarismos"),
+    ("Aplico a pena de multa.", "Comando de multa sem quantidade"),
+    ("Condeno ao pagamento de dez dias-multa.", "Quantifique em algarismos"),
+])
+def test_dispositivo_sem_condenacao_bloqueia_ate_penas_sem_algarismos(texto, mensagem):
+    laudo = auditar_sentenca(f"III – DISPOSITIVO\n\nABSOLVO. {texto}", [], [], dosimetria_dados={"sem_condenacao": True})
+    assert any(mensagem in erro for erro in laudo.penas_divergentes), laudo.penas_divergentes
+
+
+def test_dispositivo_bloqueia_pena_com_extenso_e_algarismos_contraditorios():
+    texto = _DISPOSITIVO_CORRETO.replace("2 (dois) anos", "2 (um) anos")
+    laudo = auditar_sentenca(_sentenca_sintetica(texto), [_peca("ID-500")], [], dosimetria_dados=_dosimetria_sintetica())
+    assert any("contradiz sua redação por extenso" in erro for erro in laudo.penas_divergentes)
+
+
+def test_crivo_seccional_recusa_dispositivo_do_demo_sem_um_total():
+    from app.generation.sectional_pipeline import (
+        SecaoRascunho, SecaoTipo, construir_dossie_secao, default_in_flight_gating_validator,
+    )
+    from app.generation.sentence_generator import calcular_secoes_deterministicas
+
+    bundle = get_demo_case_bundle()
+    resultado = calcular_secoes_deterministicas(bundle)
+    secao = SecaoTipo.DISPOSITIVO
+    dossie = construir_dossie_secao(secao, bundle, resultado=resultado)
+    corpo = resultado.secao(secao)
+    assert dossie.comandos_dispositivo is not None
+    quantia = dossie.comandos_dispositivo.penas_por_especie["detencao"].format_extenso()
+    truncado = corpo.replace(f"{quantia} de detenção", "[pena retirada]")
+    assert truncado != corpo
+    rascunho = SecaoRascunho(secao=secao, texto_redigido=truncado, versao_tentativa=1)
+    gate = default_in_flight_gating_validator(secao, rascunho, dossie)
+    laudo = auditar_secao(secao, truncado, resultado.pecas, [], comandos_dispositivo=dossie.comandos_dispositivo)
+    assert not gate.aprovado
+    assert not laudo.aprovado
+    assert any("detenção não consta" in erro for erro in gate.erros)
+    assert any("detenção não consta" in erro for erro in laudo.erros)

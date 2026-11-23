@@ -351,7 +351,7 @@ def test_real_case_sentence_abnt_and_dates_conformity():
     # v2.0.0: o juiz decide — a geração de caso real exige veredicto explícito por crime imputado.
     crimes = r_up.json()["metadados"]["crimes_imputados"]
     assert crimes, "a extração deveria identificar ao menos um crime imputado nos autos reais"
-    crimes_config = [{"codigo": c, "veredicto": "condenar"} for c in crimes]
+    crimes_config = [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]
     r_sent = client.post(
         "/api/sentence/generate", json={"use_ollama": False, "crimes_config": crimes_config}
     )

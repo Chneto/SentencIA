@@ -747,8 +747,10 @@ async function sincronizarFolha() {
     const res = await postJson("/api/sentence/save-format", {
       texto_html: htmlLimpoDaFolha(),
       formatacao: state.formatacao,
+      revisao_esperada: state.lastSentence.revisao_documento,
     });
-    if (res && res.html_pje) state.lastHtmlPje = res.html_pje;
+    state.lastSentence.revisao_documento = res.revisao_documento;
+    if (res.html_pje) state.lastHtmlPje = res.html_pje;
     capturarBaseDaFolha();
     return true;
   } catch (err) {

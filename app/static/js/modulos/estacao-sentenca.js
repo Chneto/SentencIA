@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: estacao-sentenca.js (TASK-015)
 import { hooks, state } from "./estado.js?v=2.1.0";
 import { $, closeModal, escapeHtml, listarMarcadores, openModal, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.1.0";
-import { ApiError, apiFetch, apiJson, handleApiError, lerJson, postJson } from "./api.js?v=2.1.0";
+import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError, lerJson, postJson } from "./api.js?v=2.1.0";
 import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.1.0";
 import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.1.0";
 import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.1.0";
@@ -319,7 +319,9 @@ async function exportarArquivo(formato, rascunho = false) {
   }
   if (!(await sincronizarFolha())) return;
   try {
-    const resp = await apiFetch(`/api/export/${formato}${rascunho ? "?rascunho=true" : ""}`);
+    const query = new URLSearchParams({ revisao_esperada: state.lastSentence.revisao_documento });
+    if (rascunho) query.set("rascunho", "true");
+    const resp = await apiFetch(`/api/export/${formato}?${query}`);
     if (!resp.ok) {
       const body = await lerJson(resp);
       if (resp.status === 409 && body.erro === "auditoria_nao_aprovada") {
@@ -406,24 +408,31 @@ function htmlPjeParaTextoSimples(htmlPje) {
 }
 
 async function copiarParaPje() {
-  if (!state.lastHtmlPje) {
+  if (!state.lastSentence) {
     showToast("Gere uma sentença antes de copiar para o PJe.", "warn");
     return;
   }
   if (!(await sincronizarFolha())) return;
-  const textoAtual = extractEditedSentenceText() || state.lastSentence?.texto_completo || "";
-  const marcadores = listarMarcadores(textoAtual);
+  let copia;
+  try {
+    const query = new URLSearchParams({ revisao_esperada: state.lastSentence.revisao_documento });
+    copia = await apiJson(`/api/export/pje?${query}`);
+  } catch (err) {
+    handleApiError(err);
+    return;
+  }
+  const marcadores = copia.marcadores_pendentes || [];
   if (marcadores.length) {
     const n = marcadores.length;
     const msg = `Há ${n} ${n === 1 ? "trecho" : "trechos"} a completar. Copiar assim mesmo?`;
     if (!window.confirm(msg)) return;
   }
-  const aprovada = !!state.lastAudit?.aprovada_sem_alucinacao;
-  const textoSimples = htmlPjeParaTextoSimples(state.lastHtmlPje);
+  const aprovada = copia.exportacao_liberada;
+  const textoSimples = htmlPjeParaTextoSimples(copia.html_pje);
   try {
     if (window.ClipboardItem && navigator.clipboard?.write) {
       const item = new window.ClipboardItem({
-        "text/html": new Blob([state.lastHtmlPje], { type: "text/html" }),
+        "text/html": new Blob([copia.html_pje], { type: "text/html" }),
         "text/plain": new Blob([textoSimples], { type: "text/plain" }),
       });
       await navigator.clipboard.write([item]);
@@ -488,8 +497,10 @@ async function gerarSeccional() {
   const botao = $("btnGenerateSectional");
   botao.disabled = true;
   try {
+    const consentimento = await consentirOllamaNaOperacao("redigir e revisar as seções da minuta");
     const res = await postJson("/api/sentence/generate-sectional", {
-      use_ollama: true,
+      use_ollama: consentimento !== null,
+      ...consentimento,
       custom_dosimetria_override: hooks.buildDosimetryPayload(),
       usar_duplo_crivo: true,
     });
@@ -508,10 +519,13 @@ async function regenerarSecao() {
   const botao = $("btnRegenerateSection");
   botao.disabled = true;
   try {
+    const consentimento = await consentirOllamaNaOperacao("regenerar e revisar esta seção");
     const res = await postJson("/api/sentence/regenerate-section", {
       secao: $("selRegenSection").value,
+      revisao_esperada: state.lastSentence?.revisao_documento,
       instrucoes_cirurgicas: $("inputSurgicalNote").value || null,
-      use_ollama: true,
+      use_ollama: consentimento !== null,
+      ...consentimento,
     });
     // A resposta traz só a seção; recupera a minuta completa atualizada.
     const ultima = await apiJson("/api/sentence/last");
@@ -542,6 +556,7 @@ async function reauditarEdicao() {
     const res = await postJson("/api/sentence/update-and-audit", {
       texto_completo: txt,
       texto_html: htmlLimpoDaFolha(),
+      revisao_esperada: state.lastSentence?.revisao_documento,
       formatacao: state.formatacao,
       custom_dosimetria_override: hooks.buildDosimetryPayload(),
     });

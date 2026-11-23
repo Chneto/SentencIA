@@ -5,7 +5,7 @@ Agente 7 — Juiz Corregedor e Revisor Forense Adversarial (Duplo Crivo).
 Submete minutas de sentenças penais em Juizados de Violência Doméstica e
 Familiar contra a Mulher (JVDFM) a escrutínio dialético rígido:
 - Feature F07: Matriz de Corroboração Oral (depoimentos vs laudos médicos/periciais)
-- Feature F08: Extrator Determinístico de Teses Defensivas (14 teses canônicas)
+- Feature F08: Extrator Determinístico de Teses Defensivas
 - Feature F09: Adversarial Judicial Critic LLM (Ollama, prompt bounding, JSON ladder)
 - Feature F10: Schema Pydantic RelatorioCriticaAdversarial (severidade, itens, score)
 - Feature F11: Trava de Omissão de Teses Defensivas (Art. 381, III, CPP; Art. 489 CPC)
@@ -192,8 +192,120 @@ class RelatorioCriticaAdversarial(BaseModel):
 
 
 # ==============================================================================
-# 2. Catálogo Canônico de 14 Teses Defensivas no JVDFM (Feature F08)
+# 2. Catálogo Canônico de Teses Defensivas no JVDFM (Feature F08)
 # ==============================================================================
+
+CODIGO_TESE_VEDADA = "VED-01"
+
+# A conduta precisa ser usada para justificar a violência ou atribuir culpa à ofendida.
+# Menção isolada a ciúme, traição ou término como motivo do fato não basta.
+_MOTIVO_MORAL = r"(?:traicao|traiu|trair|infidelidade|ciumes?|provocacao\s+moral|provoc\w*\s+moralmente|desonra|reputacao)"
+_VIOLENCIA = r"(?:agressao|agressoes|reacao|violencia|conduta|ameaca|pena|reprovacao)"
+_JUSTIFICACAO = (
+    r"(?:justific\w*|legitim\w*|autoriz\w*|desculp\w*|atenu\w*|abrand\w*|"
+    r"compreens[ií]vel|culpad[ao]|responsavel|culpabiliz\w*|deu\s+causa|provocou)"
+)
+_JANELA = r"[^.!?;\n]{0,95}"
+_PADRAO_JUSTIFICACAO_MORAL = (
+    rf"(?:{_JUSTIFICACAO}{_JANELA}{_VIOLENCIA}{_JANELA}{_MOTIVO_MORAL}|"
+    rf"{_MOTIVO_MORAL}{_JANELA}{_JUSTIFICACAO}{_JANELA}{_VIOLENCIA}|"
+    rf"{_MOTIVO_MORAL}{_JANELA}{_VIOLENCIA}{_JANELA}{_JUSTIFICACAO}|"
+    rf"(?:vitima|ofendida){_JANELA}(?:deu\s+causa|provocou|culpad[ao]){_JANELA}"
+    rf"{_VIOLENCIA}{_JANELA}{_MOTIVO_MORAL})"
+)
+_PADRAO_TESE_HONRA = (
+    r"\b(?:legitima\s+defesa\s+d[ae]\s+(?:sua\s+)?(?:honra|reputacao)|"
+    r"em\s+defesa\s+d[ae]\s+(?:(?:sua|propria)\s+)?(?:honra|reputacao)|"
+    r"(?:defend\w*|proteg\w*|preserv\w*|resguard\w*)\s+"
+    r"(?:(?:a|sua|a\s+sua|a\s+propria)\s+)?(?:honra|reputacao)|"
+    rf"{_PADRAO_JUSTIFICACAO_MORAL})\b"
+)
+_RE_JUSTIFICACAO_MORAL = re.compile(rf"\b{_PADRAO_JUSTIFICACAO_MORAL}\b")
+_RE_ATRIBUICAO_TESE = re.compile(
+    rf"\b(?:defesa|reu|acusad[ao]|denunciad[ao]){_JANELA}"
+    r"(?:aleg\w*|sustent\w*|invoc\w*|argu\w*|afirm\w*|pede|pediu|postul\w*|requer\w*)\b"
+)
+_RE_TESE_HONRA = re.compile(_PADRAO_TESE_HONRA)
+_RE_REPUDIO_HONRA = re.compile(
+    r"\b(?:inconstitucion\w*|inadmiss[ií]v\w*|vedad\w*|vedacao|veda|proibid\w*|"
+    r"rejeit\w*|afast\w*|repudi\w*|repel\w*|refut\w*|"
+    r"(?:nao|jamais|nunca)\s+(?:(?:se|pode|podem|serve\s+para|se\s+pode|e\s+possivel)\s+)?"
+    r"(?:acolh\w*|admit\w*|justific\w*|legitim\w*|autoriz\w*|atenu\w*))\b"
+)
+_RE_NEGACAO_REPUDIO = re.compile(
+    r"\b(?:nao|jamais|nunca)\s+(?:(?:se|pode|deve)\s+)?"
+    r"(?:rejeit\w*|afast\w*|repudi\w*|repel\w*|refut\w*|"
+    r"(?:e|era|seria|foi)\s+(?:manifestamente\s+)?"
+    r"(?:inconstitucion\w*|inadmissiv\w*|vedad\w*|proibid\w*))\b"
+)
+_PARTE_REPUDIO = r"(?:defesa|ministerio\s+publico|acusacao|promotor[a]?|reu|acusad[ao]|mp)"
+_RE_REPUDIO_ALHEIO = re.compile(
+    rf"\b(?:(?:segundo|para)\s+(?:o\s+|a\s+)?{_PARTE_REPUDIO}|"
+    rf"{_PARTE_REPUDIO}\s+(?:(?:expressamente|tambem|ja)\s+)?"
+    r"(?:sustent\w*|aleg\w*|consider\w*|entend\w*|afirm\w*|rejeit\w*|"
+    r"afast\w*|repudi\w*|repel\w*|refut\w*|opin\w*|pediu|requereu))\b"
+)
+_RE_REPUDIO_DO_JUIZO = re.compile(r"\b(?:rejeito|afasto|repudio|repilo|refuto|considero|julgo|declaro)\b")
+_RE_ACOLHIMENTO_HONRA = re.compile(
+    r"\b(?:acolho|acolhe-se|admito|admite-se|reconheco|reconhece-se)\b"
+)
+_RE_RETOMADA_HONRA = re.compile(r"\b(?:ess[ae]|est[ae]|tal|referid[ao])\s+(?:tese|argumento|alegacao)\b")
+
+
+def tese_vedada_honra(item: Any) -> bool:
+    """Reconhece VED-01 em objetos ou verbetes textuais do dossiê."""
+    if isinstance(item, str):
+        return re.match(r"^\s*VED-01\b", item, re.IGNORECASE) is not None
+    if isinstance(item, dict):
+        codigo = item.get("codigo") or item.get("codigo_tese") or ""
+        tipo = item.get("tipo") or ""
+    else:
+        codigo = getattr(item, "codigo", "") or ""
+        tipo = getattr(item, "tipo", "") or ""
+    return str(codigo).upper() == CODIGO_TESE_VEDADA or str(tipo).upper() == "VEDADA"
+
+
+def _frases_analise(texto: str) -> List[str]:
+    return re.split(r"(?<=[.!?;])\s+|\n+", _remover_acentos(texto or ""))
+
+
+def _repudio_na_frase(frase: str) -> bool:
+    return bool(_RE_REPUDIO_HONRA.search(frase) and not _RE_NEGACAO_REPUDIO.search(frase))
+
+
+def _repudio_do_juizo(frase: str) -> bool:
+    return _repudio_na_frase(frase) and (
+        not _RE_REPUDIO_ALHEIO.search(frase) or bool(_RE_REPUDIO_DO_JUIZO.search(frase))
+    )
+
+
+def repudio_explicito_honra(texto: str) -> bool:
+    """Exige rejeição vinculada à tese, inclusive quando retomada na frase seguinte."""
+    frases = _frases_analise(texto)
+    for idx, frase in enumerate(frases):
+        if not _RE_TESE_HONRA.search(frase):
+            continue
+        if _repudio_do_juizo(frase):
+            return True
+        if idx + 1 < len(frases):
+            seguinte = frases[idx + 1]
+            if _RE_RETOMADA_HONRA.search(seguinte) and _repudio_do_juizo(seguinte):
+                return True
+    return False
+
+
+def violacao_vedacao_honra(texto: str, *, repudio_exigido: bool = False, permitir_relato: bool = False) -> bool:
+    """Detecta acolhimento ou ausência de rejeição expressa de argumento vedado."""
+    mencoes = [frase for frase in _frases_analise(texto) if _RE_TESE_HONRA.search(frase)]
+    for frase in mencoes:
+        if _repudio_na_frase(frase):
+            continue
+        if _RE_ACOLHIMENTO_HONRA.search(frase):
+            return True
+        if _RE_JUSTIFICACAO_MORAL.search(frase) and not _RE_ATRIBUICAO_TESE.search(frase):
+            return True
+    return bool((repudio_exigido or (mencoes and not permitir_relato)) and not repudio_explicito_honra(texto))
+
 
 TABELA_TESES_CANONICAS_JVDFM = [
     # --- PRELIMINARES ---
@@ -275,7 +387,7 @@ TABELA_TESES_CANONICAS_JVDFM = [
         "tipo": "MERITO",
         "titulo": "Desclassificação de Lesão Corporal para Vias de Fato",
         "artigos": "Art. 21 da LCP e Art. 383 do CPP",
-        "regex": r"\b(?:desclassifica[cç][aã]o|vias\s+de\s+fato|art\.?\s*21\s+d[oa]\s+lcp|ofensa\s+integridade\s+corporal)\b",
+        "regex": r"\b(?:vias\s+de\s+fato|art\.?\s*21\s+d[oa]\s+lcp|ofensa\s+integridade\s+corporal)\b",
         "descricao_padrao": "Pede a desclassificação do crime de lesão corporal para a contravenção penal de vias de fato por ausência de dano anatômico permanente.",
     },
     {
@@ -327,80 +439,188 @@ TABELA_TESES_CANONICAS_JVDFM = [
         "regex": r"\b(?:substitui[cç][aã]o\s+por\s+restritiva|art\.?\s*44\s+d[oe]\s+cp|sursis|art\.?\s*77\s+d[oe]\s+cp|afastamento\s+d[oe]\s+dano\s+moral|tema\s+983|justi[cç]a\s+gratuita|gratuidade\s+(?:de|da)\s+justi[cç]a)\b",
         "descricao_padrao": "Pede substituição por restritivas de direitos, sursis penal (art. 77 CP), gratuidade da justiça ou afastamento/modicidade do dano moral.",
     },
+    {
+        "codigo": "PREL-05",
+        "tipo": "PRELIMINAR",
+        "titulo": "Prescrição da Pretensão Punitiva ou Executória",
+        "artigos": "Arts. 107, IV, 109 e seguintes do CP",
+        "regex": r"\b(?:prescri[cç][aã]o\s+(?:da\s+pretens[aã]o\s+(?:punitiva|execut[oó]ria)|penal|em\s+abstrato|retroativa|intercorrente)|(?:reconhec\w*|declar\w*|argu\w*|ocorr[eê]ncia)\s+(?:a\s+|da\s+|de\s+)?prescri[cç][aã]o|extin[cç][aã]o\s+da\s+punibilidade\s+pela\s+prescri[cç][aã]o|prescri[cç][aã]o\s+consumada)\b",
+        "descricao_padrao": "Argui a extinção da punibilidade pela prescrição, com exame do prazo e dos marcos pertinentes.",
+    },
+    {
+        "codigo": "MER-11",
+        "tipo": "MERITO",
+        "titulo": "Embriaguez e Imputabilidade Penal",
+        "artigos": "Art. 28, II e §§ 1º e 2º, do CP",
+        "regex": r"\b(?:embriaguez\s+(?:fortuita|acidental|involunt[aá]ria|completa\s+(?:por|decorrente))|(?:alega|sustenta|invoca|em\s+raz[aã]o\s+d[ae])\s+(?:a\s+)?embriaguez|embriaguez[^.!?;\n]{0,65}(?:exclu\w*|afast\w*|reduz\w*|isen[cç][aã]o|absolvi[cç][aã]o|incapacidade|imputabilidade)|(?:isen[cç][aã]o|absolvi[cç][aã]o|redu[cç][aã]o\s+da\s+pena|aus[eê]ncia\s+de\s+dolo)[^.!?;\n]{0,65}\bembriaguez|embriagad[oa][^.!?;\n]{0,65}(?:incapaz|n[aã]o\s+(?:tinha|podia)\s+(?:discern\w*|entender)))\b",
+        "descricao_padrao": "Alega que a embriaguez afetou a imputabilidade; examine a origem e o grau invocados.",
+    },
+    {
+        "codigo": "MER-12",
+        "tipo": "MERITO",
+        "titulo": "Inimputabilidade ou Semi-imputabilidade",
+        "artigos": "Art. 26, caput e parágrafo único, do CP",
+        "regex": r"\b(?:(?:inimputabilidade|semi[-\s]?imputabilidade)(?:\s+penal|\s+d[oa]\s+(?:r[eé]u|acusad[oa]))?|(?:incapaz|incapacidade)\s+(?:de\s+)?(?:entender\s+o\s+car[aá]ter\s+il[ií]cito|se\s+determinar\s+de\s+acordo)|absolvi[cç][aã]o\s+impr[oó]pria)\b",
+        "descricao_padrao": "Suscita inimputabilidade ou capacidade reduzida em razão da alegada condição mental.",
+    },
+    {
+        "codigo": "MER-13",
+        "tipo": "MERITO",
+        "titulo": "Desclassificação da Lesão do § 13 para o § 9º",
+        "artigos": "Art. 129, §§ 9º e 13, do CP",
+        "regex": r"\b(?:desclassific\w*|reenquadr\w*|readequ\w*|desloc\w*|afast\w*)(?:[^.!?;\n]|\.(?=\s*\d)){0,130}(?:§\s*13[ºo]?\s+(?:(?![.!?;\n]).){0,45}?(?:§\s*)?9[ºo]?(?!\d)|(?:para|ao|pelo|no)\s+(?:o\s+)?§\s*9[ºo]?(?!\d))",
+        "descricao_padrao": "Pede alteração do enquadramento do § 13 para o § 9º do art. 129 do CP.",
+    },
+    {
+        "codigo": "MER-14",
+        "tipo": "MERITO",
+        "titulo": "Desclassificação de Lesão Corporal Grave para Leve",
+        "artigos": "Art. 129, caput e § 1º, do CP",
+        "regex": r"\b(?:desclassific\w*|reenquadr\w*|readequ\w*)[^.!?;\n]{0,90}(?:les[aã]o(?:\s+corporal)?\s+leve|(?:les[aã]o(?:\s+corporal)?\s+)?grave\s+(?:para|em)\s+leve)|\b(?:les[aã]o(?:\s+corporal)?\s+grave)[^.!?;\n]{0,90}(?:pass\w*|convert\w*|desclassific\w*)[^.!?;\n]{0,35}\bleve\b",
+        "descricao_padrao": "Pede reconhecimento de lesão leve em lugar da modalidade grave imputada.",
+    },
+    {
+        "codigo": "MER-15",
+        "tipo": "MERITO",
+        "titulo": "Retratação, Reconciliação ou Desinteresse da Vítima",
+        "artigos": "Art. 16 da Lei nº 11.340/2006",
+        "regex": r"\b(?:retrata[cç][aã]o\s+d[ae]\s+(?:v[ií]tima|ofendida|representa[cç][aã]o)|(?:requ[ei]r\w*|invoc\w*|pleitei\w*)[^.!?;\n]{0,55}(?:reconcilia[cç][aã]o|desinteresse\s+d[ae]\s+(?:v[ií]tima|ofendida))|(?:reconcilia[cç][aã]o|desinteresse|perd[aã]o|retomada\s+da\s+conviv[eê]ncia)[^.!?;\n]{0,85}(?:extin[cç][aã]o|exting\w*|absolv\w*|arquiv\w*|impede|afast\w*|d[aá]\s+causa\s+ao\s+encerramento)|(?:absolv\w*|arquiv\w*|extin[cç][aã]o|exting\w*|improced\w*)[^.!?;\n]{0,85}(?:reconcilia[cç][aã]o|desinteresse\s+d[ae]\s+(?:v[ií]tima|ofendida)|perd[aã]o\s+d[ae]\s+(?:v[ií]tima|ofendida)))\b",
+        "descricao_padrao": "Invoca retratação, reconciliação ou desinteresse da ofendida como fundamento de pedido processual ou absolutório.",
+    },
+    {
+        "codigo": "MER-16",
+        "tipo": "MERITO",
+        "titulo": "Insignificância ou Bagatela",
+        "artigos": "Súmula 589/STJ",
+        "regex": r"\b(?:princ[ií]pio\s+d[ae]\s+(?:insignific[aâ]ncia|bagatela)|(?:aplica[cç][aã]o|reconhec\w*|invoca\w*|pede|postul\w*|atipicidade\s+material)[^.!?;\n]{0,48}(?:insignific[aâ]ncia|bagatela))\b",
+        "descricao_padrao": "Requer o reconhecimento de atipicidade material por alegada insignificância.",
+    },
+    {
+        "codigo": "MER-17",
+        "tipo": "MERITO",
+        "titulo": "Consentimento da Vítima no Descumprimento de Medida Protetiva",
+        "artigos": "Art. 24-A da Lei nº 11.340/2006",
+        "regex": r"\b(?:(?:(?:consentimento|anu[eê]ncia|autoriza[cç][aã]o|convite)\s+d[ae]\s+(?:v[ií]tima|ofendida)|(?:v[ií]tima|ofendida)\s+(?:consentiu|anuiu|autorizou|convidou))(?:[^.!?;\n]|\.(?=\s*\d)){0,115}(?:medidas?\s+protetivas?|descumprimento\s+(?:d[ae]\s+)?(?:mpu|ordem)|24-?a)|(?:medidas?\s+protetivas?|descumprimento\s+(?:d[ae]\s+)?(?:mpu|ordem)|24-?a)(?:[^.!?;\n]|\.(?=\s*\d)){0,115}(?:(?:consentimento|anu[eê]ncia|autoriza[cç][aã]o|convite)\s+d[ae]\s+(?:v[ií]tima|ofendida)|(?:v[ií]tima|ofendida)\s+(?:consentiu|anuiu|autorizou|convidou)))\b",
+        "descricao_padrao": "A defesa alega consentimento da ofendida à aproximação no episódio de suposto descumprimento da medida protetiva.",
+    },
+    {
+        "codigo": "SUB-03",
+        "tipo": "SUBSIDIARIA",
+        "titulo": "Bis in Idem na Dosimetria",
+        "artigos": "Art. 59 e art. 61, caput, do CP",
+        "regex": r"\b(?:bis\s+in\s+idem|dupla\s+valora[cç][aã]o|dupla\s+contagem|valorad[oa]\s+(?:duas\s+vezes|novamente))[^.!?;\n]{0,95}(?:dosimetria|pena[-\s]base|agravante|qualificadora|circunst[aâ]ncia\s+judicial)|\b(?:dosimetria|pena[-\s]base|agravante|qualificadora|circunst[aâ]ncia\s+judicial)[^.!?;\n]{0,95}(?:bis\s+in\s+idem|dupla\s+valora[cç][aã]o|dupla\s+contagem|valorad[oa]\s+duas\s+vezes)\b",
+        "descricao_padrao": "Impugna a alegada dupla valoração da mesma circunstância na fixação da pena.",
+    },
+    {
+        "codigo": CODIGO_TESE_VEDADA,
+        "tipo": "VEDADA",
+        "titulo": "Legítima Defesa da Honra — Tese Vedada",
+        "artigos": "ADPF 779/STF",
+        "regex": _PADRAO_TESE_HONRA,
+        "descricao_padrao": "Argumento vedado. Repudie expressamente qualquer justificação ou atenuação da violência fundada em desonra, ciúme ou culpabilização da vítima (ADPF 779/STF).",
+    },
 ]
+
+
+def _corresponde_tese(padrao: re.Pattern, texto_norm: str, codigo: str) -> Optional[re.Match]:
+    for match in padrao.finditer(texto_norm):
+        inicio = max(texto_norm.rfind(sep, 0, match.start()) for sep in (". ", ";", "\n")) + 1
+        fins = [texto_norm.find(sep, match.end()) for sep in (". ", ";", "\n")]
+        fim = min((pos for pos in fins if pos >= 0), default=len(texto_norm))
+        frase = texto_norm[inicio:fim]
+        if codigo == CODIGO_TESE_VEDADA and (
+            _repudio_na_frase(frase)
+            or re.search(
+                r"\bnao\s+(?:(?:se|a\s+defesa)\s+)?(?:invoc\w*|aleg\w*|sustent\w*|argu\w*)\b",
+                frase,
+            )
+        ):
+            continue
+        if codigo == "MER-03" and _RE_TESE_HONRA.search(frase) and not re.search(
+            r"\b(?:agressoes\s+reciprocas|agressao\s+injusta|injusta\s+agressao|agressao\s+atual)\b",
+            frase,
+        ):
+            continue
+        return match
+    return None
 
 
 def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
     """
     Feature F08: Mineração determinística exaustiva de preliminares, mérito e
-    subsidiárias a partir de peças defensivas (Resposta à Acusação, Memoriais).
+    subsidiárias a partir de peças defensivas (Resposta à Acusação, Memoriais e
+    alegações finais orais), preservando o trecho real (<= 300 chars) e a fonte.
+
+    Sem tese reconhecida, retorna lista vazia (nunca injeta MER-01 artificialmente).
     """
-    textos_defesa: List[str] = []
+    from app.ingestion.laya_classifier import _recortar_trecho
+
+    fontes_defesa: List[Tuple[str, str, str, str]] = []  # (texto, fonte_id, folha, origem)
 
     # Se recebeu lista de PecaClassificada ou dicts
     if isinstance(pecas, list):
         for item in pecas:
             if hasattr(item, "categoria") and hasattr(item, "conteudo"):
                 cat = getattr(item, "categoria", "")
+                fid = str(getattr(item, "doc_id", "") or "DEFESA")
+                fls = str(getattr(item, "folha", "") or "")
+                orig = str(getattr(item, "origem", "memoriais") or "memoriais")
                 if cat in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA", "DEFESA_PRELIMINAR") or "DEFESA" in cat:
-                    textos_defesa.append(item.conteudo)
+                    fontes_defesa.append((item.conteudo, fid, fls, orig))
                 elif hasattr(item, "resumo_estruturado") and item.resumo_estruturado:
                     if cat in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA"):
-                        textos_defesa.append(item.resumo_estruturado)
+                        fontes_defesa.append((item.resumo_estruturado, fid, fls, orig))
             elif isinstance(item, dict):
-                cat = item.get("categoria", item.get("tipo", ""))
-                txt = item.get("conteudo", item.get("texto", item.get("raw_text", "")))
+                cat = str(item.get("categoria", item.get("tipo", "")) or "")
+                txt = str(item.get("conteudo", item.get("texto", item.get("raw_text", ""))) or "")
+                fid = str(item.get("doc_id") or item.get("fonte_id") or item.get("id") or "DEFESA")
+                fls = str(item.get("folhas") or item.get("folha") or "")
+                orig = str(item.get("origem") or "memoriais")
                 if cat in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA") or "DEFESA" in cat:
-                    textos_defesa.append(txt)
-                elif "resposta à acusação" in txt.lower() or "memoriais da defesa" in txt.lower():
-                    textos_defesa.append(txt)
+                    fontes_defesa.append((txt, fid, fls, orig))
+                elif not cat and re.match(r"^\s*(?:resposta à acusação|memoriais da defesa)\b", txt, re.IGNORECASE):
+                    fontes_defesa.append((txt, fid, fls, orig))
             elif isinstance(item, str):
-                textos_defesa.append(item)
+                fontes_defesa.append((item, "DEFESA", "", "memoriais"))
     elif isinstance(pecas, dict):
         raw_docs = pecas.get("raw_documents", pecas.get("pecas", []))
         if isinstance(raw_docs, list):
             return extrair_teses_defensivas(raw_docs)
         for k, v in pecas.items():
             if "defesa" in k.lower() or "resposta" in k.lower() or "memoriais" in k.lower():
-                textos_defesa.append(str(v))
+                fontes_defesa.append((str(v), k, "", "memoriais"))
     elif isinstance(pecas, str):
-        textos_defesa.append(pecas)
+        fontes_defesa.append((pecas, "DEFESA", "", "memoriais"))
 
-    corpus_unificado = "\n".join(textos_defesa)
-    corpus_norm = _remover_acentos(corpus_unificado.lower())
-
+    fontes_normalizadas = [(_remover_acentos(txt), txt, fid, fls, orig) for txt, fid, fls, orig in fontes_defesa if txt]
     teses_detectadas: List[TeseDefensivaItem] = []
     codigos_vistos = set()
 
     for def_tese in TABELA_TESES_CANONICAS_JVDFM:
-        regex_pat = def_tese["regex"]
-        if re.search(regex_pat, corpus_unificado, flags=re.IGNORECASE) or re.search(
-            _remover_acentos(regex_pat), corpus_norm, flags=re.IGNORECASE
-        ):
-            cod = def_tese["codigo"]
-            if cod not in codigos_vistos:
-                codigos_vistos.add(cod)
-                teses_detectadas.append(
-                    TeseDefensivaItem(
-                        codigo=cod,
-                        tipo=def_tese["tipo"],
-                        titulo=def_tese["titulo"],
-                        descricao_defesa=def_tese["descricao_padrao"],
-                        obrigatorio_enfrentamento_art381=True,
-                    )
+        padrao = re.compile(_remover_acentos(def_tese["regex"]))
+        cod = def_tese["codigo"]
+        if cod in codigos_vistos:
+            continue
+        for texto_norm, txt_fonte, fid, fls, orig in fontes_normalizadas:
+            match = _corresponde_tese(padrao, texto_norm, cod)
+            if match is None:
+                continue
+            trecho = _recortar_trecho(txt_fonte, match.start(), match.end())
+            codigos_vistos.add(cod)
+            teses_detectadas.append(
+                TeseDefensivaItem(
+                    codigo=cod,
+                    tipo=def_tese["tipo"],
+                    titulo=def_tese["titulo"],
+                    descricao_defesa=def_tese["descricao_padrao"],
+                    obrigatorio_enfrentamento_art381=True,
+                    fonte_id=fid,
+                    folha=fls,
+                    trecho=trecho,
+                    origem=orig,
                 )
-
-    # Se nenhuma tese específica foi encontrada mas há texto de defesa, injeta MER-01 (In dubio pro reo / falta de provas)
-    if not teses_detectadas and corpus_unificado.strip():
-        teses_detectadas.append(
-            TeseDefensivaItem(
-                codigo="MER-01",
-                tipo="MERITO",
-                titulo="Insuficiência Probatória e Princípio do In Dubio Pro Reo",
-                descricao_defesa="Postula a absolvição geral por ausência ou fragilidade de provas materiais e testemunhais.",
-                obrigatorio_enfrentamento_art381=True,
             )
-        )
+            break
 
     return teses_detectadas
 
@@ -467,14 +687,14 @@ VOCÊ É O JUIZ CORREGEDOR E DESEMBARGADOR REVISOR ADVERSARIAL (AGENTE 7) DO TRI
 Sua missão é realizar escrutínio implacável e rigoroso de minutas judiciais de sentenças penais em Juizados de Violência Doméstica e Familiar contra a Mulher (JVDFM).
 
 DIRETRIZES FORENSES DE INSPEÇÃO:
-1. TRAVA MANDATÓRIA DE ENFRENTAMENTO DE TESES (Art. 381, III, CPP; Art. 93, IX, CF; Art. 489, § 1º, IV, CPC):
+1. TRAVA MANDATÓRIA DE APRECIAÇÃO DAS TESES (Art. 381, III, CPP; Art. 93, IX, CF; Art. 489, § 1º, IV, CPC):
    - Cada uma das teses defensivas listadas para esta seção DEVE ter sido enfrentada e fundamentada.
    - Omissão total ou mera citação genérica sem enfrentamento fático-jurídico é vício de severidade "critica".
 
 2. PROTOCOLO PARA JULGAMENTO COM PERSPECTIVA DE GÊNERO (Resolução CNJ nº 492/2023):
    - A palavra da ofendida no âmbito doméstico possui ESPECIAL RELEVO PROBATÓRIO, pois as agressões ocorrem comumente às ocultas.
    - É TERMINANTEMENTE PROIBIDO qualquer juízo moral sobre recato, vida pregressa, vestimenta, consumo de álcool, atraso na denúncia ou reconciliação no ciclo da violência.
-   - É VEDADA a acolhida ou cogitação da legítima defesa da honra (ADPF 779/STF).
+   - VED-01 exige REPÚDIO expresso da legítima defesa da honra e de sua invocação dissimulada (ADPF 779/STF).
    - Qualquer descumprimento do Protocolo de Gênero é vício de severidade "critica".
 
 3. STANDARD PROBATÓRIO E CORROBORAÇÃO ORAL (Art. 158 e 167 do CPP; Art. 12, § 3º, da Lei nº 11.340/2006):
@@ -564,8 +784,10 @@ class AdversarialJudicialCritic:
         Ponto de entrada primário: avalia uma seção redigida contra o dossiê delimitado.
         Executa LLM (se configurado) ou Fallback Determinístico seguro em Python.
         """
-        # Se use_ollama ativo, tenta Tier 1
-        if self.use_ollama:
+        # A vedação constitucional passa pelo crivo determinístico também no modo LLM.
+        texto = getattr(rascunho, "texto_redigido", str(rascunho))
+        secao = getattr(rascunho, "secao", None)
+        if self.use_ollama and not self._crivo_vedacao_honra(texto, secao, dossie):
             try:
                 relatorio_llm = self._avaliar_llm(rascunho, dossie, matriz_oral)
                 if relatorio_llm is not None:
@@ -708,6 +930,8 @@ class AdversarialJudicialCritic:
         ]
 
         for item_t in teses_defesa:
+            if tese_vedada_honra(item_t):
+                continue
             # Normalização polimórfica do item
             if isinstance(item_t, TeseDefensivaItem):
                 codigo = item_t.codigo
@@ -826,6 +1050,27 @@ class AdversarialJudicialCritic:
 
         return itens
 
+    def _crivo_vedacao_honra(self, texto: str, secao: Any, dossie: Any) -> List[ItemCritica]:
+        from app.generation.sectional_pipeline import SecaoTipo
+
+        teses = getattr(dossie, "teses_defesa", []) or []
+        tese_suscitada = any(tese_vedada_honra(tese) for tese in teses)
+        if not violacao_vedacao_honra(
+            texto,
+            repudio_exigido=tese_suscitada and secao == SecaoTipo.MERITO,
+            permitir_relato=tese_suscitada and secao == SecaoTipo.RELATORIO,
+        ):
+            return []
+        return [
+            ItemCritica(
+                tipo="genero_cnj492",
+                descricao="Legítima defesa da honra sem repúdio expresso ou acolhida (VED-01, ADPF 779/STF).",
+                paragrafo_afetado="Vedação constitucional da legítima defesa da honra",
+                gravidade="critica",
+                feedback_cirurgico="Repudie expressamente a legítima defesa da honra e a culpabilização da vítima (ADPF 779/STF).",
+            )
+        ]
+
     def _crivo_standard_probatorio_e_genero(
         self,
         texto: str,
@@ -859,20 +1104,7 @@ class AdversarialJudicialCritic:
                     )
                 )
 
-        # 2. Vedação da Legítima Defesa da Honra (ADPF 779/STF)
-        for m in re.finditer(r"leg[ií]tima\s+defesa\s+da\s+honra", texto, flags=re.IGNORECASE):
-            trecho = texto[max(0, m.start() - 80): min(len(texto), m.end() + 80)].lower()
-            palavras_repudio = ("afasta", "veda", "inconstituc", "adpf 779", "rejeit", "inadmiss", "repel", "descabid", "proib")
-            if not any(t in trecho for t in palavras_repudio):
-                itens.append(
-                    ItemCritica(
-                        tipo="genero_cnj492",
-                        descricao="Invocação ou acolhimento inadmissível da tese de legítima defesa da honra, declarada inconstitucional pelo STF na ADPF 779.",
-                        paragrafo_afetado=m.group(0),
-                        gravidade="critica",
-                        feedback_cirurgico="Rejeite expressamente a tese de legítima defesa da honra por manifesta inconstitucionalidade (ADPF 779/STF).",
-                    )
-                )
+        itens.extend(self._crivo_vedacao_honra(texto, secao, dossie))
 
         # 3. Especial relevo probatório da palavra da ofendida (crimes no âmbito doméstico)
         from app.generation.sectional_pipeline import SecaoTipo
@@ -1126,12 +1358,15 @@ class AdversarialJudicialCritic:
         }
 
         try:
-            from app.core.config import load_settings, ollama_url_loopback
+            from app.core.config import load_settings
+            from app.core.envio_externo import preparar_prompt_ollama, restaurar_resposta_ollama
 
-            if not ollama_url_loopback(self.ollama_url) and not load_settings().permitir_envio_externo:
-                logger.warning("Ollama em host remoto bloqueado (permitir_envio_externo desligado).")
+            preparado = preparar_prompt_ollama(self.ollama_url, load_settings(), prompt)
+            if preparado is None:
+                logger.warning("Crítico remoto bloqueado: operação sem autorização ou pseudonimização incompleta.")
                 return None
-            # trust_env=False: o Ollama e local e nao pode passar pelo proxy do sistema.
+            payload["prompt"], mapa = preparado
+            # O cliente não encaminha autos pelo proxy do sistema.
             with httpx.Client(timeout=self.timeout, trust_env=False) as client:
                 resp = client.post(f"{self.ollama_url}/api/generate", json=payload)
                 if resp.status_code != 200:
@@ -1142,7 +1377,7 @@ class AdversarialJudicialCritic:
             logger.warning(f"Erro de conexão com Ollama: {err}")
             return None
 
-        return self._reparar_e_parsear_json(raw_response)
+        return self._reparar_e_parsear_json(restaurar_resposta_ollama(raw_response, mapa))
 
     def _reparar_e_parsear_json(self, raw_text: str) -> Optional[RelatorioCriticaAdversarial]:
         """
@@ -1211,7 +1446,7 @@ class AdversarialJudicialCritic:
             f"=== [AUDITORIA ADVERSARIAL: SEÇÃO {secao_str}] ===\n\n"
             f"UNIVERSO FECHADO DO DOSSIÊ DE RESTRIÇÃO:\n"
             f"Fatos Delimitados:\n{fatos_str}\n\n"
-            f"Teses Defensivas de Enfrentamento Mandatório (Art. 381, III, CPP):\n{teses_str}\n\n"
+            f"Teses Defensivas de Apreciação Obrigatória (Art. 381, III, CPP):\n{teses_str}\n\n"
             f"Síntese da Prova Oral e Pericial:\n{oral_str}\n\n"
             f"TEXTO DA MINUTA SUBMETIDA AO CRIVO:\n"
             f"--------------------------------------------------\n"
@@ -1252,7 +1487,7 @@ class AdversarialJudicialCritic:
             if not itens:
                 return (
                     f"Minuta da seção {secao_nome} aprovada com louvor (Score {score:.1f}/100.0). "
-                    f"Plena conformidade dialética, enfrentamento de teses e respeito ao Protocolo CNJ nº 492/2023."
+                    f"Plena conformidade dialética, apreciação das teses e respeito ao Protocolo CNJ nº 492/2023."
                 )
             return (
                 f"Minuta da seção {secao_nome} aprovada com ressalvas leves (Score {score:.1f}/100.0). "

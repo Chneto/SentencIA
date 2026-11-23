@@ -252,7 +252,7 @@ def veredictos_condenatorios(bundle: Dict[str, Any]) -> Dict[str, Any]:
   )
   assert crimes, "O cenário precisa ter crimes imputados."
   return {
-      "crimes_config": [{"codigo": c, "veredicto": "condenar"} for c in crimes]
+      "crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]
   }
 
 

@@ -91,7 +91,7 @@ DEFAULT_STYLE_PROFILE: Dict[str, Any] = {
             "id": "MOD-03",
             "titulo": "Sentença Condenatória — Lesão Corporal (Art. 129, § 13, CP) + Violação de Domicílio via Emendatio Libelli (Art. 150, caput, CP) + Ameaça (Art. 147, caput, CP)",
             "tipo": "CONDENATORIA",
-            "resumo": "Modelo do gabinete (.docx): exame pericial traumatológico, afastamento de consunção (AgRg no HC 687.211/SC), emendatio libelli (art. 383 CPP), confissão espontânea, sursis penal com condições especiais (AgRg no HC 698.316/SC) e reparação mínima (Súmulas 54 e 362/STJ).",
+            "resumo": "Modelo do gabinete (.docx): exame pericial traumatológico, afastamento de consunção (STJ, Informativo 846), emendatio libelli (art. 383 CPP), confissão espontânea, sursis penal com condições especiais (arts. 77 a 82 do CP) e reparação mínima (Súmulas 54 e 362/STJ).",
         },
     ],
 }

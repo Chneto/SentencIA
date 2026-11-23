@@ -60,9 +60,6 @@ class TestScenario1AmeacaLesaoDecadenciaLegitimaDefesa:
   ):
     """Executes Case 1 end-to-end, asserting 100.0 score, full thesis rejection, and triple export."""
     case_data = load_fixture_case("1")
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
 
     # 1. Generate complete judicial sentence
     sent = gerar_sentenca_caso_real(case_data)
@@ -113,9 +110,6 @@ class TestScenario2DescumprimentoMPUWhatsappConfissao:
   ):
     """Executes Case 2 end-to-end, asserting Súmula 231 floor, zero hallucination, and triple export."""
     case_data = load_fixture_case("2")
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
 
     sent = gerar_sentenca_caso_real(case_data)
     assert "0803456-12.2025.8.20.5001" in sent.numero_processo
@@ -157,9 +151,6 @@ class TestScenario3LesaoPalavraVitimaClandestinidade:
   ):
     """Executes Case 3 end-to-end, asserting gender protocol compliance, 100.0 score, and triple export."""
     case_data = load_fixture_case("3")
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
 
     sent = gerar_sentenca_caso_real(case_data)
     assert "0804567-89.2024.8.20.5001" in sent.numero_processo
@@ -198,9 +189,6 @@ class TestScenario4MultirreincidenteSumula444:
   ):
     """Executes Case 4 end-to-end, asserting Súmula 444 neutral antecedents, 100.0 score, and triple export."""
     case_data = load_fixture_case("4")
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
 
     sent = gerar_sentenca_caso_real(case_data)
     assert "0805678-90.2025.8.20.5001" in sent.numero_processo
@@ -239,9 +227,6 @@ class TestScenario5AutocorrectionFallbackRecovery:
   ):
     """Executes Case 5 through SectionalPipelineEngine, ensuring 100.0 score and triple export."""
     case_data = load_fixture_case("5")
-    pecas = classificar_pecas_autos(case_data["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case_data.get("transcriptions", [])]
 
     # Sectional pipeline execution
     engine = SectionalPipelineEngine(use_ollama=False, max_retries=2)

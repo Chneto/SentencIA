@@ -38,7 +38,7 @@ def test_tempus_regit_actum_ameaca_contra_mulher():
     assert ameaca_pre.acao_penal == "publica_condicionada_representacao"
     assert ameaca_pre.has_builtin_domestic_violence_element is False
 
-    ameaca_pos = get_penal_type_for_date("art_147_cp", datetime.date(2025, 1, 20))
+    ameaca_pos = get_penal_type_for_date("art_147_cp", datetime.date(2025, 1, 20), ameaca_qualificada=True)
     assert ameaca_pos.min_pena == PenaAnosMesesDias(anos=0, meses=2, dias=0)
     assert ameaca_pos.max_pena == PenaAnosMesesDias(anos=1, meses=0, dias=0)
     assert ameaca_pos.acao_penal == "publica_incondicionada"

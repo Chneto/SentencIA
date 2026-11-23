@@ -21,6 +21,7 @@ from __future__ import annotations
 import datetime
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,11 +40,18 @@ from app.generation.date_formatter import (
     numero_por_extenso,
     parse_qualquer_data,
 )
+from app.generation.juizo_sobre_provas import JuizoSobreProvas, resolver_juizo_sobre_provas
+from app.generation.decisoes_imputacao import (
+    datas_dos_fatos,
+    ha_recebimento_por_imputacao,
+    resolver_configs_imputacao,
+    serializar_decisoes_imputacao,
+)
+from app.generation.dispositivo import ComandosDispositivo, construir_comandos_dispositivo
 from app.ingestion.laya_classifier import MetadadosProcesso, PecaClassificada, TeseDefensivaItem
 from app.knowledge.knowledge_base import (
-    DOUTRINA_VERIFICADA,
-    SUMULAS_E_TEMAS_VERIFICADOS,
     formatar_citacao_acervo,
+    obter_doutrina_por_id,
     obter_item_oficial_por_id,
 )
 from app.knowledge.style_cloner import get_style_profile
@@ -55,13 +63,14 @@ from app.legal_engine.dosimetria_calculator import (
     CrimeDosimetriaInput,
     DosimetriaConfig,
     DosimetriaGlobalOutput,
+    MajoranteArt24aP4,
     PenaAnosMesesDias,
     PrescricaoGlobalOutput,
     calcular_dosimetria_global,
     calcular_prescricao_por_crime,
     formatar_especie_pena,
 )
-from app.legal_engine.penal_types_catalog import get_penal_type_for_date
+from app.legal_engine.penal_types_catalog import DATA_VIGENCIA_LEI_14994_2024, get_penal_type_for_date
 from app.transcription.oral_proof_analyzer import (
     MatrizCorroboracaoOral,
     consolidar_prova_oral_por_interlocutor,
@@ -115,6 +124,7 @@ class SentencaGerada(BaseModel):
     # Vazio = usar o padrão forense aplicado ao ``texto_completo``.
     texto_html: str = ""
     formatacao: Dict[str, Any] = Field(default_factory=dict)
+    revisao_documento: str = ""
 
 
 # ==============================================================================
@@ -432,12 +442,6 @@ _INCISOS_ART107 = {
 }
 
 
-def _codigo_item(item: Any) -> str:
-    if isinstance(item, dict):
-        return str(item.get("codigo") or item.get("crime_code") or "").strip()
-    return str(getattr(item, "codigo", "") or getattr(item, "crime_code", "") or "").strip()
-
-
 def _como_dict(item: Any) -> Dict[str, Any]:
     if isinstance(item, dict):
         return item
@@ -462,6 +466,28 @@ def _valor_dano_moral(ov: Dict[str, Any], meta: MetadadosProcesso) -> float | No
         return valor_juizo
     pedido = float(getattr(meta, "valor_dano_moral_pedido_mp", 0.0) or 0.0)
     return pedido if pedido > 0 else None
+
+
+def _majorante_art24a_p4(
+    item: Dict[str, Any], codigo: str, pecas: List[PecaClassificada]
+) -> MajoranteArt24aP4 | None:
+    dados = item.get("majorante_art24a_p4")
+    if dados is None:
+        return None
+    campo = f"crimes_config.{codigo}.majorante_art24a_p4"
+    if not isinstance(dados, dict):
+        raise DadosInsuficientesError([campo], "Informe os dados da majorante do art. 24-A, § 4º.")
+    fonte_id = str(dados.get("fonte_id") or "").strip()
+    trecho = str(dados.get("trecho") or "").strip()
+    fracao = parse_fracao_str(dados.get("fracao"))
+    hipotese = dados.get("hipotese")
+    peca = next((p for p in pecas if p.doc_id == fonte_id), None)
+    if (hipotese not in ("area_exclusao", "dispositivo_monitoracao") or fracao is None
+            or not peca or not trecho or " ".join(trecho.split()) not in " ".join(peca.conteudo.split())):
+        raise DadosInsuficientesError(
+            [campo], "A majorante do art. 24-A, § 4º, exige hipótese, fração e trecho da peça indicada."
+        )
+    return MajoranteArt24aP4(hipotese=hipotese, fonte_id=fonte_id, trecho=trecho, fracao=fracao)
 
 
 def resolver_dosimetria_e_decisoes(
@@ -491,10 +517,8 @@ def resolver_dosimetria_e_decisoes(
     criterio_1fase = "um_sexto_minima" if criterio_1fase == "um_sexto_minima" else "um_oitavo_intervalo"
 
     crimes_imputados = [str(c).strip() for c in (meta.crimes_imputados or []) if str(c).strip()]
-    config_raw = [c for c in (ov.get("crimes_config") or []) if _codigo_item(c)]
-    configs: Dict[str, Dict[str, Any]] = {}
-    for item in config_raw:
-        configs.setdefault(_codigo_item(item), _como_dict(item))
+    config_raw = [_como_dict(c) for c in (ov.get("crimes_config") or [])]
+    alvos, configs, tipos_repetidos = resolver_configs_imputacao(meta, config_raw)
 
     # --- Veredicto obrigatório (geração de caso real) ---------------------------------------
     if exigir_veredicto:
@@ -504,13 +528,15 @@ def resolver_dosimetria_e_decisoes(
                 "Nenhum crime imputado foi extraído da denúncia. Informe os crimes imputados e o veredicto de cada um.",
             )
         pendentes = [
-            c for c in (crimes_imputados or list(configs))
-            if str(configs.get(c, {}).get("veredicto") or "").strip().lower() not in VEREDICTOS_VALIDOS
+            chave if alvo.codigo in tipos_repetidos else alvo.codigo
+            for chave, alvo in alvos.items()
+            if str(configs.get(chave, {}).get("veredicto") or "").strip().lower() not in VEREDICTOS_VALIDOS
         ]
         if pendentes:
             raise DecisaoJudicialPendenteError(pendentes)
         sem_destino = [
-            c for c, cfg in configs.items()
+            chave if cfg.get("id_imputacao") or alvos[chave].codigo in tipos_repetidos else alvos[chave].codigo
+            for chave, cfg in configs.items()
             if str(cfg.get("veredicto") or "").strip().lower() == "desclassificar"
             and not str(cfg.get("crime_desclassificado") or "").strip()
         ]
@@ -526,21 +552,38 @@ def resolver_dosimetria_e_decisoes(
     circunstancias_lesao = _bool_ov(ov, "circunstancias_lesao", False)
     consequencias_lesao = _bool_ov(ov, "consequencias_lesao", False)
 
-    conf_dinamica = inferir_confissao_por_crime(pecas, transcriptions, crimes_imputados or list(configs))
+    confirmados = getattr(meta, "pontos_decisivos_confirmados", None) or {}
+    conf_dinamica = inferir_confissao_por_crime(pecas, transcriptions, list(dict.fromkeys(a.codigo for a in alvos.values())))
     default_confissao = True if is_demo else any(conf_dinamica.values())
-    confissao_art24a = _bool_ov(ov, "confissao_art24a", default_confissao)
-    if ov.get("confissao_art24a") is not None and not is_demo:
+    if not is_demo and ov.get("confissao_art24a") is None and "confissao" in confirmados:
+        conf_ponto = bool(confirmados.get("confissao"))
+        confissao_art24a = conf_ponto
         conf_por_crime = (
             conf_dinamica
-            if (ov["confissao_art24a"] and any(conf_dinamica.values()))
-            else {c: bool(ov["confissao_art24a"]) for c in crimes_imputados}
+            if (conf_ponto and any(conf_dinamica.values()))
+            else {c: conf_ponto for c in crimes_imputados}
         )
     else:
-        conf_por_crime = None if is_demo else conf_dinamica
+        confissao_art24a = _bool_ov(ov, "confissao_art24a", default_confissao)
+        if ov.get("confissao_art24a") is not None and not is_demo:
+            conf_por_crime = (
+                conf_dinamica
+                if (ov["confissao_art24a"] and any(conf_dinamica.values()))
+                else {c: bool(ov["confissao_art24a"]) for c in crimes_imputados}
+            )
+        else:
+            conf_por_crime = None if is_demo else conf_dinamica
 
     detracao_dias_auto, detracao_periodo = (0, "") if is_demo else inferir_detracao_cautelar(pecas)
     detracao_ov = ov.get("dias_prisao_cautelar")
-    detracao_dias = int(detracao_ov) if detracao_ov not in (None, "") else detracao_dias_auto
+    if detracao_ov not in (None, ""):
+        detracao_dias = int(detracao_ov)
+    elif isinstance(confirmados.get("prisao_provisoria"), dict) and confirmados["prisao_provisoria"].get("dias") is not None:
+        detracao_dias = int(confirmados["prisao_provisoria"]["dias"])
+    elif isinstance(confirmados.get("prisao_provisoria"), int):
+        detracao_dias = int(confirmados["prisao_provisoria"])
+    else:
+        detracao_dias = detracao_dias_auto
     # Atenuante do art. 65, I, do CP (menor de 21 na data do fato / maior de 70 na sentença) e art. 115:
     # as flags são calculadas ANTES das entradas para que a atenuante obrigatória entre na 2ª fase.
     menor_21, maior_70 = flags_idade_art115(
@@ -550,8 +593,10 @@ def resolver_dosimetria_e_decisoes(
         ov.get("reu_menor_21_na_data_fato"),
         ov.get("reu_maior_70_na_sentenca"),
     )
-    atenuante_idade = bool(menor_21 or maior_70)
-    reincidente_global = _bool_ov(ov, "reincidente", False)
+    ant_conf = confirmados.get("antecedentes")
+    ant_cls = ant_conf.get("classificacao") if isinstance(ant_conf, dict) else str(ant_conf or "")
+    reinc_confirmada = (ant_cls == "reincidencia") or (ant_conf is True)
+    reincidente_global = _bool_ov(ov, "reincidente", reinc_confirmada)
     agravante_art61f_global = _bool_ov(ov, "agravante_art61f", True if is_demo else False)
     valor_dano_moral = _valor_dano_moral(ov, meta)
 
@@ -560,41 +605,82 @@ def resolver_dosimetria_e_decisoes(
     crimes_nao_condenados: List[Dict[str, str]] = []
     alertas_resolucao: List[str] = []
 
-    ordem = list(crimes_imputados)
-    for c in configs:
-        if c not in ordem:
-            ordem.append(c)
-    presumidos = [c for c in ordem if str(configs.get(c, {}).get("veredicto") or "").strip().lower() not in VEREDICTOS_VALIDOS]
+    tipos_presumidos = list(dict.fromkeys(
+        alvo.codigo for chave, alvo in alvos.items()
+        if str(configs.get(chave, {}).get("veredicto") or "").strip().lower() not in VEREDICTOS_VALIDOS
+    ))
+    modelos_presumidos: Dict[str, CrimeDosimetriaInput] = {}
+    if tipos_presumidos:
+        modelos_presumidos = {
+            modelo.crime_code: modelo
+            for modelo in build_crimes_inputs_for_case(
+                crimes_codes=tipos_presumidos,
+                dt_fato=dt_fato,
+                culpabilidade_lesao=culpabilidade_lesao,
+                motivos_lesao=motivos_lesao,
+                circunstancias_lesao=circunstancias_lesao,
+                consequencias_lesao=consequencias_lesao,
+                confissao_art24a=confissao_art24a,
+                reincidente=reincidente_global,
+                agravante_art61f=agravante_art61f_global,
+                is_demo=is_demo,
+                confissao_por_crime=conf_por_crime,
+                menoridade_relativa_ou_senilidade=bool(menor_21 or maior_70),
+            )
+        }
 
-    # Crimes sem veredicto (somente na simulação): condenação presumida com os parâmetros planos.
-    inputs_presumidos: Dict[str, CrimeDosimetriaInput] = {}
-    if presumidos:
-        lista_presumidos = build_crimes_inputs_for_case(
-            crimes_codes=presumidos,
-            dt_fato=dt_fato,
-            culpabilidade_lesao=culpabilidade_lesao,
-            motivos_lesao=motivos_lesao,
-            circunstancias_lesao=circunstancias_lesao,
-            consequencias_lesao=consequencias_lesao,
-            confissao_art24a=confissao_art24a,
-            reincidente=reincidente_global,
-            agravante_art61f=agravante_art61f_global,
-            is_demo=is_demo,
-            confissao_por_crime=conf_por_crime,
-            menoridade_relativa_ou_senilidade=atenuante_idade,
-        )
-        inputs_presumidos = {ci.crime_code: ci for ci in lista_presumidos}
-
-    for orig_code in ordem:
-        spec_orig = get_penal_type_for_date(orig_code, dt_fato)
-        item = configs.get(orig_code, {})
+    datas_expressas = {a.data_fato for a in alvos.values() if a.data_fato}
+    nomes_presumidos: List[str] = []
+    for chave, alvo in alvos.items():
+        orig_code = alvo.codigo
+        repetido = orig_code in tipos_repetidos
+        item = configs.get(chave, {})
         veredicto = str(item.get("veredicto") or "").strip().lower()
+        campo = chave if repetido or item.get("id_imputacao") else orig_code
+        data_informada = item.get("data_fato")
+        data_item = _resolver_data(data_informada) if data_informada else _resolver_data(
+            alvo.data_fato if repetido or len(datas_expressas) > 1 else None
+        )
+        if data_item is None and (repetido or data_informada):
+            raise DadosInsuficientesError(
+                [f"crimes_config.{campo}.data_fato"],
+                "Informe a data do fato para esta imputação antes de aplicar o catálogo penal.",
+            )
+        data_item = data_item or dt_fato
+        menor_item, maior_item = flags_idade_art115(
+            getattr(meta, "data_nascimento_reu", ""), data_item, data_sentenca or datetime.date.today(),
+            ov.get("reu_menor_21_na_data_fato"), ov.get("reu_maior_70_na_sentenca"),
+        )
+        atenuante_item = bool(menor_item or maior_item)
+        identidade = {"id_imputacao": alvo.id_imputacao, "referencia_imputacao": alvo.referencia}
+        dados_calculo = {
+            **identidade,
+            "data_recebimento_individual": _resolver_data(alvo.data_recebimento),
+            "recebimento_por_imputacao": alvo.recebimento_individual,
+            "reduzir_prescricao_art115": atenuante_item,
+        }
+        spec_orig = get_penal_type_for_date(orig_code, data_item)
 
-        if orig_code in inputs_presumidos:
-            ci = inputs_presumidos[orig_code]
+        if veredicto not in VEREDICTOS_VALIDOS:
+            modelo = modelos_presumidos[orig_code]
+            ci = modelo.model_copy(update={
+                **dados_calculo,
+                "data_fato": data_item,
+                "menoridade_relativa_ou_senilidade": atenuante_item,
+                "confissao_espontanea": modelo.confissao_espontanea and not repetido,
+            })
+            if not is_demo and orig_code == "art_147_cp" and data_item >= DATA_VIGENCIA_LEI_14994_2024:
+                alternativa = item.get("enquadramento_ameaca")
+                if alternativa == "paragrafo_1":
+                    ci.ameaca_qualificada = True
+                elif alternativa != "caput":
+                    alertas_resolucao.append("Ameaça: caput usado apenas na simulação. Confirme o enquadramento do art. 147.")
+            spec_orig = get_penal_type_for_date(orig_code, data_item, ameaca_qualificada=ci.ameaca_qualificada)
+            nomes_presumidos.append(spec_orig.artigo_formatado)
             crimes_condenados_inputs.append(ci)
             decisoes_crimes.append(
                 {
+                    **identidade,
                     "crime_code": orig_code,
                     "crime_efetivo": orig_code,
                     "veredicto": "condenar",
@@ -628,6 +714,7 @@ def resolver_dosimetria_e_decisoes(
                 justificativa = raw_inc
             decisoes_crimes.append(
                 {
+                    **identidade,
                     "crime_code": orig_code,
                     "crime_efetivo": orig_code,
                     "veredicto": "absolver",
@@ -641,6 +728,7 @@ def resolver_dosimetria_e_decisoes(
             )
             crimes_nao_condenados.append(
                 {
+                    **identidade,
                     "crime_code": orig_code,
                     "crime_nome": spec_orig.nome,
                     "artigo_formatado": spec_orig.artigo_formatado,
@@ -666,6 +754,7 @@ def resolver_dosimetria_e_decisoes(
                 fund_legal = f"art. 107, inciso {marcador('causa extintiva do art. 107 do CP aplicável')}, do Código Penal"
             decisoes_crimes.append(
                 {
+                    **identidade,
                     "crime_code": orig_code,
                     "crime_efetivo": orig_code,
                     "veredicto": "extinguir",
@@ -679,6 +768,7 @@ def resolver_dosimetria_e_decisoes(
             )
             crimes_nao_condenados.append(
                 {
+                    **identidade,
                     "crime_code": orig_code,
                     "crime_nome": spec_orig.nome,
                     "artigo_formatado": spec_orig.artigo_formatado,
@@ -701,7 +791,27 @@ def resolver_dosimetria_e_decisoes(
                     f"Desclassificação de {spec_orig.artigo_formatado} sem tipo penal de destino: mantida a capitulação original na simulação."
                 )
 
-        spec_efetivo = get_penal_type_for_date(effective_code, dt_fato)
+        ameaca_qualificada = False
+        if effective_code == "art_147_cp":
+            enquadramento = item.get("enquadramento_ameaca")
+            if enquadramento not in (None, "", "caput", "paragrafo_1"):
+                raise DadosInsuficientesError(
+                    [f"crimes_config.{campo}.enquadramento_ameaca"],
+                    "Selecione caput ou § 1º do art. 147.",
+                )
+            if data_item >= DATA_VIGENCIA_LEI_14994_2024 and enquadramento in (None, ""):
+                if exigir_veredicto and not is_demo:
+                    raise DadosInsuficientesError(
+                        [f"crimes_config.{campo}.enquadramento_ameaca"],
+                        "Confirme o enquadramento da ameaça: caput ou § 1º do art. 147.",
+                    )
+                if not is_demo:
+                    alertas_resolucao.append("Ameaça: caput usado apenas na simulação. Confirme o enquadramento do art. 147.")
+            ameaca_qualificada = enquadramento == "paragrafo_1" or (
+                is_demo and enquadramento in (None, "") and data_item >= DATA_VIGENCIA_LEI_14994_2024
+            )
+        spec_efetivo = get_penal_type_for_date(effective_code, data_item, ameaca_qualificada=ameaca_qualificada)
+        majorante_24a = _majorante_art24a_p4(item, campo, pecas)
         vetores_in = item.get("vetores_art59") or {}
         circs_map: Dict[str, CircunstanciaArt59] = {}
         for v_key in VETORES_ART_59:
@@ -715,13 +825,14 @@ def resolver_dosimetria_e_decisoes(
                 )
 
         confissao_item = item.get("confissao")
-        confissao = bool(confissao_item) if confissao_item is not None else bool(conf_dinamica.get(orig_code, False))
+        confissao = bool(confissao_item) if confissao_item is not None else not repetido and bool(conf_dinamica.get(orig_code, False))
         tent_frac = parse_fracao_str(item.get("tentativa_fracao"))
         aum_frac = parse_fracao_str(item.get("fracao_aumento"))
         crimes_condenados_inputs.append(
             CrimeDosimetriaInput(
+                **dados_calculo,
                 crime_code=effective_code,
-                data_fato=dt_fato,
+                data_fato=data_item,
                 circunstancias_art59=circs_map,
                 agravantes_art61_f_violencia_domestica=bool(item.get("agravante_art61f", agravante_art61f_global)),
                 reincidente=bool(item.get("reincidente", reincidente_global)),
@@ -730,9 +841,11 @@ def resolver_dosimetria_e_decisoes(
                 fracao_diminuicao_terceira_fase=tent_frac,
                 dias_multa=int(item.get("dias_multa") or 0),
                 desclassificado_de=desclassificado_de,
+                ameaca_qualificada=ameaca_qualificada,
+                majorante_art24a_p4=majorante_24a,
                 aplicar_aumento_art147a_p1_ii=bool(item.get("aplicar_aumento_art147a_p1_ii", True)),
                 aplicar_aumento_art141_p3=bool(item.get("aplicar_aumento_art141_p3", False)),
-                menoridade_relativa_ou_senilidade=bool(item.get("menoridade_relativa_ou_senilidade", atenuante_idade)),
+                menoridade_relativa_ou_senilidade=bool(item.get("menoridade_relativa_ou_senilidade", atenuante_item)),
                 violencia_ou_grave_ameaca=(
                     None if item.get("violencia_ou_grave_ameaca") is None else bool(item.get("violencia_ou_grave_ameaca"))
                 ),
@@ -740,6 +853,7 @@ def resolver_dosimetria_e_decisoes(
         )
         decisoes_crimes.append(
             {
+                **identidade,
                 "crime_code": orig_code,
                 "crime_efetivo": effective_code,
                 "veredicto": "desclassificar" if desclassificado_de else "condenar",
@@ -786,8 +900,8 @@ def resolver_dosimetria_e_decisoes(
         crimes_nao_condenados=crimes_nao_condenados,
     )
 
-    if presumidos:
-        nomes = ", ".join(get_penal_type_for_date(c, dt_fato).artigo_formatado for c in presumidos)
+    if nomes_presumidos:
+        nomes = ", ".join(nomes_presumidos)
         dosimetria_global.alertas_globais.append(
             f"Simulação: condenação PRESUMIDA, apenas para cálculo, quanto a {nomes} (sem veredicto explícito do juízo — "
             "simulacao_presume_condenacao). A sentença de caso real exige veredicto por crime."
@@ -844,7 +958,7 @@ def _dias_multa_extenso(n: int) -> str:
     return f"{n} ({numero_por_extenso(n)}) dias-multa"
 
 
-def texto_multa_dispositivo(dosimetria_global: DosimetriaGlobalOutput) -> str:
+def texto_multa_dispositivo(dosimetria_global: DosimetriaGlobalOutput | ComandosDispositivo) -> str:
     """", além do pagamento de N (extenso) dias-multa, ..." ou "" quando não há multa."""
     total = int(getattr(dosimetria_global, "total_dias_multa", 0) or 0)
     if total <= 0:
@@ -858,7 +972,7 @@ def texto_multa_dispositivo(dosimetria_global: DosimetriaGlobalOutput) -> str:
 _ROTULO_ESPECIE = {"reclusao": "reclusão", "detencao": "detenção", "prisao_simples": "prisão simples"}
 
 
-def texto_regime_dispositivo(dosimetria_global: DosimetriaGlobalOutput) -> str:
+def texto_regime_dispositivo(dosimetria_global: DosimetriaGlobalOutput | ComandosDispositivo) -> str:
     """"REGIME INICIAL X" ou, para penas de espécies distintas com regimes diferentes, um por espécie."""
     por_especie = dict(getattr(dosimetria_global, "regime_por_especie", {}) or {})
     if len(set(por_especie.values())) > 1:
@@ -979,6 +1093,17 @@ def _texto_terceira_fase(c: Any, spec: Any) -> str:
             "Reconheço a causa de aumento do art. 141, § 3º, do Código Penal (Lei nº 14.994/2024), aplicando a pena em dobro por ter sido o crime contra a honra "
             "cometido contra mulher por razões da condição do sexo feminino."
         )
+    elif majorante_24a := getattr(c, "majorante_art24a_p4", None):
+        n, d = majorante_24a.fracao
+        hipotese = (
+            "violação de área de exclusão monitorada eletronicamente"
+            if majorante_24a.hipotese == "area_exclusao"
+            else "intervenção no dispositivo de monitoração sem autorização judicial"
+        )
+        partes.append(
+            f"Reconheço a causa de aumento do art. 24-A, § 4º, da Lei Maria da Penha, "
+            f"por {hipotese} ({majorante_24a.fonte_id}), na fração de {n}/{d}."
+        )
     elif aum:
         partes.append(f"Aplico a causa de aumento de pena reconhecida, na fração de {aum[0]}/{aum[1]}.")
     if dim:
@@ -1003,7 +1128,7 @@ def _texto_antecedentes_neutro(id_cac: str) -> str:
 
 
 def _bloco_prescricao_dosimetria(prescricao: PrescricaoGlobalOutput | None, prefixo: str) -> str:
-    if prescricao is None or not getattr(prescricao, "por_crime", None):
+    if prescricao is None or not getattr(prescricao, "por_crime", None) or not prescricao_exige_topico(prescricao):
         return ""
     linhas = [
         f"{prefixo} Da Prescrição pela Pena Aplicada a Cada Crime (Arts. 109, 110, § 1º, 115 e 119 do Código Penal)",
@@ -1040,7 +1165,7 @@ def formatar_secao_dosimetria_completa(
     liberdade). Vazio => marcador ``[COMPLETAR PELO JUÍZO: situação prisional do réu]`` — o motor
     nunca afirma que o réu "respondeu solto" sem documento nos autos.
     """
-    doutrina_ab = DOUTRINA_VERIFICADA[3]
+    doutrina_ab = obter_doutrina_por_id("DOUT-04")
     blocos: List[str] = []
 
     if getattr(dosimetria_global, "sem_condenacao", False) or not dosimetria_global.crimes_calculados:
@@ -1051,7 +1176,7 @@ def formatar_secao_dosimetria_completa(
             "e a fixação de valor mínimo de reparação de danos (art. 387, inciso IV, do CPP)."
         )
 
-    ref_def_intro = f" e ao enfrentamento dos pedidos subsidiários da Defesa Técnica ({id_def})" if id_def else ""
+    ref_def_intro = f" e à apreciação dos pedidos subsidiários da Defesa Técnica ({id_def})" if id_def else ""
     blocos.append(
         "3. Da Dosimetria da Pena (Arts. 59 e 68 do Código Penal)\n\n"
         "Em atenção ao princípio constitucional da individualização da pena (art. 5º, inciso XLVI, da CF/88), "
@@ -1110,7 +1235,7 @@ def formatar_secao_dosimetria_completa(
         if criterio_1fase == "um_oitavo_intervalo":
             criterio_expl = (
                 f"Adota-se o critério objetivo-subjetivo com elevação de 1/8 (um oitavo) calculado sobre o intervalo entre as penas mínima e máxima cominadas em abstrato "
-                f"(jurisprudência assente do Superior Tribunal de Justiça e do TJRN - Apelação Criminal nº 0800504-82.2024.8.20.5115), "
+                f"(jurisprudência assente do Superior Tribunal de Justiça), "
                 f"equivalente ao patamar de {PenaAnosMesesDias.from_total_days(c.acrescimo_por_vetor_dias).format_extenso()} de exasperação para cada circunstância judicial desfavorável."
             )
         else:
@@ -1322,13 +1447,13 @@ def formatar_secao_dosimetria_completa(
         f"6. Da Suspensão Condicional da Pena - Sursis Penal (Art. 77 do CP c/c Súmula 536 do STJ)\n\n"
         f"{dosimetria_global.fundamentacao_sursis}{conds_sursis_txt}\n\n"
         f"Ademais, relembre-se que, por força da Súmula 536/STJ ('A suspensão condicional do processo e a transação penal não se aplicam na hipótese de delitos sujeitos ao rito da Lei Maria da Penha'), "
-        f"do art. 41 da Lei nº 11.340/2006, da ADC 19/STF e da ADI nº 4.424/DF, são constitucionalmente inaplicáveis os institutos despenalizadores da Lei nº 9.099/1995, sem prejuízo do sursis penal dos arts. 77 a 82 do CP (STJ, AgRg no HC 698.316/SC)."
+        f"do art. 41 da Lei nº 11.340/2006, da ADC 19/STF e da ADI nº 4.424/DF, são constitucionalmente inaplicáveis os institutos despenalizadores da Lei nº 9.099/1995, sem prejuízo do sursis penal previsto nos arts. 77 a 82 do Código Penal."
     )
     blocos.append(bloco_sursis)
 
     # 7. Reparação mínima (art. 387, IV, do CPP)
     nome_vitima_ref = f" {ofendida_nome}" if ofendida_nome else ""
-    tema_983_literal = formatar_citacao_acervo(SUMULAS_E_TEMAS_VERIFICADOS[8], com_aspas=False)
+    tema_983_literal = formatar_citacao_acervo(obter_item_oficial_por_id("TEMA-983-STJ"), com_aspas=False)
     den_ref = f" na exordial acusatória ({id_den})" if id_den else " na exordial acusatória"
     if dosimetria_global.indenizacao_dano_moral_tema983 > 0:
         valor_formatado = formatar_moeda_com_extenso(dosimetria_global.indenizacao_dano_moral_tema983)
@@ -1552,34 +1677,12 @@ _CRIMES_DA_CLASSE = {
 }
 
 
-def _desfecho_tese(classe: str, decisoes: List[Dict[str, Any]]) -> Tuple[str, List[str]]:
-    """('rejeitada'|'acolhida'|'parcial'|'sem_crime', nomes dos crimes em que a tese prospera)."""
-    filtro = _CRIMES_DA_CLASSE.get(classe, lambda c: True)
-    relevantes = [d for d in decisoes if filtro(str(d.get("crime_code", "")))]
-    if not relevantes:
-        return "sem_crime", []
-    favoraveis = [d for d in relevantes if d.get("veredicto") in ("absolver", "extinguir")]
-    if classe == "desclassificacao":
-        favoraveis = [d for d in relevantes if d.get("veredicto") in ("absolver", "desclassificar")]
-    nomes = [f"{d['spec_original'].nome} ({d['spec_original'].artigo_formatado})" for d in favoraveis]
-    if not favoraveis:
-        return "rejeitada", []
-    if len(favoraveis) == len(relevantes):
-        return "acolhida", nomes
-    return "parcial", nomes
-
-
-def _responder_tese(
-    t: TeseDefensivaItem,
-    decisoes: List[Dict[str, Any]],
-    refs: Dict[str, str],
-) -> str:
+def _responder_tese(t: TeseDefensivaItem) -> str:
     classe = _classe_tese(t)
-    id_ata, id_bo, id_laudo, id_mpu = refs["id_ata"], refs["id_bo"], refs["id_laudo"], refs.get("id_cert_mpu", "")
     if classe == "revelia":
         return (
             f"Assiste razão à Defesa ao pontuar que a revelia (art. 367 do CPP) não gera confissão ficta no processo penal, "
-            f"razão pela qual o julgamento se apoia exclusivamente na prova produzida sob o contraditório (art. 155 do CPP — {id_ata})."
+            "devendo a valoração observar o art. 155 do CPP."
         )
     if classe == "subsidiaria_pena":
         return (
@@ -1594,57 +1697,9 @@ def _responder_tese(
             "de recorrer em liberdade (art. 387, § 1º, do CPP) são decididos fundamentadamente no capítulo da dosimetria e no Dispositivo."
         )
     if classe == "outra":
-        return marcador(f"enfrentamento específico da tese {t.codigo} — {t.titulo}")
+        return marcador(f"apreciação específica da tese {t.codigo} — {t.titulo}")
 
-    desfecho, nomes = _desfecho_tese(classe, decisoes)
-    if desfecho == "sem_crime":
-        return marcador(f"enfrentamento da tese {t.codigo} — {t.titulo} (não há crime julgado a que ela se refira)")
-    if desfecho == "acolhida":
-        return f"Acolho a tese quanto a {', '.join(nomes)}, nos termos da fundamentação do capítulo próprio deste delito."
-    prefixo = (
-        f"Acolho a tese quanto a {', '.join(nomes)}, nos termos do capítulo próprio; quanto aos demais delitos, rejeito-a. "
-        if desfecho == "parcial"
-        else "Rejeito a tese. "
-    )
-    respostas = {
-        "insuficiencia": (
-            f"A condenação apoia-se na prova judicializada (art. 155 do CPP) — prova oral colhida em audiência ({id_ata}) em harmonia com os elementos "
-            f"informativos e documentais ({id_bo}) —, conforme a análise individualizada de cada delito nos itens precedentes, não remanescendo dúvida razoável "
-            f"apta a atrair o art. 386, inciso VII, do CPP."
-        ),
-        "negativa_autoria": (
-            f"A autoria restou demonstrada pela prova oral produzida sob o contraditório ({id_ata}), em harmonia com os elementos documentais ({id_bo}), "
-            f"conforme a análise individualizada de cada delito."
-        ),
-        "legitima_defesa": (
-            f"Os requisitos do art. 25 do Código Penal (agressão injusta, atual ou iminente, repelida com uso moderado dos meios necessários) não restaram "
-            f"demonstrados pela prova produzida ({id_ata}), ônus que incumbia à Defesa (art. 156 do CPP)."
-        ),
-        "excludente": (
-            f"Não restou demonstrada pela prova produzida ({id_ata}) a situação excepcional que tornaria inexigível conduta diversa ou excluiria a ilicitude "
-            f"(arts. 22 e 24 do Código Penal), ônus que incumbia à Defesa (art. 156 do CPP)."
-        ),
-        "ameaca_animo": (
-            "Consoante a jurisprudência da Corte Especial do STJ (Info Extra 21), eventual estado de cólera, ira ou exaltação não afasta a tipicidade nem o dolo do crime de ameaça "
-            f"quando demonstrada a seriedade intimidatória do mal prometido, como evidenciado pela prova oral ({id_ata})."
-        ),
-        "dolo_24a": (
-            "O tipo penal do art. 24-A da Lei nº 11.340/2006 exige o descumprimento de decisão judicial que defere medidas protetivas de urgência, pressupondo a ciência prévia do agente e o dolo genérico"
-            f"{f' — ciência comprovada pela certidão de intimação ({id_mpu})' if id_mpu else ''}, sendo irrelevante o motivo invocado para a aproximação."
-        ),
-        "desclassificacao": (
-            f"A ofensa à integridade corporal da ofendida restou demonstrada ({id_laudo or id_bo}), o que afasta a contravenção de vias de fato, "
-            f"sendo inaplicável o princípio da insignificância (Súmula 589/STJ)."
-        ),
-        "perseguicao": (
-            f"A reiteração exigida pelo art. 147-A do Código Penal ('reiteradamente') restou demonstrada pela prova oral ({id_ata}) e documental ({id_bo})."
-        ),
-        "domicilio": (
-            "A inviolabilidade do domicílio (art. 5º, inciso XI, da CF/88) é bem jurídico autônomo, e a prova produzida demonstra o ingresso contra a vontade "
-            f"da ofendida ({id_ata}), não havendo consunção com a lesão corporal no contexto de violência doméstica (STJ, Informativo 846)."
-        ),
-    }
-    return prefixo + respostas.get(classe, marcador(f"enfrentamento específico da tese {t.codigo} — {t.titulo}"))
+    return marcador(f"apreciação fundamentada da tese {t.codigo} — {t.titulo}")
 
 
 def _inciso_art5_lmp(vinculo: str) -> str:
@@ -1721,47 +1776,14 @@ def _responder_preliminar(
 # Absolvição e extinção por inciso
 # ==============================================================================
 
-def _texto_absolvicao(dec: Dict[str, Any], refs: Dict[str, str]) -> str:
+def _texto_absolvicao(dec: Dict[str, Any]) -> str:
     inciso = dec.get("inciso")
     justificativa = str(dec.get("justificativa_juizo") or "").strip()
-    id_ata, id_bo = refs["id_ata"], refs["id_bo"]
-
-    def _ou_marcador(descricao: str) -> str:
-        return justificativa if justificativa else marcador(descricao)
-
-    if inciso == "":
-        return (
-            f"Impõe-se a absolvição com fundamento no {dec.get('fundamento_legal')}: "
-            f"{_ou_marcador('fundamentação da absolvição à luz da prova produzida')}."
-        )
-    inciso = inciso or "VII"
-
-    textos = {
-        "I": f"Restou provada a inexistência do fato (art. 386, inciso I, do CPP): {_ou_marcador('elementos de prova que demonstram a inexistência do fato')}.",
-        "II": (
-            f"Não há prova da existência do fato (art. 386, inciso II, do CPP): a materialidade delitiva não restou demonstrada pelos elementos colhidos "
-            f"sob o contraditório ({id_ata}) nem pelos documentos dos autos ({id_bo})."
-            + (f" {justificativa}" if justificativa else "")
-        ),
-        "III": f"O fato narrado não constitui infração penal (art. 386, inciso III, do CPP): {_ou_marcador('razão jurídica da atipicidade da conduta')}.",
-        "IV": f"Restou provado que o réu não concorreu para a infração penal (art. 386, inciso IV, do CPP): {_ou_marcador('prova que demonstra a não participação do réu')}.",
-        "V": (
-            f"Não existe prova de ter o réu concorrido para a infração penal (art. 386, inciso V, do CPP): a prova oral ({id_ata}) não identifica, "
-            f"com a segurança necessária, o acusado como autor do fato."
-            + (f" {justificativa}" if justificativa else "")
-        ),
-        "VI": (
-            "Existem circunstâncias que excluem o crime ou isentam o réu de pena, ou há fundada dúvida sobre sua existência (art. 386, inciso VI, do CPP): "
-            f"{_ou_marcador('excludente reconhecida e prova correspondente')}."
-        ),
-        "VII": (
-            f"Não existe prova suficiente para a condenação (art. 386, inciso VII, do CPP): o conjunto probatório produzido sob o contraditório ({id_ata}), "
-            f"cotejado com os elementos informativos ({id_bo}), não alcança o grau de certeza exigido para um édito condenatório, impondo-se a aplicação do "
-            f"in dubio pro reo (art. 5º, inciso LVII, da CF/88 e art. 155 do CPP)."
-            + (f" {justificativa}" if justificativa else "")
-        ),
-    }
-    return textos.get(inciso, textos["VII"])
+    if not inciso:
+        return marcador("inciso do art. 386 do CPP aplicável")
+    fundamento = dec["fundamento_legal"]
+    base = f"Fundamento registrado: {fundamento}."
+    return f"{base} {justificativa}" if justificativa else base
 
 
 def _texto_extincao(dec: Dict[str, Any]) -> str:
@@ -1789,22 +1811,34 @@ def _texto_extincao(dec: Dict[str, Any]) -> str:
 # Prescrição — síntese para as preliminares
 # ==============================================================================
 
-def texto_prescricao_preliminares(prescricao: PrescricaoGlobalOutput) -> Tuple[str, str]:
-    """(título, texto) da prescrição nas preliminares; o demonstrativo por crime fica na dosimetria."""
+def prescricao_exige_topico(prescricao: PrescricaoGlobalOutput | None) -> bool:
+    """A sentença só trata da prescrição quando ela ocorreu ou quando a verificação ficou incompleta.
+
+    Ordem do usuário (2026-11-22): sem prescrição, não se informa que o processo não está prescrito.
+    """
+    if prescricao is None:
+        return False
+    if getattr(prescricao, "prescricao_reconhecida", False):
+        return True
     por_crime = list(getattr(prescricao, "por_crime", []) or [])
-    if not por_crime:
-        return "Da Prescrição", (prescricao.fundamentacao or "Prejudicada a análise da prescrição pela pena em concreto ante a ausência de condenação.")
+    return any(p.prescricao_reconhecida or not p.verificacao_completa for p in por_crime)
+
+
+def texto_prescricao_preliminares(prescricao: PrescricaoGlobalOutput) -> Tuple[str, str]:
+    """(título, texto) da prescrição nas preliminares, ou ("", "") quando não há o que tratar.
+
+    O demonstrativo por crime fica na dosimetria, também só quando há prescrição ou verificação incompleta.
+    """
+    por_crime = list(getattr(prescricao, "por_crime", []) or [])
+    if not por_crime or not prescricao_exige_topico(prescricao):
+        return "", ""
     prescritos = [p for p in por_crime if p.prescricao_reconhecida]
     if not prescritos:
-        inconclusivos = [p for p in por_crime if not p.verificacao_completa]
-        texto = (
-            "Analisada isoladamente para cada delito (art. 119 do Código Penal), em abstrato pela pena máxima cominada (art. 109 do CP) e pela pena aplicada "
-            "(art. 110, § 1º, do CP), não se consumou a prescrição da pretensão punitiva entre os marcos interruptivos do art. 117 do Código Penal, "
-            "conforme demonstrativo individualizado no capítulo da dosimetria."
+        # Verificação incompleta (marco interruptivo ausente): o juízo precisa conferir antes de concluir.
+        return "Da Prescrição", marcador(
+            "conferir os marcos interruptivos ausentes nos autos para a verificação completa da prescrição; "
+            "não havendo prescrição, excluir este tópico"
         )
-        if inconclusivos:
-            texto += " " + marcador("conferir os marcos interruptivos ausentes nos autos para a verificação completa da prescrição")
-        return "Da Ausência de Prescrição", texto
     abstratos = [p for p in prescritos if p.prescricao_abstrata_reconhecida]
     so_retroativos = [p for p in prescritos if not p.prescricao_abstrata_reconhecida]
     partes: List[str] = []
@@ -1819,6 +1853,14 @@ def texto_prescricao_preliminares(prescricao: PrescricaoGlobalOutput) -> Tuple[s
         partes.append(
             f"Quanto a {nomes_r}, a pena ora aplicada conduzirá à prescrição retroativa da pretensão punitiva após o trânsito em julgado para a acusação "
             "(art. 110, § 1º, do CP; Súmula 438/STJ: vedada a prescrição por pena hipotética), cujo reconhecimento não cabe nesta sentença."
+        )
+    # Resultado misto (revisão cruzada do CODEX, TASK-046): um crime pode ter prescrição e outro, marco ausente.
+    inconclusivos = [p for p in por_crime if not p.prescricao_reconhecida and not p.verificacao_completa]
+    if inconclusivos:
+        nomes_i = ", ".join(f"{p.crime_nome} ({p.artigo_formatado})" for p in inconclusivos)
+        partes.append(
+            f"Quanto a {nomes_i}, "
+            + marcador("conferir os marcos interruptivos ausentes nos autos para a verificação completa da prescrição")
         )
     return "Da Prescrição da Pretensão Punitiva", " ".join(partes)
 
@@ -1843,12 +1885,14 @@ def _gerar_secoes_caso_real(
     decisoes_crimes: List[Dict[str, Any]] | None = None,
     data_sentenca: datetime.date | None = None,
     settings: Any = None,
+    juizo_sobre_provas: JuizoSobreProvas | None = None,
 ) -> tuple[str, str, str, str, str]:
     """Relatório, preliminares, mérito, dosimetria e dispositivo de um processo real, ancorados nos
     IDs reais dos autos, sem dado de outro processo. Onde o motor não tem fundamento concreto,
     insere ``[COMPLETAR PELO JUÍZO: ...]``."""
     settings = settings or load_settings()
     data_sentenca = data_sentenca or datetime.date.today()
+    juizo_sobre_provas = juizo_sobre_provas or JuizoSobreProvas()
     decisoes_crimes = list(decisoes_crimes or [])
 
     peca_bo = next(
@@ -1907,14 +1951,7 @@ def _gerar_secoes_caso_real(
     narrativa_den, laudos_encontrados, local_fatos = _extrair_resumo_fatico_denuncia_e_bo(
         peca_den, peca_bo, valid_ids={p.doc_id for p in pecas}
     )
-    id_laudo = _ref(peca_laudo_lesao) or (f"{laudos_encontrados[0]} — {id_bo}" if laudos_encontrados else "")
-    refs = {
-        "id_ata": id_ata,
-        "id_bo": id_bo,
-        "id_den": id_den,
-        "id_laudo": id_laudo,
-        "id_cert_mpu": peca_cit.doc_id if peca_cit else "",
-    }
+    refs = {"id_den": id_den}
 
     dt_f_ref = parse_qualquer_data(meta.data_fato) or data_sentenca
     if decisoes_crimes:
@@ -1926,9 +1963,6 @@ def _gerar_secoes_caso_real(
             f"{sp.artigo_formatado} ({sp.nome})"
             for sp in (get_penal_type_for_date(code, dt_f_ref) for code in (meta.crimes_imputados or []))
         )
-    crimes_nomes = ", ".join(
-        f"{c.crime_spec.artigo_formatado} ({c.crime_spec.nome})" for c in dosimetria_global.crimes_calculados
-    ) or crimes_imputados_nomes
 
     interlocutores = consolidar_prova_oral_por_interlocutor(matriz_oral.depoentes, pecas=pecas)
     if interlocutores:
@@ -1939,6 +1973,10 @@ def _gerar_secoes_caso_real(
     dt_fato_br = formatar_data_br(meta.data_fato)
     dt_fato_ext = formatar_data_br(meta.data_fato, por_extenso=True)
     dt_rec_ext = formatar_data_br(meta.data_recebimento_denuncia, por_extenso=True)
+    datas_fatos = datas_dos_fatos(meta)
+    fatos_em_datas_distintas = len(datas_fatos) > 1
+    datas_fatos_texto = ", ".join(formatar_data_br(d, por_extenso=True) for d in datas_fatos) if fatos_em_datas_distintas else dt_fato_ext
+
     dt_aij_ext = (
         formatar_data_br(peca_ata.data_peca, por_extenso=True)
         if (peca_ata and parse_qualquer_data(peca_ata.data_peca))
@@ -1959,7 +1997,7 @@ def _gerar_secoes_caso_real(
         + (
             narrativa_den
             if narrativa_den
-            else f"Segundo a denúncia, os fatos imputados ocorreram em {dt_fato_ext}" + (f" ({local_fatos})" if local_fatos else "") + "."
+            else f"Segundo a denúncia, os fatos imputados ocorreram em {datas_fatos_texto}" + (f" ({local_fatos})" if local_fatos else "") + "."
         )
     )
 
@@ -1977,9 +2015,14 @@ def _gerar_secoes_caso_real(
             f"Posteriormente, foi proferida decisão revogando as medidas protetivas de urgência ({peca_rev_mpu.doc_id}), sem prejuízo do regular prosseguimento da ação penal."
         )
 
-    bloco_recebimento_resp = (
+    texto_recebimento = (
         f"Por decisão interlocutória proferida em {dt_rec_ext} ({id_rec}), a denúncia foi regularmente recebida. "
-        f"Realizadas as diligências de citação e intimação ({id_cit}), a Defesa Técnica ofertou Resposta à Acusação ({id_resp}), "
+        if meta.data_recebimento_denuncia else
+        "Os marcos de recebimento constam individualmente nos atos de cada imputação. "
+    )
+    bloco_recebimento_resp = (
+        texto_recebimento
+        + f"Realizadas as diligências de citação e intimação ({id_cit}), a Defesa Técnica ofertou Resposta à Acusação ({id_resp}), "
         + (
             f"seguindo-se decisão de saneamento e afastamento da absolvição sumária nos termos do art. 397 do CPP ({id_san})."
             if id_san
@@ -2067,14 +2110,20 @@ def _gerar_secoes_caso_real(
         if antes_lei_14994
         else f"Os fatos datam de {dt_fato_ext}, atraindo a legislação vigente à época da conduta (tempus regit actum — art. 2º do CP)."
     )
+    if fatos_em_datas_distintas:
+        intertemp_txt = (
+            f"Os fatos se reportam às datas de {datas_fatos_texto}. "
+            "Aplica-se a cada imputação a legislação vigente na data da conduta (art. 2º do CP)."
+        )
     blocos_prelims.append(
         f"1.{idx_comp}. Da Competência Especializada, da Ação Penal e do Direito Intertemporal:\n"
         f"A competência deste Juizado Especializado firma-se nos termos do {_art5_art7_txt(meta)}, "
-        f"incidindo a Súmula 600/STJ (\"{SUMULAS_E_TEMAS_VERIFICADOS[4]['texto_literal']}\") e o Enunciado 1 FONAVID. "
+        f"incidindo a Súmula 600/STJ (\"{obter_item_oficial_por_id('SUMULA-600-STJ')['texto_literal']}\") e o Enunciado 1 FONAVID. "
         f"{intertemp_txt} Por força do art. 41 da Lei nº 11.340/2006, da Súmula 536/STJ, da ADC 19/STF e da ADI nº 4.424/DF, são constitucionalmente inaplicáveis os institutos despenalizadores da Lei nº 9.099/1995."
     )
     titulo_presc, texto_presc = texto_prescricao_preliminares(prescricao)
-    blocos_prelims.append(f"1.{idx_comp + 1}. {titulo_presc}:\n{texto_presc}")
+    if titulo_presc:
+        blocos_prelims.append(f"1.{idx_comp + 1}. {titulo_presc}:\n{texto_presc}")
     preliminares = "\n\n".join(blocos_prelims)
 
     # ------------------------------------------------------------------ II – FUNDAMENTAÇÃO (mérito)
@@ -2084,21 +2133,23 @@ def _gerar_secoes_caso_real(
             for it in interlocutores
         )
     else:
-        depoimentos_texto = f"• Prova oral colhida em audiência de instrução conforme Termo de Audiência ({id_ata})."
+        depoimentos_texto = (
+            f"• Termo de audiência disponível ({peca_ata.doc_id})."
+            if peca_ata
+            else marcador("prova oral produzida em audiência")
+        )
 
     laudos_cit_txt = ""
     if peca_laudo_lesao is not None:
         laudos_cit_txt = f" Além do acervo documental, consta o exame pericial juntado aos autos ({_ref(peca_laudo_lesao)})."
     elif laudos_encontrados:
-        laudos_cit_txt = f" Além do acervo documental, constam os exames periciais registrados nos autos ({', '.join(laudos_encontrados)} — {id_bo})."
+        laudos_cit_txt = f" Há menção no boletim a exame pericial ({', '.join(laudos_encontrados)} — {id_bo})."
 
-    doutrina_mbd = DOUTRINA_VERIFICADA[0]
-    doutrina_vds = DOUTRINA_VERIFICADA[1]
-    doutrina_rsc = DOUTRINA_VERIFICADA[2]
+    doutrina_mbd = obter_doutrina_por_id("DOUT-01")
     tese_ed41_13 = obter_item_oficial_por_id("TESE-STJ-ED41-13")
 
     blocos_merito: List[str] = [
-        "2. Do Mérito: Valoração Probatória sob Perspectiva de Gênero (Resolução CNJ nº 492/2023), Análise da Prova Oral e Enfrentamento das Teses Defensivas",
+        "2. Do Mérito: Valoração Probatória sob Perspectiva de Gênero (Resolução CNJ nº 492/2023), Análise da Prova Oral e Apreciação das Teses Defensivas",
         (
             "2.1. Da Diretriz Hermenêutica da Resolução CNJ nº 492/2023, do Enunciado 45 FONAVID e da Jurisprudência do STJ:\n"
             f"{matriz_oral.fundamentacao_sintese}\n\n"
@@ -2110,9 +2161,9 @@ def _gerar_secoes_caso_real(
             f"Na mesma diretriz, consoante a síntese doutrinária de {doutrina_mbd['autor']} ({doutrina_mbd.get('referencia_abnt', doutrina_mbd['obra'])}), {doutrina_mbd['sintese'][0].lower() + doutrina_mbd['sintese'][1:]}"
         ),
         (
-            f"2.2. Síntese Consolidada da Prova Oral ({id_ata}) e Acervo Pericial:\n\n"
+            "2.2. Relatos da Prova Oral e Acervo Pericial:\n\n"
             f"{depoimentos_texto}\n\n"
-            f"Os relatos colhidos em juízo devem ser sopesados em conjunto com o Boletim de Ocorrência/Inquérito ({id_bo}) e a prova técnica.{laudos_cit_txt} "
+            f"A valoração dos relatos e dos documentos é registrada por imputação.{laudos_cit_txt} "
             f"Ressalte-se, na esteira do Superior Tribunal de Justiça (APn 1.079/DF), a relevância probatória da palavra da vítima quando corroborada por perícia e depoimentos testemunhais harmônicos com o contexto fático."
         ),
     ]
@@ -2127,18 +2178,20 @@ def _gerar_secoes_caso_real(
         sp_orig = dec["spec_original"]
         sp = dec["spec_efetivo"]
 
+        referencia_fato = dec.get("referencia_imputacao") or ""
+        referencia_merito = f" — {referencia_fato}" if referencia_fato else ""
+
         if verd == "absolver":
             blocos_merito.append(
-                f"2.{sec_idx}. Da Absolvição — {sp_orig.nome} ({sp_orig.artigo_formatado}):\n"
-                f"Examinada a imputação do delito de {sp_orig.nome} ({sp_orig.artigo_formatado}) em cotejo com a prova oral ({id_ata}) e documental ({id_bo} e {id_den}), "
-                f"impõe-se a absolvição. {_texto_absolvicao(dec, refs)}"
+                f"2.{sec_idx}. Da Absolvição — {sp_orig.nome} ({sp_orig.artigo_formatado}){referencia_merito}:\n"
+                f"Impõe-se a absolvição. {_texto_absolvicao(dec)}\n\n{juizo_sobre_provas.merito(dec)}"
             )
             sec_idx += 1
             continue
 
         if verd == "extinguir":
             blocos_merito.append(
-                f"2.{sec_idx}. Da Extinção da Punibilidade — {sp_orig.nome} ({sp_orig.artigo_formatado}):\n{_texto_extincao(dec)}"
+                f"2.{sec_idx}. Da Extinção da Punibilidade — {sp_orig.nome} ({sp_orig.artigo_formatado}){referencia_merito}:\n{_texto_extincao(dec)}"
             )
             sec_idx += 1
             continue
@@ -2146,56 +2199,22 @@ def _gerar_secoes_caso_real(
         descl_prefix = ""
         if verd == "desclassificar" and dec.get("desclassificado_de"):
             descl_prefix = (
-                f"Opero a desclassificação / emendatio libelli (art. 383 do Código de Processo Penal) da imputação inicial de {sp_orig.nome} ({sp_orig.artigo_formatado}) "
-                f"para o tipo penal do {sp.nome} ({sp.artigo_formatado}), em estrita adequação aos fatos narrados na denúncia ({id_den}) e demonstrados na instrução ({id_ata}).\n\n"
+                f"Opero a desclassificação / emendatio libelli (art. 383 do Código de Processo Penal) "
+                f"da imputação inicial de {sp_orig.nome} ({sp_orig.artigo_formatado}) "
+                f"para {sp.nome} ({sp.artigo_formatado}), conforme a decisão registrada pelo juízo.\n\n"
             )
-
-        if sp.code in ("art_129_p13_cp", "art_129_p9_cp"):
-            extra_laudo = f" e pelo exame pericial ({id_laudo})" if id_laudo else f" ({id_bo})"
-            precedentes_lesao = (
-                "AREsp 2.763.567/RN e AgRg no AREsp 2.682.075/SE"
-                if sp.code == "art_129_p13_cp"
-                else "AgRg no AREsp 2.682.075/SE"
-            )
-            corpo_c = (
-                f"{descl_prefix}A materialidade e a autoria do delito de {sp.nome} ({sp.artigo_formatado}) estão demonstradas pelos elementos da fase inquisitorial{extra_laudo}, "
-                f"em plena harmonia com a prova oral produzida sob o crivo do contraditório ({id_ata}), aplicando-se a orientação do STJ ({precedentes_lesao}) "
-                f"e a Súmula 589/STJ ({formatar_citacao_acervo(SUMULAS_E_TEMAS_VERIFICADOS[3])})."
-            )
-        elif sp.code in ("art_150_cp", "art_150_p1_cp"):
-            corpo_c = (
-                f"{descl_prefix}Restam caracterizados a materialidade e o dolo do delito de {sp.nome} ({sp.artigo_formatado}), consistente em ingressar ou permanecer clandestina ou astuciosamente "
-                f"na residência da ofendida contra a sua vontade expressa, bem jurídico autônomo tutelado pelo art. 5º, inciso XI, da Constituição Federal que não resta absorvido por infrações conexas "
-                f"(STJ, 6ª Turma, processo sob segredo de justiça, j. 12/03/2025, Informativo 846)."
-            )
-        elif sp.code == "art_147_cp":
-            corpo_c = (
-                f"{descl_prefix}Configura-se o delito de {sp.nome} ({sp.artigo_formatado}) diante da promessa séria de mal injusto e grave idônea a infundir temor na ofendida, "
-                f"restando irrelevante eventual exaltação de ânimo ou cólera do agente (STJ, Corte Especial, processo sob segredo de justiça, j. 10/06/2024, Informativo Extraordinário 21). "
-                f"Na síntese doutrinária de {doutrina_rsc['autor']} ({doutrina_rsc.get('referencia_abnt', doutrina_rsc['obra'])}), {doutrina_rsc['sintese'][0].lower() + doutrina_rsc['sintese'][1:]}"
-            )
-        elif sp.code == "art_24a_lmp":
-            corpo_c = (
-                f"{descl_prefix}Comprovados o conhecimento prévio da decisão judicial que deferiu as medidas protetivas e o dolo genérico de desrespeitar a ordem protetiva, "
-                f"impõe-se o reconhecimento da prática do art. 24-A da Lei nº 11.340/2006 (cuja própria estrutura típica exige o descumprimento de decisão judicial, logo a ciência do agente). "
-                f"Na síntese doutrinária de {doutrina_vds['autor']} ({doutrina_vds.get('referencia_abnt', doutrina_vds['obra'])}), {doutrina_vds['sintese'][0].lower() + doutrina_vds['sintese'][1:]}"
-            )
-        else:
-            corpo_c = (
-                f"{descl_prefix}Analisada a imputação do crime de {sp.nome} ({sp.artigo_formatado}) à luz da prova oral ({id_ata}) e documental ({id_bo} e {id_den}), "
-                f"verifica-se a subsunção típica e a vedação da insignificância (Súmula 589/STJ: {formatar_citacao_acervo(SUMULAS_E_TEMAS_VERIFICADOS[3])})."
-            )
-        blocos_merito.append(f"2.{sec_idx}. Da Análise Típica e Probatória — {sp.nome} ({sp.artigo_formatado}):\n{corpo_c}")
+        corpo_c = descl_prefix + juizo_sobre_provas.merito(dec)
+        blocos_merito.append(f"2.{sec_idx}. Da Análise Típica e Probatória — {sp.nome} ({sp.artigo_formatado}){referencia_merito}:\n{corpo_c}")
         sec_idx += 1
 
     teses_mer_sub = [t for t in meta.teses_defesa if t.tipo != "PRELIMINAR"]
     if teses_mer_sub:
         linhas_teses = [
-            f"• {t.codigo} — {t.titulo} ({id_def}): {t.descricao_defesa} {_responder_tese(t, itens_decisao, refs)}"
+            f"• {t.codigo} — {t.titulo} ({id_def}): {t.descricao_defesa} {_responder_tese(t)}"
             for t in teses_mer_sub
         ]
         blocos_merito.append(
-            f"2.{sec_idx}. Do Enfrentamento Individualizado das Teses Defensivas (Art. 381, Inciso III, do CPP):\n\n" + "\n\n".join(linhas_teses)
+            f"2.{sec_idx}. Da Apreciação Individualizada das Teses Defensivas (Art. 381, Inciso III, do CPP):\n\n" + "\n\n".join(linhas_teses)
         )
     merito = "\n\n".join(blocos_merito)
 
@@ -2227,19 +2246,12 @@ def _gerar_secoes_caso_real(
         else " Mantenham-se íntegras as Medidas Protetivas de Urgência vigentes em favor da ofendida (art. 19, § 6º, da Lei nº 11.340/2006 e Tema Repetitivo 1249/STJ)."
     )
 
-    nao_condenados = list(getattr(dosimetria_global, "crimes_nao_condenados", []) or [])
-    if getattr(dosimetria_global, "sem_condenacao", False) or not dosimetria_global.crimes_calculados:
-        partes_abs = []
-        for nc in nao_condenados:
-            if nc.get("veredicto") == "extinguir":
-                partes_abs.append(
-                    f"EXTINGUIR A PUNIBILIDADE do acusado quanto ao delito de {nc['crime_nome']} ({nc['artigo_formatado']}), com fundamento no {nc['fundamento_legal']}"
-                )
-            else:
-                partes_abs.append(
-                    f"ABSOLVER o réu {meta.nome_reu} quanto ao delito de {nc['crime_nome']} ({nc['artigo_formatado']}), com fulcro no {nc['fundamento_legal']}"
-                )
-        comando_abs = "; e ".join(partes_abs) if partes_abs else marcador("comando absolutório ou extintivo de cada imputação")
+    comandos = construir_comandos_dispositivo(dosimetria_global)
+    nao_condenados = [item for item in comandos.imputacoes if item.veredicto in ("absolver", "extinguir")]
+    comando_abs = "; e ".join(item.texto(meta.nome_reu) for item in nao_condenados)
+    if comandos.sem_condenacao or not dosimetria_global.crimes_calculados:
+        if not comando_abs:
+            comando_abs = marcador("comando absolutório ou extintivo de cada imputação")
         dispositivo = (
             f"III – DISPOSITIVO\n\n"
             f"Ante o exposto, JULGO IMPROCEDENTE a pretensão punitiva estatal deduzida na denúncia ({id_den}) para {comando_abs}.\n\n"
@@ -2256,15 +2268,8 @@ def _gerar_secoes_caso_real(
         )
         return relatorio, preliminares, merito, dosimetria_texto, dispositivo
 
-    penas_especie_partes: List[str] = []
-    for especie, rotulo in (("reclusao", "reclusão"), ("detencao", "detenção"), ("prisao_simples", "prisão simples")):
-        if especie in dosimetria_global.penas_por_especie:
-            penas_especie_partes.append(f"{dosimetria_global.penas_por_especie[especie].format_extenso()} de {rotulo}")
-    pena_disp_str = " e ".join(penas_especie_partes) or dosimetria_global.pena_total_unificada.format_extenso()
-    pena_disp_str += texto_multa_dispositivo(dosimetria_global)
+    pena_disp_str = comandos.texto_penas() + texto_multa_dispositivo(comandos)
 
-    tem_descl_manual = any(getattr(c, "desclassificado_de", "") for c in dosimetria_global.crimes_calculados)
-    emendatio_nota = "operando a desclassificação / emendatio libelli (art. 383 do CPP), " if tem_descl_manual else ""
     tipo_conc = getattr(dosimetria_global, "tipo_concurso", "material")
     if len(dosimetria_global.crimes_calculados) <= 1:
         concurso_nota = ""
@@ -2319,13 +2324,7 @@ def _gerar_secoes_caso_real(
     )
     dano_disp = f"Com fundamento no art. 387, inciso IV, do Código de Processo Penal e no Tema Repetitivo nº 983 do Superior Tribunal de Justiça, {dano_disp}."
 
-    if peca_liberdade is not None:
-        liberdade_disp = (
-            f"CONCEDO ao réu o direito de recorrer em liberdade (art. 387, § 1º, do CPP), porquanto lhe foi concedida liberdade no curso do processo ({peca_liberdade.doc_id}) "
-            f"e não sobrevieram fundamentos para a prisão preventiva (art. 312 do CPP)."
-        )
-    else:
-        liberdade_disp = "Quanto ao direito de recorrer em liberdade (art. 387, § 1º, do CPP): " + marcador("situação prisional do réu") + "."
+    liberdade_disp = juizo_sobre_provas.texto_cautelar()
 
     tem_defensoria = any("defensoria" in p.titulo.lower() or "defensoria" in p.conteudo.lower() for p in pecas)
     custas_disp = (
@@ -2338,21 +2337,18 @@ def _gerar_secoes_caso_real(
         )
     )
 
-    bloco_parcial_abs = ""
-    if nao_condenados:
-        partes_nc = []
-        for nc in nao_condenados:
-            verbo = "EXTINGUIR A PUNIBILIDADE" if nc.get("veredicto") == "extinguir" else "ABSOLVER o acusado"
-            partes_nc.append(f"{verbo} quanto ao delito de {nc['crime_nome']} ({nc['artigo_formatado']}), nos termos do {nc['fundamento_legal']}")
-        bloco_parcial_abs = "\n\nOutrossim, " + "; e ".join(partes_nc) + "."
+    condenacoes = "; e ".join(
+        item.texto(meta.nome_reu) for item in comandos.imputacoes if item.veredicto in ("condenar", "desclassificar")
+    )
+    bloco_parcial_abs = f"\n\nOutrossim, {comando_abs}." if comando_abs else ""
 
     verbo_julgo = "JULGO PARCIALMENTE PROCEDENTE" if nao_condenados else "JULGO PROCEDENTE"
     dispositivo = (
         f"III – DISPOSITIVO\n\n"
-        f"Ante o exposto, {emendatio_nota}{verbo_julgo} a pretensão punitiva estatal deduzida na denúncia ({id_den}) para CONDENAR o réu {meta.nome_reu}, qualificado nos autos, "
-        f"como incurso nas sanções de {crimes_nomes},{concurso_nota} combinados com os {_art5_art7_txt(meta, plural=True)}.{bloco_parcial_abs}\n\n"
-        f"Consequentemente, fixo a pena definitiva em {pena_disp_str}, a ser cumprida no {texto_regime_dispositivo(dosimetria_global)} (art. 33, § 2º, do CP), "
-        f"{subst_disp_nota}.\n\n"
+        f"Ante o exposto, {verbo_julgo} a pretensão punitiva estatal deduzida na denúncia ({id_den}) para {condenacoes}. "
+        f"Aplicam-se os {_art5_art7_txt(meta, plural=True)}{concurso_nota.rstrip(',')}.{bloco_parcial_abs}\n\n"
+        f"Consequentemente, fixo a pena definitiva em {pena_disp_str}, a ser cumprida no {texto_regime_dispositivo(comandos)} (art. 33, § 2º, do CP), "
+        f"{subst_disp_nota}.{comandos.texto_soma_penas()}\n\n"
         f"{sursis_disp}\n\n"
         f"{dano_disp}\n\n"
         f"{liberdade_disp}{mpu_disp}\n\n"
@@ -2391,7 +2387,7 @@ class ResultadoDeterministico:
     matriz_oral: MatrizCorroboracaoOral
     is_demo: bool
     dt_fato: datetime.date
-    dt_rec: datetime.date
+    dt_rec: datetime.date | None
     data_sentenca: datetime.date
     dosimetria_global: DosimetriaGlobalOutput
     prescricao: PrescricaoGlobalOutput
@@ -2403,24 +2399,14 @@ class ResultadoDeterministico:
     alertas: List[str] = field(default_factory=list)
     simulacao_presume_condenacao: bool = False
     texto_demo: bool = False
+    juizo_sobre_provas: JuizoSobreProvas = field(default_factory=JuizoSobreProvas)
 
     def secao(self, nome: Any) -> str:
         chave = str(getattr(nome, "value", nome)).strip().lower()
         return self.secoes[chave]
 
     def decisoes_serializaveis(self) -> List[Dict[str, Any]]:
-        saida = []
-        for d in self.decisoes_crimes:
-            saida.append(
-                {
-                    "crime_code": d.get("crime_code"),
-                    "crime_efetivo": d.get("crime_efetivo"),
-                    "veredicto": d.get("veredicto"),
-                    "fundamento_legal": d.get("fundamento_legal"),
-                    "presumido": bool(d.get("presumido", False)),
-                }
-            )
-        return saida
+        return serializar_decisoes_imputacao(self.decisoes_crimes)
 
 
 def _validar_bundle(case_bundle: Any) -> None:
@@ -2451,9 +2437,12 @@ resolver_data = _resolver_data
 
 def montar_cabecalho(settings: Any, meta: MetadadosProcesso, apenso: str | None) -> str:
     apenso_txt = str(apenso or "").strip()
+    # Só há "Nº" quando o apenso é um número de processo; a descrição "Medidas Protetivas apreciadas no ID-..."
+    # (sem autos próprios) não vai para o cabeçalho, onde ficava "Nº Medidas Protetivas apreciadas...".
+    tem_numero_apenso = bool(re.search(r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}", apenso_txt))
     linha_apenso = (
         f"MEDIDA PROTETIVA EM APENSO Nº {apenso_txt}\n"
-        if apenso_txt and "sem apenso" not in apenso_txt.lower()
+        if apenso_txt and "sem apenso" not in apenso_txt.lower() and tem_numero_apenso
         else ""
     )
     return (
@@ -2471,7 +2460,11 @@ def montar_cabecalho(settings: Any, meta: MetadadosProcesso, apenso: str | None)
 
 def padronizar_texto(texto: str) -> str:
     """Datas no padrão brasileiro e menções narrativas por extenso."""
-    return converter_mencoes_textuais_para_extenso(mascarar_e_padronizar_datas_texto(texto or "")) if texto else ""
+    partes = re.split(r"(“[^”]*”)", texto or "")
+    return "".join(
+        parte if i % 2 else converter_mencoes_textuais_para_extenso(mascarar_e_padronizar_datas_texto(parte))
+        for i, parte in enumerate(partes)
+    )
 
 
 def _coletar_alertas(
@@ -2492,24 +2485,35 @@ def _coletar_alertas(
     return list(dict.fromkeys(a for a in alertas if a and a.strip()))
 
 
-def calcular_secoes_deterministicas(
+@dataclass(frozen=True)
+class PlanoSentenca:
+    """Dados e decisões validados antes de redigir ou auditar uma minuta."""
+
+    ctx: CaseContext
+    meta: MetadadosProcesso
+    dt_fato: datetime.date
+    dt_rec: datetime.date | None
+    data_sentenca: datetime.date
+    dosimetria_global: DosimetriaGlobalOutput
+    prescricao: PrescricaoGlobalOutput
+    decisoes_crimes: List[Dict[str, Any]]
+    criterio_1fase: str
+    detracao_periodo: str
+    alertas: List[str]
+    simulacao_presume_condenacao: bool
+    usar_texto_demo: bool
+    juizo_sobre_provas: JuizoSobreProvas = field(default_factory=JuizoSobreProvas)
+
+
+def planejar_sentenca(
     case_bundle: Dict[str, Any],
     custom_dosimetria_override: Dict[str, Any] | None = None,
     *,
     exigir_veredicto: bool | None = None,
     contexto: CaseContext | None = None,
-) -> ResultadoDeterministico:
-    """Calcula as cinco seções determinísticas (e cabeçalho, dosimetria e prescrição) uma única vez.
-
-    ``exigir_veredicto``: ``None`` => exige veredicto explícito por crime em caso real e simula no
-    caso demonstrativo; ``True``/``False`` forçam o comportamento.
-
-    Levanta ``DadosInsuficientesError`` (data do fato, recebimento da denúncia, número do processo
-    ou crimes ausentes) e ``DecisaoJudicialPendenteError`` (veredicto faltante).
-    """
+) -> PlanoSentenca:
+    """Aplica os mesmos pré-requisitos e bloqueios nos modos de elaboração da minuta."""
     _validar_bundle(case_bundle)
-    settings = load_settings()
-    style = get_style_profile()
     ctx = contexto or obter_contexto(case_bundle)
     meta = ctx.copia_meta()
     pecas = ctx.pecas
@@ -2519,7 +2523,7 @@ def calcular_secoes_deterministicas(
 
     # Dados essenciais: extraídos dos autos, informados pelo juízo (metadados_override, já aplicados
     # no CaseContext) ou presentes no próprio bundle — nunca inventados.
-    dt_fato = _resolver_data(meta.data_fato, case_bundle.get("data_fato"))
+    dt_fato = _resolver_data(meta.data_fato, case_bundle.get("data_fato"), *datas_dos_fatos(meta))
     dt_rec = _resolver_data(meta.data_recebimento_denuncia, case_bundle.get("data_recebimento_denuncia"))
     if not meta.crimes_imputados and isinstance(case_bundle.get("crimes_imputados"), list):
         meta.crimes_imputados = [str(c).strip() for c in case_bundle["crimes_imputados"] if str(c).strip()]
@@ -2528,7 +2532,7 @@ def calcular_secoes_deterministicas(
         faltantes.append("numero_processo")
     if dt_fato is None:
         faltantes.append("data_fato")
-    if dt_rec is None:
+    if dt_rec is None and not ha_recebimento_por_imputacao(meta):
         faltantes.append("data_recebimento_denuncia")
     if not meta.crimes_imputados and not ov.get("crimes_config"):
         faltantes.append("crimes_imputados")
@@ -2540,8 +2544,16 @@ def calcular_secoes_deterministicas(
             + "). Complemente-os nos metadados do processo.",
         )
     meta.data_fato = dt_fato.isoformat()
-    meta.data_recebimento_denuncia = dt_rec.isoformat()
-    data_sentenca = _resolver_data(ov.get("data_sentenca"), case_bundle.get("data_sentenca")) or datetime.date.today()
+    meta.data_recebimento_denuncia = dt_rec.isoformat() if dt_rec else ""
+    data_informada = ov.get("data_sentenca")
+    if data_informada in (None, ""):
+        data_informada = case_bundle.get("data_sentenca")
+    if data_informada in (None, ""):
+        data_sentenca = datetime.date.today()
+    else:
+        data_sentenca = _resolver_data(data_informada)
+        if data_sentenca is None:
+            raise DadosInsuficientesError(["data_sentenca"], "Informe uma data válida para a sentença.")
 
     dosimetria_global, prescricao, decisoes_crimes, criterio_1fase, detracao_periodo = resolver_dosimetria_e_decisoes(
         pecas=pecas,
@@ -2558,7 +2570,18 @@ def calcular_secoes_deterministicas(
 
     # Prescrição EM ABSTRATO consumada impede o julgamento de mérito: na sentença de caso real o motor não
     # condena nem fixa pena para o crime já prescrito — exige o veredicto 'extinguir' (art. 107, IV, do CP).
-    prescritos_abstrato = [p.crime_code for p in prescricao.por_crime if p.prescricao_abstrata_reconhecida]
+    ids_informados = {
+        str(_como_dict(item).get("id_imputacao") or "") for item in (ov.get("crimes_config") or [])
+    } - {""}
+    codigos_repetidos = Counter(d["crime_code"] for d in decisoes_crimes)
+    decisoes_por_id = {d.get("id_imputacao"): d for d in decisoes_crimes if d.get("id_imputacao")}
+    prescritos_abstrato = []
+    for p in prescricao.por_crime:
+        if not p.prescricao_abstrata_reconhecida:
+            continue
+        codigo = decisoes_por_id.get(p.id_imputacao, {}).get("crime_code", p.crime_code)
+        identidade = p.id_imputacao if p.id_imputacao in ids_informados or codigos_repetidos[codigo] > 1 else codigo
+        prescritos_abstrato.append(identidade or codigo)
     if exigir and prescritos_abstrato:
         raise DecisaoJudicialPendenteError(
             list(dict.fromkeys(prescritos_abstrato)),
@@ -2587,6 +2610,41 @@ def calcular_secoes_deterministicas(
     if usar_texto_demo and [c.crime_spec.code for c in dosimetria_global.crimes_calculados] != list(DEMO_CRIMES):
         usar_texto_demo = False
 
+    juizo_sobre_provas = resolver_juizo_sobre_provas(ctx, meta, ov, decisoes_crimes)
+    return PlanoSentenca(
+        ctx=ctx, meta=meta, dt_fato=dt_fato, dt_rec=dt_rec, data_sentenca=data_sentenca,
+        dosimetria_global=dosimetria_global, prescricao=prescricao, decisoes_crimes=decisoes_crimes,
+        criterio_1fase=criterio_1fase, detracao_periodo=detracao_periodo,
+        alertas=_coletar_alertas(meta, dosimetria_global, prescricao, alertas_extra),
+        simulacao_presume_condenacao=presume, usar_texto_demo=usar_texto_demo,
+        juizo_sobre_provas=juizo_sobre_provas,
+    )
+
+
+def calcular_secoes_deterministicas(
+    case_bundle: Dict[str, Any],
+    custom_dosimetria_override: Dict[str, Any] | None = None,
+    *,
+    exigir_veredicto: bool | None = None,
+    contexto: CaseContext | None = None,
+    plano: PlanoSentenca | None = None,
+) -> ResultadoDeterministico:
+    """Redige as seções determinísticas a partir de um plano validado."""
+    plano = plano or planejar_sentenca(
+        case_bundle, custom_dosimetria_override, exigir_veredicto=exigir_veredicto, contexto=contexto,
+    )
+    settings = load_settings()
+    style = get_style_profile()
+    ctx = plano.ctx
+    meta = plano.meta
+    pecas = ctx.pecas
+    dosimetria_global = plano.dosimetria_global
+    prescricao = plano.prescricao
+    decisoes_crimes = plano.decisoes_crimes
+    criterio_1fase = plano.criterio_1fase
+    detracao_periodo = plano.detracao_periodo
+    data_sentenca = plano.data_sentenca
+    usar_texto_demo = plano.usar_texto_demo
     if usar_texto_demo:
         titulo_presc, texto_presc = texto_prescricao_preliminares(prescricao)
         relatorio, preliminares, merito, dosimetria_texto, dispositivo = gerar_secoes_demo(
@@ -2615,6 +2673,7 @@ def calcular_secoes_deterministicas(
             decisoes_crimes=decisoes_crimes,
             data_sentenca=data_sentenca,
             settings=settings,
+            juizo_sobre_provas=plano.juizo_sobre_provas,
         )
 
     secoes = {
@@ -2631,9 +2690,9 @@ def calcular_secoes_deterministicas(
         meta=meta,
         pecas=pecas,
         matriz_oral=ctx.matriz_oral,
-        is_demo=is_demo,
-        dt_fato=dt_fato,
-        dt_rec=dt_rec,
+        is_demo=ctx.is_demo,
+        dt_fato=plano.dt_fato,
+        dt_rec=plano.dt_rec,
         data_sentenca=data_sentenca,
         dosimetria_global=dosimetria_global,
         prescricao=prescricao,
@@ -2642,9 +2701,10 @@ def calcular_secoes_deterministicas(
         detracao_periodo=detracao_periodo,
         cabecalho=cabecalho,
         secoes=secoes,
-        alertas=_coletar_alertas(meta, dosimetria_global, prescricao, alertas_extra),
-        simulacao_presume_condenacao=presume,
+        alertas=list(plano.alertas),
+        simulacao_presume_condenacao=plano.simulacao_presume_condenacao,
         texto_demo=usar_texto_demo,
+        juizo_sobre_provas=plano.juizo_sobre_provas,
     )
 
 
@@ -2697,6 +2757,8 @@ def gerar_sentenca_estruturada(
     case_bundle: Dict[str, Any],
     custom_dosimetria_override: Dict[str, Any] | None = None,
     use_ollama_if_available: bool = True,
+    *,
+    plano: PlanoSentenca | None = None,
 ) -> SentencaGerada:
     """Gera a sentença penal completa de forma DETERMINÍSTICA (Laya + Python + Base Fechada).
 
@@ -2708,7 +2770,7 @@ def gerar_sentenca_estruturada(
     rótulo ``motor_utilizado`` diz exatamente isso (a redação assistida por LLM é feita pelo
     pipeline seccional).
     """
-    resultado = calcular_secoes_deterministicas(case_bundle, custom_dosimetria_override)
+    resultado = calcular_secoes_deterministicas(case_bundle, custom_dosimetria_override, plano=plano)
     alertas_extras: List[str] = []
     if use_ollama_if_available:
         alertas_extras.append(

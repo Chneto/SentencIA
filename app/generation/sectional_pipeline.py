@@ -38,7 +38,10 @@ from app.core.errors import DadosInsuficientesError
 from app.core.ollama_client import gerar_texto, resolver_modelo_ollama
 from app.core.text_utils import remover_acentos
 from app.demo.demo_sentence import DEMO_FUNDAMENTO_LIBERDADE, DEMO_MEDIA_ALIASES, DEMO_MEDIA_IDS
+from app.generation.adversarial_critic import tese_vedada_honra, violacao_vedacao_honra
 from app.generation.date_formatter import formatar_data_br, parse_qualquer_data
+from app.generation.dispositivo import ComandosDispositivo, construir_comandos_dispositivo
+from app.generation.hallucination_auditor import verificar_comandos_dispositivo
 from app.generation.sentence_generator import (
     MOTOR_DETERMINISTICO,
     ResultadoDeterministico,
@@ -48,11 +51,11 @@ from app.generation.sentence_generator import (
     _validar_bundle,
     calcular_secoes_deterministicas,
     listar_marcadores_pendentes,
-    localizar_documento_liberdade,
     marcador,
     montar_sentenca_gerada,
     texto_dano_moral_dispositivo,
     texto_multa_dispositivo,
+    prescricao_exige_topico,
     texto_prescricao_preliminares,
     texto_regime_dispositivo,
 )
@@ -116,6 +119,7 @@ class DossieRestricaoSecao(BaseModel):
         default_factory=list,
         description="Precedentes vinculantes, súmulas e diretrizes normativas autorizadas.",
     )
+    comandos_dispositivo: ComandosDispositivo | None = None
     parametros_dosimetria: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Memória matemática da dosimetria pré-calculada pelo Python.",
@@ -333,6 +337,8 @@ def _filtrar_teses_por_delito(teses: List[Any], delito: Optional[str]) -> List[A
 
 
 def _fmt_tese(t: Any) -> str:
+    if tese_vedada_honra(t):
+        return f"{t.codigo}: {t.titulo} - {t.descricao_defesa} Não cogite seu acolhimento."
     return f"{t.codigo}: {t.titulo} - {t.descricao_defesa}"
 
 
@@ -395,7 +401,11 @@ def construir_dossie_secao(
         prelims = [t for t in meta.teses_defesa if t.tipo == "PRELIMINAR" or t.codigo.startswith("PREL-")]
         if resultado is not None:
             titulo_presc, texto_presc = texto_prescricao_preliminares(resultado.prescricao)
-            fato_presc = f"{titulo_presc} (cálculo do motor por crime, art. 119 do CP): {texto_presc}"
+            fato_presc = (
+                f"{titulo_presc} (cálculo do motor por crime, art. 119 do CP): {texto_presc}"
+                if titulo_presc
+                else "Prescrição: não consumada para nenhum crime. NÃO abra tópico de prescrição na sentença."
+            )
         else:
             fato_presc = "Prescrição: " + marcador("marcos interruptivos (data do fato e do recebimento da denúncia) para o cálculo da prescrição")
         fatos = [
@@ -443,9 +453,18 @@ def construir_dossie_secao(
         fatos.extend(_fatos_decisoes(resultado, delito_especifico))
         if delito_especifico:
             fatos.append(f"Enfoque fático restrito ao delito delimitado: {delito_especifico}.")
+        if resultado is not None and not resultado.is_demo:
+            for decisao in resultado.decisoes_crimes:
+                if decisao.get("veredicto") != "extinguir" and (
+                    not delito_especifico or delito_especifico in (decisao.get("crime_code"), decisao.get("crime_efetivo"))
+                ):
+                    fatos.append(resultado.juizo_sobre_provas.merito(decisao))
         fatos.extend(_fatos_pendencias(resultado, secao))
 
-        teses_merito = [t for t in meta.teses_defesa if t.tipo == "MERITO" or t.codigo.startswith("MER-")]
+        teses_merito = [
+            t for t in meta.teses_defesa
+            if t.tipo == "MERITO" or t.codigo.startswith("MER-") or tese_vedada_honra(t)
+        ]
         teses_merito = _filtrar_teses_por_delito(teses_merito, delito_especifico)
         return DossieRestricaoSecao(
             secao=secao,
@@ -505,8 +524,11 @@ def construir_dossie_secao(
                 + "."
             )
             fatos.append(f"Detração (art. 387, § 2º, do CPP): {dg.detracao_dias} dia(s) de prisão cautelar documentada.")
-        for p in getattr(resultado.prescricao, "por_crime", []) or []:
-            fatos.append(f"Prescrição por crime (art. 119 do CP): {p.fundamentacao}")
+        if prescricao_exige_topico(resultado.prescricao):
+            for p in getattr(resultado.prescricao, "por_crime", []) or []:
+                fatos.append(f"Prescrição por crime (art. 119 do CP): {p.fundamentacao}")
+        else:
+            fatos.append("Prescrição: não consumada para nenhum crime. NÃO abra tópico de prescrição na dosimetria.")
         for alerta in resultado.alertas[:10]:
             fatos.append(f"Alerta do motor (registre-o, não o contradiga): {alerta}")
         fatos.extend(_fatos_pendencias(resultado, secao))
@@ -538,8 +560,10 @@ def construir_dossie_secao(
         )
 
     # DISPOSITIVO
+    comandos = construir_comandos_dispositivo(dg)
     fatos = list(_fatos_decisoes(resultado))
-    if getattr(dg, "sem_condenacao", False) or not dg.crimes_calculados:
+    fatos.extend(f"Comando a reproduzir: {item.texto(meta.nome_reu)}." for item in comandos.imputacoes)
+    if comandos.sem_condenacao or not dg.crimes_calculados:
         fatos.extend(
             [
                 f"Absolvição integral / extinção da punibilidade do acusado {meta.nome_reu}.",
@@ -548,10 +572,6 @@ def construir_dossie_secao(
             ]
         )
     else:
-        especies = []
-        for especie, rotulo in (("reclusao", "reclusão"), ("detencao", "detenção"), ("prisao_simples", "prisão simples")):
-            if especie in dg.penas_por_especie:
-                especies.append(f"{dg.penas_por_especie[especie].format_extenso()} de {rotulo}")
         tipo_c_label = {
             "formal": "concurso formal (art. 70 do Código Penal)",
             "continuado": "continuidade delitiva (art. 71 do Código Penal)",
@@ -559,10 +579,10 @@ def construir_dossie_secao(
         }.get(getattr(dg, "tipo_concurso", "nenhum"), "")
         fatos.extend(
             [
-                f"Penas definitivas: {' e '.join(especies) or dg.pena_total_unificada.format_extenso()}{texto_multa_dispositivo(dg)}"
+                f"Penas definitivas: {comandos.texto_penas()}{texto_multa_dispositivo(comandos)}"
                 + (f", em {tipo_c_label}" if tipo_c_label and len(dg.crimes_calculados) > 1 else "")
-                + ".",
-                f"Regime: {texto_regime_dispositivo(dg)}.",
+                + "." + comandos.texto_soma_penas(),
+                f"Regime: {texto_regime_dispositivo(comandos)}.",
                 "Substituição por restritivas de direitos: "
                 + ("cabível (art. 44 do CP)." if dg.substituicao_art44_cabivel else "vedada (art. 44 do CP e Súmula 588/STJ)."),
                 "Sursis: " + ("concedido (art. 77 do CP)." if dg.sursis_art77_cabivel else "não concedido (art. 77 do CP)."),
@@ -575,13 +595,10 @@ def construir_dossie_secao(
                 "Comunicações pós-trânsito em julgado (art. 15, III, da CF/88; guia de execução no SEEU; Instituto de Identificação/SINIC).",
             ]
         )
-        peca_lib = localizar_documento_liberdade(ctx.pecas)
         if resultado.texto_demo:
             fatos.append(f"Direito de recorrer em liberdade (caso demonstrativo): {DEMO_FUNDAMENTO_LIBERDADE}")
-        elif peca_lib is not None:
-            fatos.append(f"Liberdade concedida no curso do processo ({peca_lib.doc_id}): fundamento para o direito de recorrer em liberdade.")
         else:
-            fatos.append("Situação prisional do réu não documentada nos autos: use " + marcador("situação prisional do réu") + ".")
+            fatos.append(resultado.juizo_sobre_provas.texto_cautelar())
     fatos.append("Intimação pessoal da ofendida acerca da sentença (art. 21 da Lei nº 11.340/2006).")
     fatos.append("Medidas protetivas de urgência: manter as vigentes ou registrar a revogação documentada nos autos (art. 19, § 6º, da Lei nº 11.340/2006).")
     fatos.extend(_fatos_pendencias(resultado, secao))
@@ -598,6 +615,7 @@ def construir_dossie_secao(
             "Tema Repetitivo 983 do STJ e Tema Repetitivo 1249 do STJ.",
             "Art. 15, inciso III, da Constituição Federal.",
         ],
+        comandos_dispositivo=comandos,
         parametros_dosimetria={
             "indenizacao_dano_moral": dg.indenizacao_dano_moral_tema983,
             "dano_moral_arbitramento_pendente": bool(getattr(dg, "dano_moral_arbitramento_pendente", False)),
@@ -637,8 +655,14 @@ def _resumo_parametros_dosimetria(parametros: Dict[str, Any]) -> str:
         + (" (pedido sem valor — arbitramento pendente)" if parametros.get("dano_moral_arbitramento_pendente") else "")
     )
     presc = parametros.get("prescricao") or {}
-    for p in presc.get("por_crime") or []:
-        linhas.append(f"- Prescrição {p.get('artigo_formatado') or p.get('crime_code')}: reconhecida={p.get('prescricao_reconhecida')}")
+    por_crime_presc = [p for p in (presc.get("por_crime") or []) if isinstance(p, dict)]
+    # Sem prescrição e com verificação completa, nada sobre prescrição vai para o texto do redator
+    # (a memória estruturada continua em ``parametros``).
+    if presc.get("prescricao_reconhecida") or any(
+        p.get("prescricao_reconhecida") or not p.get("verificacao_completa", True) for p in por_crime_presc
+    ):
+        for p in por_crime_presc:
+            linhas.append(f"- Prescrição {p.get('artigo_formatado') or p.get('crime_code')}: reconhecida={p.get('prescricao_reconhecida')}")
     return "\n".join(linhas)
 
 
@@ -684,8 +708,16 @@ def construir_prompt_seccional(
             "DIRETRIZ MATEMÁTICA RÍGIDA DA DOSIMETRIA:\n"
             "É TERMINANTEMENTE VEDADO alterar, recalcular ou modificar frações (1/8, 1/6) ou valores de penas calculados pelo Python.\n"
             "Mantenha integralmente a fundamentação individualizada dos 8 vetores do art. 59 do CP, a aplicação da Súmula 231 do STJ, Súmula 444 do STJ e Súmula 588 do STJ.\n"
-            "Cite a prescrição analisada isoladamente para cada crime (art. 119 do CP).\n"
         )
+        presc_par = (dossie.parametros_dosimetria or {}).get("prescricao") or {}
+        if any(
+            p.get("prescricao_reconhecida") or not p.get("verificacao_completa", True)
+            for p in (presc_par.get("por_crime") or [])
+            if isinstance(p, dict)
+        ):
+            instrucoes_especificas += "Cite a prescrição analisada isoladamente para cada crime (art. 119 do CP).\n"
+        else:
+            instrucoes_especificas += "Não houve prescrição: NÃO abra tópico nem mencione a prescrição.\n"
         if dossie.delito_especifico:
             instrucoes_especificas += f"Delito específico em exame: {dossie.delito_especifico}\n"
         if dossie.parametros_dosimetria:
@@ -700,9 +732,11 @@ def construir_prompt_seccional(
         f"1. É TERMINANTEMENTE PROIBIDO inventar IDs de folhas ou números de documentos não listados expressamente em folhas_permitidas.\n"
         f"2. É TERMINANTEMENTE PROIBIDO invocar julgados, súmulas, enunciados ou precedentes que não constem das diretrizes_jurisprudenciais autorizadas.\n"
         f"3. É VEDADO criar fatos novos, datas divergentes ou modificar os relatos probatórios constantes dos autos.\n"
-        f"4. É OBRIGATÓRIO enfrentar exaustivamente todas as teses da defesa listadas (art. 381, inciso III, do Código de Processo Penal).\n"
+        f"4. É OBRIGATÓRIO apreciar e decidir fundamentadamente todas as teses da defesa listadas (art. 381, inciso III, do Código de Processo Penal).\n"
         f"5. Onde faltar dado concreto ou decisão do juízo, escreva o marcador [COMPLETAR PELO JUÍZO: descrição] — é VEDADO preencher a lacuna com suposições.\n"
-        f"6. Datas sempre no padrão brasileiro (dd/mm/aaaa ou por extenso); nunca no formato ISO.\n\n"
+        f"6. Datas sempre no padrão brasileiro (dd/mm/aaaa ou por extenso); nunca no formato ISO.\n"
+        f"7. Nos casos reais, preserve a separação entre relatos, conclusões probatórias e decisão cautelar. "
+        f"A aplicação incorpora as conclusões registradas no mérito e no dispositivo.\n\n"
         f"LISTA TAXATIVA DE FOLHAS AUTORIZADAS (folhas_permitidas):\n"
         f"{folhas_str}\n\n"
         f"FATOS DELIMITADOS DOS AUTOS:\n"
@@ -803,13 +837,17 @@ def default_in_flight_gating_validator(
         codigos = [t.split(":")[0] for t in dossie.teses_defesa]
         if not any(c in texto for c in codigos):
             erros.append("Omissão de enfrentamento de teses defensivas preliminares.")
-            feedbacks.append("Enfrente expressamente as teses preliminares suscitadas pela defesa.")
+            feedbacks.append("Aprecie expressamente as teses preliminares suscitadas pela defesa.")
 
     elif secao == SecaoTipo.MERITO and dossie.teses_defesa:
-        codigos = [t.split(":")[0] for t in dossie.teses_defesa]
-        if not any(c in texto for c in codigos):
+        codigos = [t.split(":")[0] for t in dossie.teses_defesa if not tese_vedada_honra(t)]
+        exigido = any(tese_vedada_honra(t) for t in dossie.teses_defesa)
+        if exigido and violacao_vedacao_honra(texto, repudio_exigido=True):
+            erros.append("Ausência de repúdio expresso à tese vedada VED-01.")
+            feedbacks.append("Repudie expressamente a legítima defesa da honra (ADPF 779/STF).")
+        if codigos and not any(c in texto for c in codigos):
             erros.append("Omissão de enfrentamento de teses de mérito da defesa.")
-            feedbacks.append("Enfrente todas as teses de mérito da defesa técnica (art. 381, III, CPP).")
+            feedbacks.append("Aprecie todas as teses de mérito da defesa técnica (art. 381, III, CPP).")
 
     # 3. Os 8 vetores do art. 59 na dosimetria (comparação sem acentos)
     elif secao == SecaoTipo.DOSIMETRIA:
@@ -849,6 +887,11 @@ def default_in_flight_gating_validator(
         if "art. 21" not in texto and "Lei nº 11.340" not in texto and "ofendida" not in texto.lower():
             erros.append("Omissão de determinação de intimação pessoal da ofendida (art. 21 da Lei 11.340/2006).")
             feedbacks.append("Determine expressamente a intimação pessoal da ofendida pelo art. 21 da LMP.")
+
+        if dossie.comandos_dispositivo is not None:
+            divergencias = verificar_comandos_dispositivo(texto, dossie.comandos_dispositivo)
+            erros.extend(divergencias)
+            feedbacks.extend(divergencias)
 
     aprovado = len(erros) == 0
     score = 100.0 if aprovado else max(0.0, 100.0 - 25.0 * len(erros))
@@ -995,6 +1038,8 @@ class SectionalPipelineEngine:
         numerar: Callable[[int], int],
     ) -> tuple[bool, str, Optional[SecaoRascunho], str]:
         """Laço de tentativas com gating. Retorna (aprovado, texto, último rascunho, fonte)."""
+        if not self._resultado.is_demo and secao in (SecaoTipo.MERITO, SecaoTipo.DISPOSITIVO):
+            usar_llm = False
         dossie = self._dossie(secao)
         contexto = resumir_contexto_anterior(self.estado.secoes_seladas, excluir=secao) if usar_llm else ""
         feedback = feedback_inicial
@@ -1050,11 +1095,11 @@ class SectionalPipelineEngine:
         self._custom_override = custom_dosimetria_override
         self._ollama_execucao = bool(self.use_ollama if use_ollama is None else use_ollama)
         self._info_modelo_ollama: Dict[str, Any] = {}
+
+        # Valida o plano antes de consultar ou acionar o redator.
+        self._resultado = calcular_resultado_seccional(case_bundle, custom_dosimetria_override)
         if self._ollama_execucao:
             self._info_modelo_ollama = resolver_modelo_ollama()
-
-        # Cálculo único: seções determinísticas + dosimetria + prescrição (erros de dados sobem aqui).
-        self._resultado = calcular_resultado_seccional(case_bundle, custom_dosimetria_override)
         self._dossies = {}
         self._fontes = {}
 

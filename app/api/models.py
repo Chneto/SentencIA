@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 #: Campos "planos" de dosimetria aceitos tanto na simulação quanto na geração.
 CAMPOS_OVERRIDE_DOSIMETRIA = (
@@ -30,16 +30,19 @@ CAMPOS_OVERRIDE_DOSIMETRIA = (
     "reu_menor_21_na_data_fato",
     "reu_maior_70_na_sentenca",
     "dias_prisao_cautelar",
+    "decisao_cautelar",
 )
 
 
 class ParametrosDosimetria(BaseModel):
     """Parâmetros de dosimetria/decisão informados pelo juízo (todos opcionais).
 
-    ``crimes_config``: lista de ``{codigo, veredicto (condenar|absolver|desclassificar|extinguir),
+    ``crimes_config``: lista de ``{id_imputacao, codigo, veredicto (condenar|absolver|desclassificar|extinguir),
     crime_desclassificado, fundamento_absolvicao_art386, fundamento_extincao_art107, fundamentacao,
+    elementos_provados,
     vetores_art59, confissao, reincidente, agravante_art61f, tentativa_fracao, fracao_aumento,
-    dias_multa, aplicar_aumento_art147a_p1_ii}``.
+    dias_multa, aplicar_aumento_art147a_p1_ii, enquadramento_ameaca (caput|paragrafo_1),
+    majorante_art24a_p4 {hipotese, fonte_id, trecho, fracao}}``.
 
     ``custom_dosimetria_override`` (dict) é aceito como alternativa; os campos planos informados
     (não ``None``) prevalecem sobre as mesmas chaves do dict.
@@ -63,6 +66,7 @@ class ParametrosDosimetria(BaseModel):
     reu_menor_21_na_data_fato: Optional[bool] = None
     reu_maior_70_na_sentenca: Optional[bool] = None
     dias_prisao_cautelar: Optional[int] = Field(default=None, ge=0)
+    decisao_cautelar: Optional[Dict[str, Any]] = None
     custom_dosimetria_override: Optional[Dict[str, Any]] = None
 
     def to_override(self) -> Dict[str, Any]:
@@ -88,7 +92,12 @@ class GenerateSentenceRequest(ParametrosDosimetria):
     use_ollama: bool = True
 
 
-class GenerateSectionalRequest(ParametrosDosimetria):
+class ConsentimentoOllamaRequest(BaseModel):
+    consentimento_envio_externo: StrictBool = False
+    destino_ollama_confirmado: Optional[str] = None
+
+
+class GenerateSectionalRequest(ParametrosDosimetria, ConsentimentoOllamaRequest):
     """Payload de ``POST /api/sentence/generate-sectional``.
 
     Mesmo contrato de ``/api/sentence/generate``: campos planos (``crimes_config`` etc.) e/ou
@@ -102,10 +111,11 @@ class GenerateSectionalRequest(ParametrosDosimetria):
     usar_duplo_crivo: bool = True
 
 
-class RegenerateSectionRequest(BaseModel):
+class RegenerateSectionRequest(ConsentimentoOllamaRequest):
     """Payload de ``POST /api/sentence/regenerate-section`` (``secao`` validada na rota → 400)."""
 
     secao: str
+    revisao_esperada: Optional[str] = None
     instrucoes_cirurgicas: Optional[str] = None
     paragrafo_especifico: Optional[str] = None
     use_ollama: Optional[bool] = None
@@ -145,7 +155,7 @@ class GenerateGeminiSentenceRequest(BaseModel):
     pseudonimizar: bool = True
     densidade: Literal["compacto", "integral"] = "compacto"
     custom_dosimetria_override: Optional[Dict[str, Any]] = None
-    consentimento_envio_externo: bool = False
+    consentimento_envio_externo: StrictBool = False
     auto_blindar_auditoria: bool = False
 
 
@@ -159,6 +169,7 @@ class ImportExternalSentenceRequest(BaseModel):
 
 class UpdateAndAuditSentenceRequest(BaseModel):
     texto_completo: str
+    revisao_esperada: Optional[str] = None
     custom_dosimetria_override: Optional[Dict[str, Any]] = None
     # Formatação da folha (HTML do editor, sanitizado no servidor) e margens da página.
     texto_html: Optional[str] = None
@@ -169,6 +180,7 @@ class SaveSentenceFormatRequest(BaseModel):
     """Grava só a formatação (texto inalterado): não reexecuta a auditoria."""
 
     texto_html: str
+    revisao_esperada: str = Field(min_length=1)
     formatacao: Optional[Dict[str, Any]] = None
 
 
@@ -224,7 +236,7 @@ class GeminiSecretRequest(BaseModel):
 class LoadFromDiskRequest(BaseModel):
     """Payload de ``POST /api/cases/load-from-disk``."""
 
-    consentimento_envio_externo: bool = False
+    consentimento_envio_externo: StrictBool = False
 
 
 class RetencaoArquivoMortoRequest(BaseModel):

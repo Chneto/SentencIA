@@ -96,7 +96,7 @@ def marcar_falantes(
             "transcritos automaticamente e com possíveis erros. Indique QUEM FALA em cada trecho, usando só:\n"
             "JUIZ (conduz a audiência, qualifica, adverte, defere, faz perguntas), MP (promotor de justiça), "
             "DEFESA (defensor/advogado), DEPOENTE, INCERTO.\n"
-            f"O depoente desta mídia é {quem}: {depoente}. Perguntas costumam vir de JUIZ, MP ou DEFESA; "
+            f"O papel processual do depoente é {quem}. Perguntas costumam vir de JUIZ, MP ou DEFESA; "
             "as respostas e os relatos são do DEPOENTE. Se não houver base no próprio texto, responda INCERTO. "
             "Não invente.\n"
             f"{contexto}Responda SOMENTE com JSON: [{{\"i\": 1, \"f\": \"JUIZ\"}}, ...]\n\nTRECHOS:\n{linhas}"
@@ -139,7 +139,7 @@ def extrair_alegacoes(
         texto = texto[:14000]
     prompt = (
         "Você auxilia um magistrado. Abaixo estão trechos numerados da fala de "
-        f"{quem} ({depoente}) em audiência criminal. Extraia as ALEGAÇÕES RELEVANTES para o julgamento "
+        f"{quem} em audiência criminal. Extraia as ALEGAÇÕES RELEVANTES para o julgamento "
         "(fatos narrados, agressões, ameaças, local e data, relação entre as partes, negativa ou confissão, "
         "medidas protetivas, perdão ou retratação, versão da defesa). IGNORE qualificação (nome, idade, profissão, "
         "endereço), cumprimentos, advertências e questões de condução da audiência: só interessam fatos ligados à "

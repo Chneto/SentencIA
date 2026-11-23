@@ -29,6 +29,8 @@ data/knowledge_base/custom_precedentes.json
 data/.instalado
 data/.servidor.json
 data/.launcher.lock
+data/.ultimo_caso_real.json
+.codex/
 *.pje_cache_v2.json
 *.transcript_v2.json
 

@@ -53,7 +53,6 @@ async function applyActiveCase(data, opts = {}) {
     if (opts.clearSentence || state.lastSentence) {
       renderSentenceOnSheet({ sentenca: null, auditoria: null, html_pje: "" });
     }
-    if (!mesmoCaso) state.scriptMapa = null;
   }
   if (!data.empty) {
     await simulateDosimetry(true);

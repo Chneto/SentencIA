@@ -3,6 +3,7 @@ import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, 
 import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.1.0";
 import { handleApiError, postJson } from "./api.js?v=2.1.0";
 import { abrirComplementacao } from "./estacao-analise.js?v=2.1.0";
+import { camposCautelar, camposConclusoes, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.1.0";
 
 function novoCrimeConfig(code, isDemo) {
   const vetores = {};
@@ -30,8 +31,9 @@ function novoCrimeConfig(code, isDemo) {
   };
 }
 
-function chaveCaso(c) {
+function chaveCaso(c, usarManifesto = true) {
   if (!c || c.empty) return "";
+  if (usarManifesto && c.manifesto_caso?.id) return c.manifesto_caso.id;
   const ids = (c.pecas || []).slice(0, 6).map((p) => p.doc_id).join(",");
   return `${c.case_id || ""}|${c.is_demo ? "demo" : "real"}|${(c.pecas || []).length}|${ids}`;
 }
@@ -54,6 +56,7 @@ function salvarDecisoesSessao() {
           fracao: $("selFracaoConcurso")?.value || "",
           menor21: !!$("chkReuMenor21")?.checked,
           maior70: !!$("chkReuMaior70")?.checked,
+          decisaoCautelar: state.decisaoCautelar,
         },
       })
     );
@@ -81,16 +84,63 @@ function lerDecisoesSessao(caseKey) {
 document.addEventListener("input", agendarSalvarDecisoes);
 document.addEventListener("change", agendarSalvarDecisoes);
 
-function initCrimeConfigsFromCase(caseData, mesmoCaso) {
-  const codes = (caseData?.metadados?.crimes_imputados || []).slice();
-  const isDemo = !!caseData?.is_demo;
-  const salvas = !mesmoCaso && !state.crimeConfigs.length ? lerDecisoesSessao(state.caseKey) : null;
-  const anteriores = new Map(
-    mesmoCaso ? state.crimeConfigs.map((c) => [c.codigo, c]) : salvas ? salvas.crimeConfigs.map((c) => [c.codigo, c]) : []
+function identidadeCrime(cfg) {
+  return cfg.id_imputacao || cfg.codigo;
+}
+
+function itensDaDosimetria(caseData) {
+  const meta = caseData?.metadados || {};
+  const codigos = new Set(meta.crimes_imputados || []);
+  const extraidos = (meta.imputacoes || []).filter((item) =>
+    item.estado === "extraida" && item.id_imputacao && codigos.has(item.codigo)
+    && !(item.eventos || []).some((evento) => ["extincao", "rejeicao"].includes(evento.tipo))
   );
-  state.crimeConfigs = codes.map((code) => anteriores.get(code) || novoCrimeConfig(code, isDemo));
+  return [...codigos].flatMap((codigo) => {
+    const itens = extraidos.filter((item) => item.codigo === codigo);
+    return itens.length ? itens : [{ codigo }];
+  });
+}
+
+function initCrimeConfigsFromCase(caseData, mesmoCaso) {
+  const itens = itensDaDosimetria(caseData);
+  const isDemo = !!caseData?.is_demo;
+  const salvas = !mesmoCaso && !state.crimeConfigs.length
+    ? (lerDecisoesSessao(state.caseKey) || lerDecisoesSessao(chaveCaso(caseData, false)))
+    : null;
+  const anteriores = mesmoCaso ? state.crimeConfigs : (salvas?.crimeConfigs || []);
+  const selecionada = mesmoCaso && anteriores[state.selectedCrimeIdx];
+  const porIdentidade = new Map(anteriores.filter((c) => c.id_imputacao).map((c) => [c.id_imputacao, c]));
+  const antigos = anteriores.filter((c) => !c.id_imputacao);
+  const multiplicidade = new Map();
+  itens.forEach(({ codigo }) => multiplicidade.set(codigo, (multiplicidade.get(codigo) || 0) + 1));
+  state.migracaoImputacaoPendente = (
+    (mesmoCaso && state.migracaoImputacaoPendente)
+    || antigos.some((c) => (multiplicidade.get(c.codigo) || 0) > 1
+      || antigos.filter((outro) => outro.codigo === c.codigo).length > 1)
+  );
+  state.crimeConfigs = itens.map((item, idx) => {
+    const inicial = novoCrimeConfig(item.codigo, isDemo);
+    const mesmoId = porIdentidade.get(item.id_imputacao);
+    const candidatosLegados = antigos.filter((c) => c.codigo === item.codigo);
+    const anterior = mesmoId?.codigo === item.codigo ? mesmoId :
+      (multiplicidade.get(item.codigo) === 1 && candidatosLegados.length === 1 ? candidatosLegados[0] : null);
+    const dataAutos = item.data_fato || "";
+    const etiqueta = item.numero_fato ? `Fato ${item.numero_fato}` : (dataAutos || `Imputação ${idx + 1}`);
+    const referencia = item.fonte_id ? `${etiqueta} · ${item.fonte_id}` : "";
+    return {
+      ...inicial, ...anterior,
+      id_imputacao: item.id_imputacao || "",
+      data_fato_autos: dataAutos,
+      referencia,
+    };
+  });
+  if (selecionada) {
+    const index = state.crimeConfigs.findIndex((c) => identidadeCrime(c) === identidadeCrime(selecionada));
+    state.selectedCrimeIdx = Math.max(0, index);
+  }
   if (!mesmoCaso) {
     state.selectedCrimeIdx = 0;
+    state.decisaoCautelar = salvas?.extras?.decisaoCautelar || null;
     state.destacarPendentes = false;
     if ($("inputValorDanoMoral")) $("inputValorDanoMoral").value = "";
     if ($("inputDiasPrisaoCautelar")) $("inputDiasPrisaoCautelar").value = "";
@@ -121,11 +171,37 @@ function atualizarHintDanoMoral() {
   else hint.textContent = "MP pediu sem indicar valor: arbitramento pendente se o campo ficar vazio.";
 }
 
+function tipoEfetivoCrime(cfg) {
+  return cfg.veredicto === "desclassificar" && cfg.crime_desclassificado ? cfg.crime_desclassificado : cfg.codigo;
+}
+
+function dataDoFatoConfig(cfg) {
+  const repetido = state.crimeConfigs.filter((c) => c.codigo === cfg.codigo).length > 1;
+  const datasDistintas = new Set(state.crimeConfigs.map((c) => c.data_fato_autos).filter(Boolean)).size > 1;
+  if (cfg.data_fato_informada) return cfg.data_fato_informada;
+  if (repetido || datasDistintas) return cfg.data_fato_autos || "";
+  return state.activeCase?.metadados?.data_fato || cfg.data_fato_autos || "";
+}
+
+function rotuloImputacao(cfg) {
+  return cfg.referencia ? `${cfg.nome} · ${cfg.referencia}` : cfg.nome;
+}
+
+function ameacaExigeConfirmacao(cfg) {
+  return tipoEfetivoCrime(cfg) === "art_147_cp" && dataDoFatoConfig(cfg) >= "2024-10-10";
+}
+
 function crimeIncompleto(cfg) {
+  if (cfg.id_imputacao && !dataDoFatoConfig(cfg)) return "data do fato não informada";
   if (!cfg.veredicto) return "veredicto não informado";
   if (cfg.veredicto === "absolver" && !cfg.fundamento_absolvicao_art386) return "inciso do art. 386 do CPP não informado";
   if (cfg.veredicto === "extinguir" && !cfg.fundamento_extincao_art107) return "causa do art. 107 do CP não informada";
   if (cfg.veredicto === "desclassificar" && !cfg.crime_desclassificado) return "tipo penal resultante não informado";
+  if (["condenar", "desclassificar"].includes(cfg.veredicto) && ameacaExigeConfirmacao(cfg) && !cfg.enquadramento_ameaca) return "confirme caput ou § 1º do art. 147";
+  const majorante = cfg.majorante_art24a_p4;
+  if (tipoEfetivoCrime(cfg) === "art_24a_lmp" && majorante?.hipotese && (!majorante.fracao || !majorante.fonte_id?.trim() || !majorante.trecho?.trim())) {
+    return "complete a fração e a fonte do art. 24-A, § 4º";
+  }
   return "";
 }
 
@@ -144,9 +220,9 @@ function garantirDecisaoJudicial(retry) {
   const pendentes = state.crimeConfigs.filter((cfg) => crimeIncompleto(cfg));
   if (pendentes.length) {
     exigirVeredictos(
-      pendentes.map((p) => p.codigo),
+      pendentes.map(identidadeCrime),
       "A sentença de caso real exige a decisão do juízo para cada crime: " +
-        pendentes.map((p) => `${p.nome} (${crimeIncompleto(p)})`).join("; ") +
+        pendentes.map((p) => `${rotuloImputacao(p)} (${crimeIncompleto(p)})`).join("; ") +
         "."
     );
     return false;
@@ -157,10 +233,12 @@ function garantirDecisaoJudicial(retry) {
 function exigirVeredictos(codigos, mensagem) {
   const isDemo = !!state.activeCase?.is_demo;
   (codigos || []).forEach((code) => {
-    if (code && !state.crimeConfigs.some((c) => c.codigo === code)) state.crimeConfigs.push(novoCrimeConfig(code, isDemo));
+    if (codigosCatalogo().includes(code) && !state.crimeConfigs.some((c) => c.codigo === code)) {
+      state.crimeConfigs.push(novoCrimeConfig(code, isDemo));
+    }
   });
   state.destacarPendentes = true;
-  const idx = state.crimeConfigs.findIndex((c) => (codigos || []).includes(c.codigo));
+  const idx = state.crimeConfigs.findIndex((c) => (codigos || []).includes(identidadeCrime(c)) || (codigos || []).includes(c.codigo));
   if (idx >= 0) state.selectedCrimeIdx = idx;
   setActiveStation("dosimetria");
   activateSubtab("sub-dos-calculo");
@@ -183,7 +261,10 @@ function renderVeredictoBanner() {
   }
   banner.hidden = false;
   banner.className = `alert-banner ${c.is_demo ? "alert-info" : "alert-warn"}`;
-  const lista = pendentes.map((p) => `${p.nome} — ${crimeIncompleto(p)}`);
+  const lista = pendentes.map((p) => `${rotuloImputacao(p)} — ${crimeIncompleto(p)}`);
+  if (state.migracaoImputacaoPendente) {
+    lista.unshift("As decisões antigas por artigo não identificam o fato. Confirme as imputações separadamente.");
+  }
   $("dosimetryVeredictoBannerText").innerHTML = c.is_demo
     ? `<strong>Caso demonstrativo:</strong> crimes sem decisão são calculados com condenação <strong>presumida</strong> (simulação sinalizada na minuta).<ul class="alert-list">${lista
         .map((l) => `<li>${escapeHtml(l)}</li>`)
@@ -194,6 +275,7 @@ function renderVeredictoBanner() {
 }
 
 const simularAposEdicao = debounce(() => simulateDosimetry(true), 700);
+
 
 function renderDosimetryCrimeTabsAndEditor() {
   const tabsEl = $("dosimetryCrimeTabs");
@@ -218,7 +300,7 @@ function renderDosimetryCrimeTabsAndEditor() {
       const verdictLabel = cfg.veredicto ? VEREDICTO_LABELS[cfg.veredicto] || cfg.veredicto : "Decisão pendente";
       return `
         <button type="button" class="crime-tab-pill ${idx === state.selectedCrimeIdx ? "active" : ""} ${incompleto ? "pendente" : ""}" data-crime-tab="${idx}" title="${escapeHtml(incompleto || "Decisão informada")}">
-          ${escapeHtml(cfg.nome)} &middot; <span style="opacity:.85">${escapeHtml(verdictLabel)}</span>
+          ${escapeHtml(rotuloImputacao(cfg))} &middot; <span style="opacity:.85">${escapeHtml(verdictLabel)}</span>
         </button>`;
     })
     .join("");
@@ -232,11 +314,14 @@ function renderDosimetryCrimeTabsAndEditor() {
 
   const cfg = state.crimeConfigs[state.selectedCrimeIdx];
   const calcMatch = (state.dosimetry?.crimes_calculados || []).find(
-    (c) => (c.crime_spec?.code || c.crime_spec?.codigo) === cfg.codigo || c.desclassificado_de === cfg.codigo
+    (c) => cfg.id_imputacao ? c.id_imputacao === cfg.id_imputacao :
+      (c.crime_spec?.code || c.crime_spec?.codigo) === cfg.codigo || c.desclassificado_de === cfg.codigo
   );
   const destacar = state.destacarPendentes;
   const condenatorio = cfg.veredicto === "condenar" || cfg.veredicto === "desclassificar";
-  const codigoEfetivo = cfg.veredicto === "desclassificar" && cfg.crime_desclassificado ? cfg.crime_desclassificado : cfg.codigo;
+  const codigoEfetivo = tipoEfetivoCrime(cfg);
+  const oferecerMajorante24a = codigoEfetivo === "art_24a_lmp" && dataDoFatoConfig(cfg) >= "2026-04-10";
+  const majorante = cfg.majorante_art24a_p4 || {};
 
   const vetoresHtml = VETORES_59_META.map((v) => {
     const checked = !!cfg.vetores[v.key];
@@ -266,6 +351,12 @@ function renderDosimetryCrimeTabsAndEditor() {
 
   edEl.innerHTML = `
     <div class="inner-tile ${!cfg.veredicto ? "veredicto-obrigatorio" : ""}" style="margin-bottom:12px;">
+      ${cfg.id_imputacao ? `
+        <p class="muted">${escapeHtml(rotuloImputacao(cfg))}</p>
+        <label class="form-label" for="inputImputacaoDataFato">Data do fato desta imputação</label>
+        <input type="date" id="inputImputacaoDataFato" class="form-control ${obrigatorio(!dataDoFatoConfig(cfg))}"
+          value="${escapeHtml(dataDoFatoConfig(cfg))}" />
+      ` : ""}
       <div class="grid-3" style="align-items:end;">
         <div>
           <label class="form-label" for="selCrimeVeredicto">Decisão do juízo para este delito (obrigatória)</label>
@@ -312,7 +403,19 @@ function renderDosimetryCrimeTabsAndEditor() {
       </div>
     </div>
 
+    ${camposConclusoes(cfg, tipoEfetivoCrime(cfg))}
+    ${camposCautelar()}
     <div ${condenatorio ? "" : "hidden"}>
+      ${ameacaExigeConfirmacao(cfg) ? `
+        <div>
+          <label class="form-label" for="selCrimeAmeaca">Enquadramento da ameaça (art. 147 do CP)</label>
+          <select class="form-select ${obrigatorio(!cfg.enquadramento_ameaca)}" id="selCrimeAmeaca">
+            <option value="">A confirmar</option>
+            <option value="caput" ${cfg.enquadramento_ameaca === "caput" ? "selected" : ""}>Caput — ação condicionada à representação</option>
+            <option value="paragrafo_1" ${cfg.enquadramento_ameaca === "paragrafo_1" ? "selected" : ""}>§ 1º — ameaça por razões da condição do sexo feminino</option>
+          </select>
+          ${state.activeCase?.metadados?.vinculo_domestico ? '<p class="muted">Sugestão a confirmar: § 1º, se comprovado o contexto de violência doméstica e familiar contra a mulher.</p>' : ''}
+        </div>` : ""}
       <h3 style="font-size:13px; margin:0 0 8px;">1ª Fase — 8 Circunstâncias Judiciais (Art. 59 do CP)</h3>
       ${vetoresHtml}
 
@@ -343,6 +446,25 @@ function renderDosimetryCrimeTabsAndEditor() {
           <span>Aumento do art. 147-A, § 1º, II (metade)</span>
         </label>
       </div>
+      ${oferecerMajorante24a ? `
+        <div class="grid-4">
+          <label class="form-label">Art. 24-A, § 4º — hipótese
+            <select class="form-select" data-majorante-24a="hipotese">
+              <option value="">Sem reconhecimento informado</option>
+              <option value="area_exclusao" ${majorante.hipotese === "area_exclusao" ? "selected" : ""}>Violação da área de exclusão monitorada</option>
+              <option value="dispositivo_monitoracao" ${majorante.hipotese === "dispositivo_monitoracao" ? "selected" : ""}>Intervenção não autorizada no dispositivo</option>
+            </select>
+          </label>
+          <label class="form-label">Fração de aumento (1/3 a 1/2)
+            <input class="form-control" data-majorante-24a="fracao" value="${escapeHtml(majorante.fracao || "")}" />
+          </label>
+          <label class="form-label">ID da peça
+            <input class="form-control" data-majorante-24a="fonte_id" value="${escapeHtml(majorante.fonte_id || "")}" />
+          </label>
+          <label class="form-label">Trecho literal da peça
+            <input class="form-control" data-majorante-24a="trecho" value="${escapeHtml(majorante.trecho || "")}" />
+          </label>
+        </div>` : ""}
     </div>
     <p class="muted" style="font-size:12px; margin:8px 0 0;" ${condenatorio ? "hidden" : ""}>${
       cfg.veredicto
@@ -351,11 +473,17 @@ function renderDosimetryCrimeTabsAndEditor() {
     }</p>
   `;
 
+  ligarRegistroProbatorio(edEl, cfg);
   const aoMudar = (rerender) => {
     if (rerender) renderDosimetryCrimeTabsAndEditor();
     else renderVeredictoBanner();
     simularAposEdicao();
   };
+
+  $("inputImputacaoDataFato")?.addEventListener("change", (e) => {
+    cfg.data_fato_informada = e.target.value;
+    aoMudar(true);
+  });
 
   $("selCrimeVeredicto")?.addEventListener("change", (e) => {
     cfg.veredicto = e.target.value;
@@ -388,6 +516,19 @@ function renderDosimetryCrimeTabsAndEditor() {
       e.target.classList.toggle("campo-pendente", !!cfg.vetores[e.target.dataset.vetorFund] && !e.target.value.trim());
     });
   });
+  $("selCrimeAmeaca")?.addEventListener("change", (e) => {
+    cfg.enquadramento_ameaca = e.target.value;
+    aoMudar(false);
+  });
+  edEl.querySelectorAll("[data-majorante-24a]").forEach((campo) => {
+    campo.addEventListener("change", (e) => {
+      cfg.majorante_art24a_p4 = {
+        ...cfg.majorante_art24a_p4,
+        [e.target.dataset.majorante24a]: e.target.value,
+      };
+      aoMudar(false);
+    });
+  });
   $("selCrimeConfissao")?.addEventListener("change", (e) => {
     cfg.confissao = e.target.value;
     aoMudar(false);
@@ -417,8 +558,17 @@ function renderDosimetryCrimeTabsAndEditor() {
 function buildCrimesConfig() {
   return state.crimeConfigs.map((c) => {
     const item = { codigo: c.codigo };
+    if (c.id_imputacao) item.id_imputacao = c.id_imputacao;
+    if (c.data_fato_informada) item.data_fato = c.data_fato_informada;
     if (!c.veredicto) return item; // sem decisão: simulação presume condenação (sinalizada); geração real exige
     item.veredicto = c.veredicto;
+    if (c.veredicto !== "extinguir") {
+      const aceitos = elementosDoCrime(tipoEfetivoCrime(c));
+      const registros = Object.values(c.elementos_provados || {}).filter(
+        (r) => r.conclusao && Object.hasOwn(aceitos, r.elemento)
+      );
+      if (registros.length) item.elementos_provados = registros;
+    }
     const fund = (c.fundamentacao || "").trim();
     if (c.veredicto === "absolver") {
       if (c.fundamento_absolvicao_art386) item.fundamento_absolvicao_art386 = c.fundamento_absolvicao_art386;
@@ -444,7 +594,9 @@ function buildCrimesConfig() {
     item.agravante_art61f = !!c.agravante_art61f;
     item.tentativa_fracao = (c.tentativa_fracao || "").trim() || null;
     item.dias_multa = Number(c.dias_multa || 0);
-    const efetivo = c.veredicto === "desclassificar" && c.crime_desclassificado ? c.crime_desclassificado : c.codigo;
+    const efetivo = tipoEfetivoCrime(c);
+    if (efetivo === "art_147_cp" && c.enquadramento_ameaca) item.enquadramento_ameaca = c.enquadramento_ameaca;
+    if (efetivo === "art_24a_lmp" && c.majorante_art24a_p4?.hipotese) item.majorante_art24a_p4 = c.majorante_art24a_p4;
     if (efetivo === "art_147a_cp") item.aplicar_aumento_art147a_p1_ii = !!c.aplicar_aumento_art147a_p1_ii;
     return item;
   });
@@ -453,6 +605,7 @@ function buildCrimesConfig() {
 /** Somente o que o juízo informou; ausente = padrão correto do motor (sem valores inventados). */
 function buildDosimetryPayload() {
   const p = { crimes_config: buildCrimesConfig() };
+  if (state.decisaoCautelar?.decisao) p.decisao_cautelar = state.decisaoCautelar;
   const crit = $("selCriterio1Fase")?.value;
   if (crit) p.criterio_primeira_fase = crit;
   const tipo = $("selTipoConcurso")?.value;
@@ -513,7 +666,7 @@ function renderDosimetryAlerts(res) {
   const presumidos = (res?.decisoes_crimes || []).filter((x) => x.presumido);
   if (presumidos.length) {
     add(
-      `Simulação: condenação PRESUMIDA para ${presumidos.map((x) => rotuloCrime(x.crime_code)).join(", ")} (crime(s) sem veredicto). Não utilize como decisão.`,
+      `Simulação: condenação PRESUMIDA para ${presumidos.map((x) => x.referencia_imputacao || rotuloCrime(x.crime_code)).join(", ")} (crime(s) sem veredicto). Não utilize como decisão.`,
       "danger"
     );
   }
@@ -576,19 +729,21 @@ function renderDosimetryResults(res) {
 
   if (p) {
     const porCrime = p.por_crime || [];
+    const incompleta = porCrime.some((item) => item.verificacao_completa === false);
+    const semRecebimento = porCrime.some((item) => !item.data_recebimento_denuncia);
     $("prescricaoPanelContainer").innerHTML = `
       <div style="margin-bottom:8px;">
-        <span class="badge-tag ${p.prescricao_reconhecida ? "badge-danger" : "badge-success"}">
-          ${p.prescricao_reconhecida ? "PRESCRIÇÃO RECONHECIDA" : "NÃO PRESCRITO"}
+        <span class="badge-tag ${p.prescricao_reconhecida ? "badge-danger" : incompleta ? "badge-warn" : "badge-success"}">
+          ${p.prescricao_reconhecida ? "PRESCRIÇÃO RECONHECIDA" : incompleta ? "VERIFICAÇÃO INCOMPLETA" : "NÃO PRESCRITO"}
         </span>
-        ${res.data_recebimento_denuncia ? "" : '<span class="badge-tag badge-warn">Recebimento da denúncia não informado</span>'}
+        ${semRecebimento ? '<span class="badge-tag badge-warn">Recebimento não informado para alguma imputação</span>' : ""}
       </div>
       ${porCrime
         .map(
           (pc) => `
         <div class="inner-tile" style="margin-bottom:8px; font-size:12.5px;">
           <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-            <strong>${escapeHtml(pc.crime_nome || rotuloCrime(pc.crime_code))} ${pc.artigo_formatado ? "(" + escapeHtml(pc.artigo_formatado) + ")" : ""}</strong>
+            <strong>${escapeHtml(pc.crime_nome || rotuloCrime(pc.crime_code))} ${pc.referencia_imputacao ? "· " + escapeHtml(pc.referencia_imputacao) : ""} ${pc.artigo_formatado ? "(" + escapeHtml(pc.artigo_formatado) + ")" : ""}</strong>
             <span class="badge-tag ${pc.prescricao_reconhecida ? "badge-danger" : pc.verificacao_completa === false ? "badge-warn" : "badge-success"}">${
               pc.prescricao_reconhecida ? "PRESCRITO" : pc.verificacao_completa === false ? "VERIFICAÇÃO INCOMPLETA" : "NÃO PRESCRITO"
             }</span>
@@ -678,6 +833,11 @@ function renderCalcMemoryDrawer() {
       fmtPena(c.pena_intermediaria)
     )} &rarr; Def. <strong>${escapeHtml(fmtPena(c.pena_definitiva))}</strong></div>`;
   });
+  const revisaoP9 = (d.crimes_calculados || []).some((c) =>
+    c.crime_spec?.code === "art_129_p9_cp" && c.crime_spec?.especie_pena === "detencao" &&
+    (c.data_fato || state.activeCase?.metadados?.data_fato || "") >= "2024-10-10"
+  );
+  if (revisaoP9) lines.unshift('<p class="campo-pendente">Cálculo anterior do art. 129, § 9º: revisar pela Lei nº 14.994/2024.</p>');
   if (d.fundamentacao_regime) lines.push(`<div class="muted" style="margin-top:6px;">Regime: ${escapeHtml(d.fundamentacao_regime)}</div>`);
   if (state.simulacaoPresume) lines.push(`<div style="margin-top:6px; color:var(--semantic-danger); font-weight:600;">Simulação: condenação presumida para crime(s) sem veredicto.</div>`);
   $("calcMemoryContent").innerHTML = lines.join("") || "Sem crimes calculados.";

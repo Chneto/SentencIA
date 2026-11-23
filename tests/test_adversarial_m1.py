@@ -134,6 +134,7 @@ class TestInvarianteImutabilidadeBuffer:
         sentenca_original = engine.executar_pipeline(demo_bundle)
 
         snapshot_antes = copy.deepcopy(engine.estado.secoes_seladas)
+        assert sentenca_original.secao_relatorio == snapshot_antes[SecaoTipo.RELATORIO]
 
         rascunho_novo = engine.regenerar_secao_atomica(SecaoTipo.PRELIMINARES, feedback="Reforçar ausência de prescrição")
 

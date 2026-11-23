@@ -254,8 +254,22 @@ async function acompanharJob(jobId) {
   }
 }
 
+async function consentirOllamaNaOperacao(finalidade) {
+  const status = await apiJson("/api/ollama/destino");
+  if (!status.remoto) return {};
+  if (!status.permitido) {
+    showToast("O envio ao Ollama remoto está desabilitado nas configurações.", "warn");
+    return null;
+  }
+  if (!window.confirm(`Você autoriza o envio dos trechos necessários dos autos a ${status.destino} para ${finalidade}?`)) {
+    return null;
+  }
+  return { consentimento_envio_externo: true, destino_ollama_confirmado: status.destino };
+}
+
 export {
   ApiError,
+  consentirOllamaNaOperacao,
   SESSION_TOKEN,
   acompanharJob,
   apiFetch,

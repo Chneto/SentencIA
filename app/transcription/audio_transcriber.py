@@ -329,6 +329,44 @@ def _resolver_dispositivo_whisper(preferencia: str) -> Tuple[str, str]:
     return ("cuda", "int8_float16") if _cuda_disponivel() else ("cpu", "int8")
 
 
+def _preparar_modelo_turbo() -> str:
+    """Localiza o turbo em cache ou publica o aviso e o progresso do download."""
+    from faster_whisper.utils import download_model
+    from huggingface_hub import snapshot_download
+    from huggingface_hub.errors import LocalEntryNotFoundError
+    from tqdm.auto import tqdm
+
+    try:
+        local = download_model("turbo", local_files_only=True)
+    except LocalEntryNotFoundError:
+        local = ""
+    if local and all((Path(local) / nome).is_file() for nome in ("model.bin", "tokenizer.json", "config.json")):
+        return local
+
+    from app.api.jobs import PROGRESSO
+
+    estado = PROGRESSO.obter()
+    logger.warning("Whisper turbo: iniciando download público do modelo (aprox. 1,6 GB).")
+    PROGRESSO.atualizar(phase="baixando_modelo_whisper", etapa="Baixando Whisper turbo (aprox. 1,6 GB)")
+
+    class ProgressoTurbo(tqdm):
+        def update(self, quantidade=1):
+            resultado = super().update(quantidade)
+            if self.total and estado.get("active"):
+                PROGRESSO.atualizar(etapa=f"Baixando Whisper turbo ({int(self.n)}/{int(self.total)} arquivos)")
+            return resultado
+
+    try:
+        return snapshot_download(
+            "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+            allow_patterns=["config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*"],
+            token=False,
+            tqdm_class=ProgressoTurbo,
+        )
+    finally:
+        PROGRESSO.atualizar(phase=estado.get("phase"), etapa=estado.get("etapa"))
+
+
 def _obter_modelo_whisper(modelo: str, device: str, compute_type: str) -> Any:
     """Modelo faster-whisper em cache (um por vez, para não acumular memória)."""
     import faster_whisper  # type: ignore[import-not-found]
@@ -354,14 +392,21 @@ def descarregar_modelo_whisper() -> None:
     gc.collect()
 
 
-def _prompt_forense(nomes: List[str]) -> str:
-    nomes_ctx = ", ".join(p for p in nomes if p and p.lower() != "não identificado")
-    return (
-        "Transcrição fiel de audiência judicial criminal de violência doméstica e familiar contra a mulher "
-        "(Lei Maria da Penha 11.340/2006, Juizado de Violência Doméstica, Ministério Público, Juiz de Direito, "
-        "Defensoria Pública, lesão corporal, ameaça, medidas protetivas, inquérito policial). "
-        + (f"Partes e depoente: {nomes_ctx}." if nomes_ctx else "")
-    ).strip()
+def _prompt_forense() -> str:
+    return "Audiência judicial em português."
+
+
+def _hotwords_forenses(nomes: List[str]) -> str:
+    """Prioriza nomes inteiros e limita o contexto por bytes antes da tokenização."""
+    palavras = list(dict.fromkeys(" ".join(nome.split()) for nome in nomes if nome))
+    palavras.extend(("medida protetiva", "ameaça", "lesão corporal", "Ministério Público", "Defensoria Pública"))
+    cabem: List[str] = []
+    for palavra in palavras:
+        if not palavra or palavra.casefold() == "não identificado":
+            continue
+        if len(", ".join([*cabem, palavra]).encode("utf-8")) <= 174:
+            cabem.append(palavra)
+    return ", ".join(cabem)
 
 
 def _compatibilizar_pyav() -> None:
@@ -409,6 +454,8 @@ def _executar_whisper_isolado(
     tentativas: int = 5,
     *,
     beam_size: Optional[int] = None,
+    hotwords: Optional[str] = None,
+    batch_size: Optional[int] = None,
 ) -> Tuple[List[Dict[str, str]], Optional[float]]:
     """Whisper em subprocesso: uma queda nativa do CUDA não derruba o servidor; tenta de novo."""
     import json
@@ -427,6 +474,10 @@ def _executar_whisper_isolado(
                 "compute_type": compute_type,
                 "prompt": prompt,
             }
+            if batch_size is not None:
+                payload_in["batch_size"] = batch_size
+            if hotwords:
+                payload_in["hotwords"] = hotwords
             if beam_size is not None:
                 payload_in["beam_size"] = int(beam_size)
             entrada.write_text(json.dumps(payload_in), encoding="utf-8")
@@ -486,8 +537,12 @@ def _executar_whisper(
     prompt: str,
     *,
     beam_size: Optional[int] = None,
+    hotwords: Optional[str] = None,
+    batch_size: Optional[int] = None,
 ) -> Tuple[List[Dict[str, str]], Optional[float]]:
     _compatibilizar_pyav()
+    if device == "cuda" and batch_size is None:
+        batch_size = _lote_cuda(modelo, compute_type, beam_size is not None)
     model = _obter_modelo_whisper(modelo, device, compute_type)
     transcribe_kwargs: Dict[str, Any] = {
         "language": "pt",
@@ -496,9 +551,17 @@ def _executar_whisper(
         "word_timestamps": True,  # permite citar por frase (modelos grandes devolvem trechos de ~30 s)
         "condition_on_previous_text": False,  # evita laços de repetição ("E foi quando aconteceu...")
     }
+    if hotwords:
+        transcribe_kwargs["hotwords"] = hotwords
     if beam_size is not None:
         transcribe_kwargs["beam_size"] = int(beam_size)
-    segments, info = model.transcribe(str(media_path), **transcribe_kwargs)
+    if device == "cuda" and batch_size is not None and batch_size > 1:
+        from faster_whisper import BatchedInferencePipeline
+
+        pipeline = BatchedInferencePipeline(model=model)
+        segments, info = pipeline.transcribe(str(media_path), batch_size=batch_size, **transcribe_kwargs)
+    else:
+        segments, info = model.transcribe(str(media_path), **transcribe_kwargs)
     seg_list: List[Dict[str, str]] = []
     ultimo_norm = ""
     for s in _dividir_em_frases(segments):  # o gerador decodifica sob demanda: erros de CUDA surgem aqui
@@ -523,17 +586,76 @@ def _executar_whisper(
     return seg_list, duracao
 
 
-def _transcrever_whisper_local(media_path: Path, settings: Any, prompt: str) -> Dict[str, Any]:
-    """Resultado parcial ``{segmentos, engine, duracao_seg}`` ou ``{erro}``."""
+def _lote_cuda(modelo: str, compute_type: str, moderado: bool) -> int:
+    """Mede a folga para o lote antes de carregar os pesos no processo CUDA."""
+    from app.core.vram_manager import requisitos_whisper_mb
+
+    livre = get_gpu_vram_status().get("vram_free_mb")
+    if not isinstance(livre, (int, float)):
+        return 1
+    # O modelo público pode estar em um snapshot de cache cujo último componente é um hash.
+    referencia = next((parte for parte in Path(modelo).parts if parte.startswith("models--")), modelo)
+    _, req_fp16, req_int8 = requisitos_whisper_mb(referencia)
+    folga = livre - (req_fp16 if compute_type == "float16" else req_int8)
+    if folga >= 2048 and not moderado:
+        return 8
+    return 4 if folga >= 768 else 1
+
+
+@contextlib.contextmanager
+def _audio_para_whisper(media_path: Path, ativado: bool):
+    """Prepara uma cópia transitória; a original permanece disponível para recuo."""
+    if not ativado:
+        yield media_path
+        return
+    ffmpeg = find_binary("ffmpeg")
+    if not ffmpeg:
+        logger.info("Whisper [%s]: ffmpeg ausente; usando o áudio original.", rotulo_log_arquivo(media_path.name))
+        yield media_path
+        return
+    with tempfile.TemporaryDirectory(prefix="sia_audio_") as tmp:
+        destino = Path(tmp) / "audio.wav"
+        try:
+            subprocess.run(
+                [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", str(media_path),
+                 "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000",
+                 "-af", "highpass=f=80,dynaudnorm=f=250:g=15:p=0.85", "-c:a", "pcm_s16le", str(destino)],
+                check=True, capture_output=True, timeout=1800, **subprocess_no_window_kwargs(),
+            )
+            if not destino.is_file() or destino.stat().st_size <= 44:
+                raise OSError("o filtro não gerou áudio")
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("Whisper [%s]: filtro indisponível (%s); usando áudio original.",
+                           rotulo_log_arquivo(media_path.name), type(exc).__name__)
+            yield media_path
+        else:
+            yield destino
+
+
+def _transcrever_whisper_local(
+    media_path: Path, settings: Any, prompt: str, *, hotwords: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resultado parcial de transcrição local, preservando a mídia original."""
     try:
         import faster_whisper  # type: ignore[import-not-found]  # noqa: F401
     except Exception:
         return {"erro": "faster-whisper não instalado (extra 'transcricao')"}
 
+    preprocessar = bool(getattr(settings, "whisper_preprocessar", False))
+    with _audio_para_whisper(media_path, preprocessar) as audio:
+        resultado = _transcrever_whisper_no_dispositivo(audio, settings, prompt, hotwords=hotwords)
+    return {**resultado, "whisper_preprocessado": audio != media_path}
+
+
+def _transcrever_whisper_no_dispositivo(
+    media_path: Path, settings: Any, prompt: str, *, hotwords: Optional[str] = None,
+) -> Dict[str, Any]:
     global _CUDA_FALHOU
     from app.core.vram_manager import reservar_gpu
 
-    modelo = str(getattr(settings, "whisper_model", "small") or "small")
+    pedido = str(getattr(settings, "whisper_model", "auto") or "auto").strip() or "auto"
+    automatico = pedido.lower() == "auto"
+    modelo = "small" if automatico else pedido
     preferencia = str(getattr(settings, "whisper_device", "auto") or "auto").strip().lower()
     modo_gpu = str(getattr(settings, "modo_gpu", "normal") or "normal").strip().lower()
     beam_size: Optional[int] = None
@@ -547,39 +669,47 @@ def _transcrever_whisper_local(media_path: Path, settings: Any, prompt: str) -> 
             # Sequência segura (TASK-014/029): descarregar Ollama → medir VRAM novamente → decidir.
             release_ollama_vram_for_whisper()
             gpu_atual = get_gpu_vram_status()
-            decisao = avaliar_whisper_vram(preferencia, modelo, gpu_status=gpu_atual, modo_gpu=modo_gpu)
+            decisao = avaliar_whisper_vram(preferencia, pedido, gpu_status=gpu_atual, modo_gpu=modo_gpu)
             device, compute_type = decisao["device"], decisao["compute_type"]
+            modelo = decisao["modelo"]
             beam_size = decisao.get("beam_size")
-            if device == "cuda" and not _cuda_disponivel() and preferencia == "auto":
+            if device == "cuda" and not _cuda_disponivel() and (automatico or preferencia == "auto"):
                 device, compute_type = "cpu", "int8"
+                if automatico:
+                    modelo = "small"
 
         tentativas = [(device, compute_type)]
         if device == "cuda":
             tentativas.append(("cpu", "int8"))
 
         ultimo_erro = ""
-        rotulo_modelo = Path(modelo).name or modelo
+        caminho_turbo: Optional[str] = None
         for dev, ctype in tentativas:
+            modelo_tentativa = "small" if automatico and dev == "cpu" else modelo
+            rotulo_modelo = "turbo" if modelo_tentativa == "large-v3-turbo" else Path(modelo_tentativa).name
+            if modelo_tentativa in ("turbo", "large-v3-turbo"):
+                try:
+                    caminho_turbo = caminho_turbo or _preparar_modelo_turbo()
+                except Exception as exc:
+                    ultimo_erro = f"preparação do modelo turbo ({type(exc).__name__})"
+                    logger.warning("Whisper turbo indisponível na preparação (%s).", type(exc).__name__)
+                    if automatico:
+                        continue
+                    return {"erro": f"faster-whisper falhou ({ultimo_erro})"}
+                modelo_tentativa = caminho_turbo
             try:
                 with _WHISPER_USO_LOCK:
-                    if dev == "cuda" and _ISOLAR_CUDA:
-                        if beam_size is not None:
-                            segs, duracao = _executar_whisper_isolado(
-                                media_path, modelo, dev, ctype, prompt, beam_size=beam_size
-                            )
-                        else:
-                            segs, duracao = _executar_whisper_isolado(media_path, modelo, dev, ctype, prompt)
-                    else:
-                        if beam_size is not None:
-                            segs, duracao = _executar_whisper(
-                                media_path, modelo, dev, ctype, prompt, beam_size=beam_size
-                            )
-                        else:
-                            segs, duracao = _executar_whisper(media_path, modelo, dev, ctype, prompt)
+                    executar = _executar_whisper_isolado if dev == "cuda" and _ISOLAR_CUDA else _executar_whisper
+                    opcoes: Dict[str, Any] = {}
+                    if hotwords:
+                        opcoes["hotwords"] = hotwords
+                    if beam_size is not None:
+                        opcoes["beam_size"] = beam_size
+                    segs, duracao = executar(media_path, modelo_tentativa, dev, ctype, prompt, **opcoes)
                 return {"segmentos": segs, "engine": f"faster-whisper {rotulo_modelo} ({dev}/{ctype})", "duracao_seg": duracao}
             except Exception as err:
                 ultimo_erro = f"{type(err).__name__}: {err}"
-                logger.warning("faster-whisper falhou em %s/%s: %s", dev, ctype, ultimo_erro)
+                logger.warning("faster-whisper falhou em %s/%s (%s).", dev, ctype, type(err).__name__)
                 if dev == "cuda":
                     _CUDA_FALHOU = True  # não insiste na GPU nas próximas mídias (podia travar o motor)
                     descarregar_modelo_whisper()
@@ -590,11 +720,10 @@ def _transcrever_whisper_local(media_path: Path, settings: Any, prompt: str) -> 
 # Motores externos (somente com consentimento)
 # ----------------------------------------------------------------------------------------------
 def _envio_externo_autorizado(settings: Any, consentimento: bool) -> Tuple[bool, str]:
-    if not consentimento:
-        return False, "sem consentimento explícito de envio externo na requisição"
-    if not bool(getattr(settings, "permitir_envio_externo", False)):
-        return False, "envio externo desabilitado nas configurações (permitir_envio_externo=False)"
-    return True, ""
+    from app.core.envio_externo import motivo_bloqueio_envio_externo
+
+    motivo = motivo_bloqueio_envio_externo(settings, consentimento)
+    return not motivo, motivo
 
 
 def _chave_gemini() -> str:
@@ -823,14 +952,27 @@ def _numero_cnj_vizinho(media_path: Path) -> str:
     return ""
 
 
+def _modelo_preferido_cache(settings: Any) -> str:
+    pedido = str(getattr(settings, "whisper_model", "auto") or "auto").strip() or "auto"
+    if pedido == "large-v3-turbo":
+        return "turbo"
+    if pedido.lower() != "auto":
+        return Path(pedido).name or pedido
+    preferencia = str(getattr(settings, "whisper_device", "auto") or "auto").strip().lower()
+    if preferencia == "cpu" or IS_MACOS or not _cuda_disponivel():
+        return "small"
+    politica = avaliar_whisper_vram(preferencia, "auto", modo_gpu=getattr(settings, "modo_gpu", None))
+    return politica["modelo"]
+
+
 def _modelo_mudou(cached: Dict[str, Any], settings: Any) -> bool:
     """True se a transcrição em cache foi feita pelo faster-whisper com outro modelo que o configurado."""
     engine = str(cached.get("engine") or "")
     m = re.match(r"faster-whisper\s+([^\s(]\S*)\s+\(", engine)
     if not m:
         return False  # motor externo/legado: não refaz
-    atual = str(getattr(settings, "whisper_model", "small") or "small")
-    return m.group(1) != (Path(atual).name or atual)
+    modelo_cache = "turbo" if m.group(1) == "large-v3-turbo" else m.group(1)
+    return modelo_cache != _modelo_preferido_cache(settings)
 
 
 def _aguardar_vram_livre(minimo_mb: int, espera_s: float = 25.0) -> bool:
@@ -865,6 +1007,8 @@ def transcrever_midia_audiencia(
     consentimento_envio_externo: bool = False,
     consentimento_speech_recognition: bool = False,
     usar_cache: bool = True,
+    numero_processo: Optional[str] = None,
+    identidade_caso: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Transcreve uma mídia de audiência (.mp4, .mp3, .wav, .ogg...).
@@ -894,12 +1038,18 @@ def transcrever_midia_audiencia(
 
     if usar_cache and sha:
         cached = _ler_cache(cache_file, media_path, sha)
+        if cached is not None and cached.get("identidade_caso") != identidade_caso:
+            cached = None
+        if cached is not None and (str(cached.get("engine") or "").startswith("faster-whisper")
+                                   or cached.get("status") == STATUS_FALHOU):
+            if bool(cached.get("whisper_preprocessar")) != bool(getattr(settings, "whisper_preprocessar", False)):
+                cached = None
         if cached is not None and cached.get("status") == STATUS_FALHOU:
             # FALHOU cacheado só vale se esta chamada não autoriza motores ainda não tentados
             # nem muda o modelo Whisper (consentimento posterior deve poder reprocessar).
             autorizado_agora, _ = _envio_externo_autorizado(settings, consentimento_envio_externo)
             tentados = set(cached.get("motores_tentados") or [])
-            modelo_atual = str(getattr(settings, "whisper_model", "small") or "small")
+            modelo_atual = _modelo_preferido_cache(settings)
             if (autorizado_agora and "gemini" not in tentados) or cached.get("whisper_model", modelo_atual) != modelo_atual:
                 cached = None
         if cached is not None and cached.get("status") != STATUS_FALHOU and _modelo_mudou(cached, settings):
@@ -917,9 +1067,9 @@ def transcrever_midia_audiencia(
         erros.append("arquivo de mídia inacessível")
         resultado: Dict[str, Any] = {}
     else:
-        prompt = _prompt_forense([known_ofendida, known_reu, nome_final])
+        hotwords = _hotwords_forenses([known_ofendida, known_reu, nome_final])
         motores.append("faster-whisper")
-        resultado = _transcrever_whisper_local(media_path, settings, prompt)
+        resultado = _transcrever_whisper_local(media_path, settings, _prompt_forense(), hotwords=hotwords)
         if resultado.get("erro"):
             erros.append(resultado["erro"])
         elif not resultado.get("segmentos"):
@@ -932,7 +1082,7 @@ def transcrever_midia_audiencia(
                 externo = _transcrever_gemini(media_path)
                 if not externo.get("segmentos"):
                     erros.append(externo.get("erro", "Gemini falhou"))
-                    if consentimento_speech_recognition:
+                    if consentimento_speech_recognition is True:
                         motores.append("speech_recognition")
                         externo = _transcrever_speech_recognition(media_path, _duracao_midia_segundos(media_path))
                         if not externo.get("segmentos"):
@@ -952,7 +1102,7 @@ def transcrever_midia_audiencia(
             segmentos = aprimorar_segmentos(
                 segmentos,
                 nomes=[known_ofendida, known_reu, nome_final],
-                numero_processo=_numero_cnj_vizinho(media_path),
+                numero_processo=_numero_cnj_vizinho(media_path) if numero_processo is None else numero_processo,
             )
         except Exception:  # o ajuste é um complemento: nunca derruba a transcrição
             logger.warning("Ajuste de nomes na transcrição falhou; mantido o texto do Whisper.", exc_info=True)
@@ -975,6 +1125,11 @@ def transcrever_midia_audiencia(
         "erro": "" if segmentos else "; ".join(e for e in erros if e) or "transcrição indisponível",
         "motores_tentados": motores,
     }
+    if "whisper_preprocessado" in resultado:
+        saida["whisper_preprocessado"] = resultado["whisper_preprocessado"]
+        saida["whisper_preprocessar"] = bool(getattr(settings, "whisper_preprocessar", False))
+    if identidade_caso is not None:
+        saida["identidade_caso"] = identidade_caso
     if not segmentos:
         # Falha definitiva (o Whisper rodou e não há fala) pode ser cacheada; ausência de motor não.
         # Só é definitiva se os motores externos elegíveis foram de fato tentados.
@@ -982,7 +1137,7 @@ def transcrever_midia_audiencia(
         saida["falha_definitiva"] = bool(resultado.get("engine")) and not resultado.get("erro") and (
             externo_tentado or not _envio_externo_autorizado(settings, True)[0]
         )
-        saida["whisper_model"] = str(getattr(settings, "whisper_model", "small") or "small")
+        saida["whisper_model"] = _modelo_preferido_cache(settings)
         logger.warning("Transcrição FALHOU para mídia [%s]: %s", rotulo_log_arquivo(media_path.name), saida["erro"])
     if sha and (segmentos or saida.get("falha_definitiva")):
         _gravar_json_atomico(cache_file, saida)

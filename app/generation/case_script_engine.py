@@ -24,20 +24,26 @@ v2.0.0:
 import datetime
 import difflib
 import hashlib
-import inspect
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel, Field
 
-from app.core.case_context import CaseContext, obter_contexto
+from app.core.case_context import CaseContext
 from app.core.config import load_settings
-from app.core.errors import DadosInsuficientesError, DecisaoJudicialPendenteError, EnvioExternoNaoAutorizadoError
+from app.core.errors import EnvioExternoNaoAutorizadoError
 from app.core.text_utils import normalizar, remover_acentos
 from app.generation.date_formatter import formatar_data_br, formatar_moeda_com_extenso
+from app.generation.decisoes_imputacao import serializar_decisoes_imputacao
+from app.generation.dispositivo import construir_comandos_dispositivo
 from app.generation.sentence_generator import (
-    resolver_dosimetria_e_decisoes,
+    PlanoSentenca,
+    planejar_sentenca,
+    prescricao_exige_topico,
+    texto_dano_moral_dispositivo,
+    texto_multa_dispositivo,
+    texto_regime_dispositivo,
 )
 from app.ingestion.laya_classifier import (
     MetadadosProcesso,
@@ -61,7 +67,6 @@ from app.transcription.oral_proof_analyzer import (
 )
 
 #: Veredictos válidos por crime (decisão exclusiva do juiz).
-VEREDICTOS_VALIDOS = ("condenar", "absolver", "desclassificar", "extinguir")
 
 
 class StatusMotorPy(BaseModel):
@@ -654,64 +659,10 @@ class ResultadoMotores:
     dosimetria_global: DosimetriaGlobalOutput
     prescricao: Any
     motores_status: List[StatusMotorPy]
+    plano: PlanoSentenca
     presume_condenacao: bool = False
     alertas: Optional[List[str]] = None
-
-
-def _data_obrigatoria(valor: Any, campo: str) -> datetime.date:
-    texto = str(valor or "").strip()
-    if not texto:
-        raise DadosInsuficientesError([campo])
-    try:
-        return datetime.date.fromisoformat(texto[:10])
-    except ValueError as exc:
-        raise DadosInsuficientesError(
-            [campo], f"O campo '{campo}' extraído dos autos não é uma data válida ('{texto}')."
-        ) from exc
-
-
-def _veredictos_informados(custom_dosimetria_override: Optional[Dict[str, Any]]) -> Dict[str, str]:
-    veredictos: Dict[str, str] = {}
-    for item in (custom_dosimetria_override or {}).get("crimes_config") or []:
-        if isinstance(item, dict):
-            codigo = str(item.get("codigo") or "").strip()
-            veredicto = str(item.get("veredicto") or "").strip().lower()
-        else:
-            codigo = str(getattr(item, "codigo", "") or "").strip()
-            veredicto = str(getattr(item, "veredicto", "") or "").strip().lower()
-        # Veredicto vazio/invalido NAO e decisao do juizo: fica de fora (o crime segue pendente).
-        if codigo and veredicto in VEREDICTOS_VALIDOS:
-            veredictos[codigo] = veredicto
-    return veredictos
-
-
-def verificar_veredictos_explicitos(
-    meta: MetadadosProcesso,
-    custom_dosimetria_override: Optional[Dict[str, Any]],
-) -> None:
-    """Levanta ``DecisaoJudicialPendenteError`` se algum crime imputado não tiver veredicto explícito."""
-    veredictos = _veredictos_informados(custom_dosimetria_override)
-    pendentes = [
-        c for c in (getattr(meta, "crimes_imputados", None) or []) if veredictos.get(c) not in VEREDICTOS_VALIDOS
-    ]
-    if pendentes:
-        raise DecisaoJudicialPendenteError(pendentes)
-
-
-def _detectar_presuncao(resultado: Any, dosimetria_global: Any) -> bool:
-    if bool(getattr(dosimetria_global, "simulacao_presume_condenacao", False)):
-        return True
-    def _procurar(obj: Any, profundidade: int = 0) -> bool:
-        if profundidade > 3:
-            return False
-        if isinstance(obj, dict):
-            return bool(obj.get("simulacao_presume_condenacao"))
-        if isinstance(obj, (tuple, list)):
-            return any(_procurar(i, profundidade + 1) for i in obj)
-        return False
-
-    # O resultado e uma tupla; a lista de decisoes por crime (dicts) esta em resultado[2].
-    return _procurar(resultado)
+    decisoes_crimes: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def executar_motores_completo(
@@ -726,47 +677,14 @@ def executar_motores_completo(
     ``False`` permite a simulação (presunção de condenação sinalizada); ``None`` = exige apenas
     para caso real (``bundle["is_demo"]`` diferente de ``True``).
     """
-    ctx = obter_contexto(case_bundle)
+    plano = planejar_sentenca(case_bundle, custom_dosimetria_override, exigir_veredicto=exigir_veredicto)
+    ctx = plano.ctx
     pecas = ctx.pecas
-    meta = ctx.copia_meta()
+    meta = plano.meta
     matriz_oral = ctx.matriz_oral
-    is_demo = ctx.is_demo
-    exigir = (not is_demo) if exigir_veredicto is None else bool(exigir_veredicto)
-
-    # Motor 4: Dosimetria, Detração, Confissão por Delito, Veredictos e Prescrição
-    dt_fato = _data_obrigatoria(meta.data_fato, "data_fato")
-    dt_rec = _data_obrigatoria(meta.data_recebimento_denuncia, "data_recebimento_denuncia")
-
-    kwargs: Dict[str, Any] = dict(
-        pecas=list(pecas),
-        meta=meta,
-        transcriptions=list(ctx.transcriptions),
-        is_demo=is_demo,
-        dt_fato=dt_fato,
-        dt_rec=dt_rec,
-        custom_dosimetria_override=custom_dosimetria_override,
-    )
-    try:
-        aceita_exigir = "exigir_veredicto" in inspect.signature(resolver_dosimetria_e_decisoes).parameters
-    except (TypeError, ValueError):  # pragma: no cover
-        aceita_exigir = False
-    if aceita_exigir:
-        kwargs["exigir_veredicto"] = exigir
-    elif exigir:
-        verificar_veredictos_explicitos(meta, custom_dosimetria_override)
-    resultado = resolver_dosimetria_e_decisoes(**kwargs)
-    dosimetria_global, prescricao = resultado[0], resultado[1]
-    presume = (not exigir) and (
-        _detectar_presuncao(resultado, dosimetria_global)
-        or bool(set(meta.crimes_imputados or []) - set(_veredictos_informados(custom_dosimetria_override)))
-    )
-
-    alertas: List[str] = []
-    if presume:
-        alertas.append(
-            "Simulação: há crime(s) sem veredicto explícito do juízo; a dosimetria de referência presume "
-            "condenação apenas para cálculo (simulacao_presume_condenacao)."
-        )
+    dosimetria_global = plano.dosimetria_global
+    prescricao = plano.prescricao
+    presume = plano.simulacao_presume_condenacao
 
     ocr_count = sum(1 for p in pecas if p.ocr_aplicado)
     n_depoentes = len(matriz_oral.depoentes)
@@ -840,8 +758,13 @@ def executar_motores_completo(
         dosimetria_global=dosimetria_global,
         prescricao=prescricao,
         motores_status=motores_status,
+        plano=plano,
         presume_condenacao=presume,
-        alertas=alertas,
+        alertas=[
+            "Simulação: há crime(s) sem veredicto explícito do juízo; a dosimetria de referência presume "
+            "condenação apenas para cálculo (simulacao_presume_condenacao)."
+        ] if presume else [],
+        decisoes_crimes=serializar_decisoes_imputacao(plano.decisoes_crimes),
     )
 
 
@@ -887,6 +810,8 @@ def gerar_script_estruturado_caso(
     pseudonimizar: bool = False,
     densidade: Literal["compacto", "integral"] = "compacto",
     exigir_veredicto: Optional[bool] = None,
+    *,
+    resultado_motores: ResultadoMotores | None = None,
 ) -> ScriptCasoEstruturado:
     """
     Constrói o Script Estruturado do Caso a partir dos 5 Motores Python para que o agente Gemini
@@ -902,7 +827,7 @@ def gerar_script_estruturado_caso(
     settings = load_settings()
     style = get_style_profile()
     densidade_norm = "integral" if str(densidade).strip().lower() == "integral" else "compacto"
-    resultado_motores = executar_motores_completo(
+    resultado_motores = resultado_motores or executar_motores_completo(
         case_bundle, custom_dosimetria_override, exigir_veredicto=exigir_veredicto
     )
     ctx = resultado_motores.ctx
@@ -916,7 +841,7 @@ def gerar_script_estruturado_caso(
     grupos_dedup, dedup_removidas = deduplicar_pecas_equivalentes(pecas)
     ids_pecas = [f"{g['unified_id']} ({g['unified_folha']}) — {g['primary'].titulo}" for g in grupos_dedup]
     ids_midias = [f"{d.media_id} ({d.arquivo}, {d.duracao}) — {d.depoente} [{d.papel}]" for d in matriz_oral.depoentes]
-    universo_ids = sorted({p.doc_id for p in pecas} | {d.media_id for d in matriz_oral.depoentes})
+    universo_ids = sorted({p.doc_id for p in pecas} | set(ctx.ids_midias) | {d.media_id for d in matriz_oral.depoentes})
 
     linhas_pecas_list = []
     for g in grupos_dedup:
@@ -1105,10 +1030,45 @@ def gerar_script_estruturado_caso(
                 else ""
             )
             + f"- **Reparação Mínima por Danos Morais in re ipsa (Art. 387, IV, CPP e Tema Repetitivo 983/STJ)**: `{dano_str}` (correção pelo IPCA desde a sentença — Súmula 362/STJ; juros pela Selic deduzido o IPCA desde o fato — Súmula 54/STJ e art. 406, § 1º, CC)\n"
-            f"- **Análise de Prescrição (Arts. 109 e 117, I, CP)**: {prescricao.fundamentacao}\n\n"
+            + (f"- **Análise de Prescrição (Arts. 109 e 117, I, CP)**: {prescricao.fundamentacao}\n\n" if prescricao_exige_topico(prescricao) else "- **Prescrição**: não consumada para nenhum crime. NÃO abra tópico nem mencione a prescrição na sentença.\n\n")
         )
     )
 
+    comandos = construir_comandos_dispositivo(dosimetria_global)
+    linhas_dispositivo = [f"- {item.texto(meta.nome_reu)}." for item in comandos.imputacoes]
+    if comandos.sem_condenacao:
+        linhas_dispositivo.append("- Nenhuma pena, multa ou reparação mínima decorrente de condenação.")
+    else:
+        linhas_dispositivo.extend([
+            f"- Fixe apenas os totais por espécie: {comandos.texto_penas()}{texto_multa_dispositivo(comandos)}."
+            + comandos.texto_soma_penas(),
+            f"- {texto_regime_dispositivo(comandos)}.",
+            "- " + texto_dano_moral_dispositivo(
+                dosimetria_global, nome_ofendida=meta.nome_ofendida,
+                data_fato_br=formatar_data_br(meta.data_fato), id_den="denúncia",
+            ) + ".",
+        ])
+        if not comandos.total_dias_multa:
+            linhas_dispositivo.append("- Nenhuma multa penal calculada.")
+    texto_comandos_dispositivo = "\n".join(linhas_dispositivo)
+
+    juizo = resultado_motores.plano.juizo_sobre_provas
+    registros_prova = ""
+    if not ctx.is_demo:
+        linhas_registros = [
+            "### Conclusões probatórias registradas pelo juízo",
+            "Relatos, dados da acusação e o veredicto não autorizam inferir prova de um elemento. "
+            "Use apenas as conclusões registradas por imputação e mantenha os marcadores nas lacunas. "
+            "A aplicação insere a fundamentação e os trechos literais localmente.",
+        ]
+        for decisao in resultado_motores.plano.decisoes_crimes:
+            if decisao.get("veredicto") == "extinguir":
+                continue
+            rotulo = decisao.get("referencia_imputacao") or decisao["crime_code"]
+            linhas_registros.extend((f"**{rotulo}**", juizo.merito(decisao, incluir_trechos=False)))
+        if dosimetria_global.crimes_calculados:
+            linhas_registros.extend(("### Decisão cautelar", juizo.texto_cautelar(incluir_trechos=False)))
+        registros_prova = "\n\n".join(linhas_registros) + "\n\n"
     script_md_raw = (
         f"# SCRIPT ESTRUTURADO DOS MOTORES PYTHON PARA REDAÇÃO DE SENTENÇA PENAL (JVDFM)\n\n"
         f"Você é um Assessor Jurídico Sênior de Magistrado de Juizado de Violência Doméstica e Familiar contra a Mulher.\n"
@@ -1128,6 +1088,7 @@ def gerar_script_estruturado_caso(
         f"- **Vínculo Doméstico/Familiar (Art. 5º, Lei 11.340/06)**: {meta.vinculo_domestico or '[NÃO EXTRAÍDO DOS AUTOS — o juízo informa o vínculo e o inciso do art. 5º]'}\n"
         f"- **Data do Fato**: `{_fmt_data_script(meta.data_fato)}` ({_fmt_data_script(meta.data_fato, por_extenso=True)})\n"
         f"- **Data do Recebimento da Denúncia**: `{_fmt_data_script(meta.data_recebimento_denuncia)}` ({_fmt_data_script(meta.data_recebimento_denuncia, por_extenso=True)})\n"
+        f"- **Data da Sentença**: {formatar_data_br(resultado_motores.plano.data_sentenca, por_extenso=True)}\n"
         f"- **Crimes Imputados / Analisados**: `{', '.join(meta.crimes_imputados)}`\n"
         + (
             "- **ATENÇÃO — SIMULAÇÃO**: há crime(s) sem veredicto explícito do juízo; os cálculos abaixo presumem "
@@ -1138,6 +1099,7 @@ def gerar_script_estruturado_caso(
         + "\n"
         f"---\n\n"
         f"---\n\n"
+        f"{registros_prova}"
         f"## 2. CATÁLOGO FECHADO DE PEÇAS E IDs REAIS DOS AUTOS (MOTOR PY 1 — INGESTÃO + OCR)\n"
         f"**REGRA ANTI-ALUCINAÇÃO CAMADA 1**: Cite apenas os tokens de ID listados abaixo (`{', '.join(universo_ids)}`). Jamais invente IDs ou folhas.\n\n"
         f"{linhas_pecas}\n\n"
@@ -1146,7 +1108,7 @@ def gerar_script_estruturado_caso(
         f"- **Diretriz Hermenêutica**: {matriz_oral.fundamentacao_sintese}\n\n"
         f"{linhas_oral}\n\n"
         f"---\n\n"
-        f"## 4. TESES DEFENSIVAS DE ENFRENTAMENTO OBRIGATÓRIO (ART. 381, III, CPP E ART. 93, IX, CF)\n"
+        f"## 4. TESES DEFENSIVAS DE APRECIAÇÃO OBRIGATÓRIA (ART. 381, III, CPP E ART. 93, IX, CF)\n"
         f"**REGRA ANTI-ALUCINAÇÃO CAMADA 3**: Enfrente expressamente 100% das teses abaixo (mencionando o código `PREL-01`, `MER-01`, etc.). Nunca use fórmulas evasivas.\n\n"
         f"{linhas_teses}\n\n"
         f"---\n\n"
@@ -1154,6 +1116,10 @@ def gerar_script_estruturado_caso(
         f"**REGRA DE OURO**: Não refaça contas de cabeça. Transcreva os valores exatos calculados abaixo e enuncie nominalmente as 8 circunstâncias do art. 59 do CP (`Culpabilidade`, `Antecedentes Criminais`, `Conduta Social`, `Personalidade do Agente`, `Motivos do Crime`, `Circunstâncias do Crime`, `Consequências do Crime`, `Comportamento da Vítima`).\n\n"
         f"{bloco_dosimetria_md}\n\n"
         f"{bloco_unificacao_md}"
+        f"### Comandos obrigatórios do dispositivo\n"
+        f"Reproduza cada decisão com seu fundamento, cada pena total por espécie e os demais comandos abaixo. "
+        f"As penas individuais por crime pertencem à dosimetria, e não substituem os totais no dispositivo.\n\n"
+        f"{texto_comandos_dispositivo}\n\n"
         f"---\n\n"
         f"## 5.1. EXCERTOS LITERAIS DAS PEÇAS ESSENCIAIS DOS AUTOS (ÂNCORA FÁTICA PROIBINDO INVENÇÕES)\n"
         f"{bloco_excertos_md}\n\n"
@@ -1182,6 +1148,7 @@ def gerar_script_estruturado_caso(
         "vinculo_domestico": meta.vinculo_domestico,
         "data_fato": meta.data_fato,
         "data_recebimento_denuncia": meta.data_recebimento_denuncia,
+        "data_sentenca": resultado_motores.plano.data_sentenca.isoformat(),
         "crimes_imputados": meta.crimes_imputados,
         "ids_autorizados": universo_ids,
         "pecas_indexadas": ids_pecas,

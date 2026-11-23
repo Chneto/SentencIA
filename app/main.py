@@ -19,7 +19,6 @@ __author__ = "FChNeto"
 import asyncio
 import copy
 import datetime
-import hashlib
 import importlib.util
 import inspect
 import json
@@ -27,6 +26,7 @@ import threading
 import logging
 import os
 import re
+import tempfile
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -36,7 +36,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pymupdf
 from fastapi import Body, FastAPI, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
 
@@ -47,11 +47,12 @@ from app.api.media_filter import (
     MEDIA_EXTENSIONS,
     PDF_EXTENSIONS,
     _extract_aij_dates_from_pecas,  # noqa: F401 (usado pelos testes via app.main)
-    _filter_media_files_for_case,
+    _filter_media_files_for_case,  # noqa: F401 (usado pelos testes via app.main)
     descrever_extensoes_midia,
 )
 from app.api.models import (
     BuildGeminiScriptRequest,
+    ConsentimentoOllamaRequest,
     CustomPrecedenteRequest,
     DosimetriaSimulationRequest,
     GeminiSecretRequest,
@@ -85,8 +86,15 @@ from app.api.security import (
 from app.core import secrets as cofre
 from app.core.case_context import limpar_cache_contexto, normalizar_override_metadado, obter_contexto
 from app.core.case_flags import is_demo_bundle, is_demo_or_test_bundle
+from app.core.case_manifest import (
+    descrever_arquivo_caso,
+    montar_manifesto_caso,
+    sha256_arquivo as _sha256_arquivo,
+    validar_manifesto_caso,
+)
 from app.core.config import CASES_DIR, EXPORTS_DIR, UserSettings, load_settings, ollama_url_loopback, save_settings
-from app.core.errors import DadosInsuficientesError
+from app.core.envio_externo import destino_publico_ollama, motivo_bloqueio_envio_externo, permissao_ollama_na_operacao
+from app.core.errors import DadosInsuficientesError, EnvioExternoNaoAutorizadoError
 from app.core.limpeza_demo import limpar_artefatos_demo
 from app.core.ollama_client import listar_modelos_ollama, ollama_disponivel
 from app.core.platform_utils import get_gpu_status
@@ -95,6 +103,7 @@ from app.core.session_state import (
     PIPELINE_LOCK,
     STATE_LOCK,
     clear_production_state,  # noqa: F401 - reexportado por compatibilidade
+    consultar_manifesto_caso,
     listar_versoes,
     obter_estado,
     obter_versao,
@@ -111,12 +120,29 @@ from app.demo.demo_case import get_demo_case_bundle
 from app.export.document_exporter import MARCA_DAGUA_NAO_AUDITADA, exportar_docx, exportar_html_pje, exportar_pdf
 from app.export.comparador import comparar
 from app.export.destino import abrir_pasta, copiar_exportacao, validar_pasta_exportacao
+from app.generation.juizo_sobre_provas import ELEMENTOS_COMUNS, ELEMENTOS_ESPECIFICOS
 from app.generation.revisor_estilo import montar_revisao
 from app.export.formatos import excluir_modelo, listar_modelos, salvar_modelo
 from app.export.trechos import excluir_trecho, listar_trechos, salvar_trecho
 from app.export.nomeacao import eh_arquivo_exportacao, nome_arquivo_sentenca
-from app.export.rich_text import html_da_sentenca, normalizar_formatacao, sanitizar_html, texto_do_html
-from app.generation.case_script_engine import executar_motores_py_separados, gerar_script_estruturado_caso
+from app.export.rich_text import (
+    blocos_para_html,
+    html_da_sentenca,
+    normalizar_formatacao,
+    sanitizar_html,
+    texto_do_html,
+    texto_para_blocos,
+)
+from app.generation.case_script_engine import (
+    construir_mapa_do_contexto,
+    executar_motores_py_separados,
+    gerar_script_estruturado_caso,
+)
+from app.generation.decisoes_imputacao import (
+    datas_dos_fatos,
+    ha_recebimento_por_imputacao,
+    serializar_decisoes_imputacao,
+)
 from app.generation.gemini_integration import gerar_sentenca_via_gemini_api, importar_e_auditar_sentenca_externa
 from app.generation.hallucination_auditor import auditar_sentenca, dosimetria_para_auditoria
 from app.generation.sectional_pipeline import SecaoTipo, SectionalPipelineEngine, default_in_flight_gating_validator
@@ -165,7 +191,6 @@ NOME_SEGREDO_GEMINI = "gemini_api_key"
 _BOOT_CASES_DIR = Path(CASES_DIR).resolve()
 _BOOT_EXPORTS_DIR = Path(EXPORTS_DIR).resolve()
 _UPLOAD_TMP_DIRNAME = ".upload_tmp"
-_CHUNK_UPLOAD = 1024 * 1024
 
 
 def _limpar_temporarios_upload() -> int:
@@ -250,13 +275,6 @@ def _chamar_compat(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
 def _fmt_file_ts(dt: Optional[datetime.datetime] = None) -> str:
     return (dt or datetime.datetime.now()).strftime("%d/%m/%Y %H:%M:%S")
 
-
-def _sha256_arquivo(caminho: Path) -> str:
-    h = hashlib.sha256()
-    with open(caminho, "rb") as fh:
-        for parte in iter(lambda: fh.read(_CHUNK_UPLOAD), b""):
-            h.update(parte)
-    return h.hexdigest()
 
 
 def _empty_metadados() -> Dict[str, Any]:
@@ -348,7 +366,9 @@ def _resumo_transcricoes(bundle: Dict[str, Any]) -> List[Dict[str, Any]]:
     return saida
 
 
-def _serialize_active_bundle(bundle: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _serialize_active_bundle(
+    bundle: Optional[Dict[str, Any]], *, upload_status: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """Serializa os autos ativos (via CaseContext) ou devolve o payload vazio."""
     if not bundle or not isinstance(bundle, dict) or not bundle.get("raw_documents"):
         return _empty_case_payload()
@@ -371,7 +391,9 @@ def _serialize_active_bundle(bundle: Optional[Dict[str, Any]]) -> Dict[str, Any]
         "alertas_extracao": list(getattr(meta, "alertas_extracao", []) or []),
         "matriz_oral": ctx.matriz_oral.model_dump(),
         "transcricoes": _resumo_transcricoes(bundle),
-        "upload_status": _upload_status_atual(),
+        "manifesto_caso": bundle.get("manifesto_caso"),
+        "elementos_probatorios": {"comuns": ELEMENTOS_COMUNS, "especificos": ELEMENTOS_ESPECIFICOS},
+        "upload_status": upload_status if upload_status is not None else _upload_status_atual(),
         "arquivos_em_disco": _arquivos_em_disco(),
     }
 
@@ -416,6 +438,24 @@ def _auditoria_aprovada(auditoria: Any) -> bool:
     return bool(getattr(auditoria, "aprovada_sem_alucinacao", False))
 
 
+def _texto_visivel_html(html: str) -> str:
+    return " ".join(texto_do_html(html).split())
+
+
+def _texto_visivel_canonico(texto: str) -> str:
+    return _texto_visivel_html(blocos_para_html(texto_para_blocos(texto)))
+
+
+def _conferir_revisao_minuta(sentenca: Any, esperada: Optional[str]) -> None:
+    if esperada is not None and (
+        sentenca is None or getattr(sentenca, "revisao_documento", None) != esperada
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="A revisão da minuta mudou. Reabra a versão atual antes de salvar, regenerar ou copiar.",
+        )
+
+
 def _payload_geracao(sentenca: Any, auditoria: Any, generation_id: int, **extras: Any) -> Dict[str, Any]:
     """Resposta comum das rotas de geração (sentença, laudo, HTML p/ PJe e sinalizações honestas)."""
     aprovada = _auditoria_aprovada(auditoria)
@@ -437,7 +477,9 @@ def _payload_geracao(sentenca: Any, auditoria: Any, generation_id: int, **extras
     }
 
 
-def _registrar_se_caso_ativo(bundle: Dict[str, Any], **kwargs: Any) -> int:
+def _registrar_se_caso_ativo(
+    bundle: Dict[str, Any], *, revisao_esperada: Optional[str] = None, **kwargs: Any
+) -> int:
     """Registra a geração somente se o caso ativo não mudou durante o processamento."""
     with STATE_LOCK:
         if ACTIVE_CASE_STATE.get("bundle") is not bundle:
@@ -445,6 +487,7 @@ def _registrar_se_caso_ativo(bundle: Dict[str, Any], **kwargs: Any) -> int:
                 status_code=409,
                 detail="O caso ativo mudou durante a geração (novo upload, reset ou troca de caso). Gere novamente.",
             )
+        _conferir_revisao_minuta(ACTIVE_CASE_STATE.get("last_sentence"), revisao_esperada)
         return register_generation(**kwargs)
 
 
@@ -509,6 +552,17 @@ def api_status() -> Dict[str, Any]:
         },
         "ingestao": {"em_andamento": INGESTAO_LOCK.locked()},
         "session": session_health(),
+    }
+
+
+@app.get("/api/ollama/destino")
+def api_destino_ollama() -> Dict[str, Any]:
+    """Informa a origem do serviço a confirmar, sem enviar conteúdo ou consultar o provedor."""
+    settings = load_settings()
+    return {
+        "remoto": not ollama_url_loopback(settings.ollama_url),
+        "destino": destino_publico_ollama(settings.ollama_url),
+        "permitido": bool(settings.permitir_envio_externo),
     }
 
 
@@ -713,6 +767,8 @@ def _transcrever(
     known_ofendida: str,
     known_reu: str,
     consentimento_envio_externo: bool,
+    numero_processo: str,
+    identidade_caso: str,
 ) -> Dict[str, Any]:
     return _chamar_compat(
         transcrever_midia_audiencia,
@@ -722,6 +778,8 @@ def _transcrever(
         known_ofendida=known_ofendida,
         known_reu=known_reu,
         consentimento_envio_externo=consentimento_envio_externo,
+        numero_processo=numero_processo,
+        identidade_caso=identidade_caso,
     )
 
 
@@ -855,54 +913,99 @@ def _pdfs_na_raiz() -> List[Path]:
 def _load_real_case_from_disk_if_present(
     consentimento_envio_externo: bool = False,
     status_saida: Optional[Dict[str, Any]] = None,
+    *,
+    pdf_selecionado: Optional[Path] = None,
 ) -> Dict[str, Any] | None:
     """Carrega os autos presentes na raiz de ``data/cases`` (varredura NÃO recursiva).
 
-    Com vários PDFs, usa o modificado mais recentemente e vincula dinamicamente as mídias do caso.
-    ``status_saida`` (opcional) recebe ``{pdfs_processo, midias_audiencia}``.
+    Registra somente mídias vinculadas ao processo ou reconhecidas no manifesto daquele PDF.
     """
     cases_dir = _cases_dir()
-    pdf_files = _pdfs_na_raiz()
+    ativo = None
+    if pdf_selecionado is not None:
+        pdf_files = [pdf_selecionado]
+    else:
+        with STATE_LOCK:
+            ativo = (ACTIVE_CASE_STATE.get("bundle") or {}).get("manifesto_caso")
+        if ativo:
+            pdf_files = [cases_dir / item["arquivo"] for item in ativo["documentos"]]
+        else:
+            pdf_files = _pdfs_na_raiz()
+            if len(pdf_files) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Há mais de um PDF na pasta. Selecione os autos pelo upload ou abra o processo no lote.",
+                )
     try:
-        media_files = sorted(p for p in cases_dir.iterdir() if p.is_file() and p.suffix.lower() in MEDIA_EXTENSIONS)
+        media_files = sorted(
+            p for p in cases_dir.iterdir()
+            if not p.is_symlink() and p.is_file() and p.suffix.lower() in MEDIA_EXTENSIONS
+        )
     except OSError:
         media_files = []
-    if not pdf_files and not media_files:
+    if not pdf_files:
         return None
-    if len(pdf_files) > 1:
-        pdf_files = [max(pdf_files, key=lambda p: p.stat().st_mtime)]
-
     novos_docs: List[Dict[str, Any]] = []
     pdfs_status_list: List[Dict[str, Any]] = []
+    documentos_manifesto: List[Dict[str, str]] = []
     for pdf_path in pdf_files:
         try:
+            try:
+                identidade_pdf = descrever_arquivo_caso(cases_dir, pdf_path, "PDF")
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail="Um PDF selecionado está indisponível na pasta de autos.") from exc
+            if ativo and identidade_pdf not in ativo["documentos"]:
+                raise HTTPException(status_code=409, detail="Um PDF do manifesto mudou. Selecione os autos novamente.")
             up_ts = _fmt_file_ts(datetime.datetime.fromtimestamp(pdf_path.stat().st_mtime))
             docs_pdf = _segmentar_pdf_seguro(pdf_path, remover_em_falha=False)
+            if not docs_pdf:
+                raise HTTPException(status_code=422, detail="O PDF selecionado não contém peças processáveis.")
             novos_docs.extend(docs_pdf)
+            documentos_manifesto.append(identidade_pdf)
             pdfs_status_list.append(_status_pdf(pdf_path, docs_pdf, up_ts))
         except HTTPException:
-            # PDF corrompido residual: ignorado e preservado (nunca apagado).
-            continue
+            if pdf_selecionado is not None or ativo:
+                raise
+            return None
 
     if not novos_docs:
         return None
 
-    pecas_prelim, known_ofendida, known_reu, _numero = _nomes_conhecidos(novos_docs)
-    media_files = _filter_media_files_for_case(
-        media_files=media_files,
-        pecas=pecas_prelim,
-        known_ofendida=known_ofendida,
-        known_reu=known_reu,
-    )
+    _, known_ofendida, known_reu, numero = _nomes_conhecidos(novos_docs)
+    manifesto = montar_manifesto_caso(documentos_manifesto, [])
+    salvo = consultar_manifesto_caso(manifesto["id"], cases_dir=cases_dir)
+    vinculos = {
+        item["arquivo"]: item for item in salvo.get("midias", [])
+        if isinstance(item, dict) and isinstance(item.get("arquivo"), str)
+    }
+    midias_status_list: List[Dict[str, Any]] = []
+    midias_vinculadas: List[tuple[Path, Dict[str, str]]] = []
+    for midia in media_files:
+        numeros = set(re.findall(r"(?<!\d)\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}(?!\d)", midia.stem))
+        identidade = None
+        if midia.name in vinculos or (not salvo and numero and numeros == {numero}):
+            identidade = descrever_arquivo_caso(cases_dir, midia, "MIDIA")
+        if identidade and (identidade == vinculos.get(midia.name) or midia.name not in vinculos):
+            midias_vinculadas.append((midia, identidade))
+        elif not numeros or numero in numeros:
+            midias_status_list.append({
+                "filename": midia.name,
+                "tipo": "MIDIA_AUDIENCIA",
+                "status": "PENDENTE_VINCULACAO",
+                "detalhes": "Confira o processo da gravação e envie o arquivo pela área de Mídias de Audiência.",
+            })
+
+    midias_manifesto = [identidade for _, identidade in midias_vinculadas]
+    if ativo and any(item not in midias_manifesto for item in ativo["midias"]):
+        raise HTTPException(status_code=409, detail="Uma mídia do manifesto mudou. Confira os arquivos vinculados.")
 
     novas_transcricoes: List[Dict[str, Any]] = []
-    midias_status_list: List[Dict[str, Any]] = []
     try:
-        for idx, m_path in enumerate(media_files):
+        for idx, (m_path, _) in enumerate(midias_vinculadas):
             PROGRESSO.atualizar(
                 phase="transcrevendo_midia",
                 current_file=m_path.name,
-                percent=min(92, 40 + int(50 * idx / max(1, len(media_files)))),
+                percent=min(92, 40 + int(50 * idx / max(1, len(midias_vinculadas)))),
             )
             up_ts = _fmt_file_ts(datetime.datetime.fromtimestamp(m_path.stat().st_mtime))
             tr = _transcrever(
@@ -912,6 +1015,8 @@ def _load_real_case_from_disk_if_present(
                 known_ofendida=known_ofendida,
                 known_reu=known_reu,
                 consentimento_envio_externo=consentimento_envio_externo,
+                numero_processo=numero,
+                identidade_caso=manifesto["id"],
             )
             novas_transcricoes.append(tr)
             midias_status_list.append(_status_midia(m_path, tr, up_ts))
@@ -922,7 +1027,19 @@ def _load_real_case_from_disk_if_present(
         status_saida["pdfs_processo"] = pdfs_status_list
         status_saida["midias_audiencia"] = midias_status_list
 
-    return _construir_bundle_real(novos_docs, novas_transcricoes)
+    bundle = _construir_bundle_real(novos_docs, novas_transcricoes)
+    manifesto["midias"] = midias_manifesto
+    bundle["manifesto_caso"] = manifesto
+    return bundle
+
+
+def _publicar_caso_preparado(bundle: Dict[str, Any], upload_status: Optional[Dict[str, Any]]) -> None:
+    try:
+        set_active_bundle(bundle, explicit_demo=False, upload_status=upload_status, cases_dir=_cases_dir())
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail="Os arquivos dos autos mudaram durante a preparação. Recarregue-os.") from exc
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Não foi possível gravar ou conferir os autos preparados.") from exc
 
 
 @app.get("/api/cases/active")
@@ -968,12 +1085,11 @@ def api_load_from_disk(req: Optional[LoadFromDiskRequest] = Body(default=None)) 
                 detail="Nenhum PDF de autos válido foi encontrado em data/cases. Envie os autos pelo upload.",
             )
         upload_status = status_saida if status_saida else None
-        set_active_bundle(bundle, explicit_demo=False, upload_status=upload_status)
+        resposta = _serialize_active_bundle(bundle, upload_status=upload_status)
+        _publicar_caso_preparado(bundle, upload_status)
         arquivos = [*(status_saida.get("pdfs_processo") or []), *(status_saida.get("midias_audiencia") or [])]
         PROGRESSO.atualizar(active=False, status="completed", phase="concluido", percent=100, current_file="", files=arquivos)
-        return {"status": "loaded", **_serialize_active_bundle(bundle)}
-    except HTTPException:
-        raise
+        return {"status": "loaded", **resposta}
     except BaseException as exc:
         _status, corpo = descrever_erro(exc)
         PROGRESSO.atualizar(active=False, status="error", phase=f"erro: {corpo.get('detail')}", percent=0, erro=corpo)
@@ -1044,7 +1160,10 @@ def api_metadata_override(req: MetadataOverrideRequest) -> Dict[str, Any]:
     with STATE_LOCK:
         if ACTIVE_CASE_STATE.get("bundle") is not bundle:
             raise HTTPException(status_code=409, detail="O caso ativo mudou durante a atualização. Tente novamente.")
-        set_active_bundle(novo, explicit_demo=bool(ACTIVE_CASE_STATE.get("explicit_demo")))
+        if novo.get("manifesto_caso"):
+            _publicar_caso_preparado(novo, None)
+        else:
+            set_active_bundle(novo, explicit_demo=bool(ACTIVE_CASE_STATE.get("explicit_demo")))
     return {"status": "ok", "metadados_override": overrides, "active_case": _serialize_active_bundle(novo)}
 
 
@@ -1059,9 +1178,11 @@ def _processar_arquivos_upload_sync(
     consentimento_envio_externo: bool = False,
 ) -> Dict[str, Any]:
     """Segmenta/classifica os PDFs, transcreve as mídias e torna o resultado o caso ativo."""
+    cases_dir = _cases_dir()
     cur_up_status = _upload_status_atual()
-    pdfs_status_list = [] if (is_currently_demo or saved_pdfs) else list(cur_up_status.get("pdfs_processo", []))
-    midias_status_list = [] if is_currently_demo else list(cur_up_status.get("midias_audiencia", []))
+    manifesto_anterior = bundle.get("manifesto_caso") or {}
+    pdfs_status_list = [] if saved_pdfs else list(cur_up_status.get("pdfs_processo", []))
+    documentos_manifesto: List[Dict[str, str]] = []
     total_files = max(1, total_files)
 
     processed_count = 0
@@ -1069,6 +1190,7 @@ def _processar_arquivos_upload_sync(
     CANCELAR_INGESTAO.clear()
     if saved_pdfs:
         for pdf_path in saved_pdfs:
+            documentos_manifesto.append(descrever_arquivo_caso(cases_dir, pdf_path, "PDF"))
             base = 15 + int(40 * processed_count / total_files)
             span = max(1, int(40 / total_files))
             nome_seguro = _nome_arquivo_seguro(pdf_path.name, "autos.pdf")
@@ -1101,37 +1223,29 @@ def _processar_arquivos_upload_sync(
                 )
 
             docs_pdf = _segmentar_pdf_seguro(pdf_path, ao_progresso=_cb, cancelar=CANCELAR_INGESTAO)
+            if not docs_pdf:
+                raise HTTPException(status_code=422, detail="O PDF selecionado não contém peças processáveis.")
             processed_count += 1
             novos_docs.extend(docs_pdf)
             pdfs_status_list.append(_status_pdf(pdf_path, docs_pdf, uploaded_ts_map.get(pdf_path.name, _fmt_file_ts())))
-    elif is_currently_demo:
-        # Mídias enviadas com o demo ativo: vincula aos autos reais já presentes em data/cases.
-        disk_pdfs = _pdfs_na_raiz()
-        if len(disk_pdfs) > 1:
-            disk_pdfs = [max(disk_pdfs, key=lambda p: p.stat().st_mtime)]
-        for pdf_path in disk_pdfs:
-            try:
-                docs_pdf = _segmentar_pdf_seguro(pdf_path, remover_em_falha=False)
-            except HTTPException:
-                continue
-            novos_docs.extend(docs_pdf)
-            pdfs_status_list.append(
-                _status_pdf(pdf_path, docs_pdf, _fmt_file_ts(datetime.datetime.fromtimestamp(pdf_path.stat().st_mtime)))
-            )
     else:
         novos_docs = list(bundle.get("raw_documents") or [])
+        documentos_manifesto = list(manifesto_anterior.get("documentos", []))
+        if not documentos_manifesto:
+            documentos_manifesto = [
+                descrever_arquivo_caso(cases_dir, cases_dir / item["filename"], "PDF")
+                for item in pdfs_status_list
+            ]
 
-    pecas_prelim, known_ofendida, known_reu, numero_prelim = _nomes_conhecidos(novos_docs)
-    del pecas_prelim
-    is_new_process_pdf = bool(saved_pdfs and bundle.get("numero_processo") and numero_prelim != bundle.get("numero_processo"))
-
-    existing_real_transcriptions = (
-        []
-        if (is_currently_demo or is_new_process_pdf or (saved_pdfs and saved_medias))
-        else list(bundle.get("transcriptions") or [])
-    )
-    if is_new_process_pdf or (saved_pdfs and saved_medias):
-        midias_status_list = []
+    if not novos_docs or not documentos_manifesto:
+        # A rota exige autos ativos; uma sessão legada pode ainda precisar recarregá-los.
+        raise HTTPException(status_code=409, detail="Carregue e confira os PDFs dos autos antes de vincular mídias.")
+    manifesto = montar_manifesto_caso(documentos_manifesto, [])
+    mesmo_caso = not is_currently_demo and manifesto["id"] == manifesto_anterior.get("id")
+    midias_status_list = list(cur_up_status.get("midias_audiencia", [])) if mesmo_caso else []
+    existing_real_transcriptions = list(bundle.get("transcriptions") or []) if mesmo_caso else []
+    vinculos = {item["arquivo"]: item for item in manifesto_anterior.get("midias", [])} if mesmo_caso else {}
+    _, known_ofendida, known_reu, numero_prelim = _nomes_conhecidos(novos_docs)
 
     if saved_medias:
         por_arquivo: Dict[str, Dict[str, Any]] = {
@@ -1142,6 +1256,7 @@ def _processar_arquivos_upload_sync(
         }
         try:
             for m_path in saved_medias:
+                vinculos[m_path.name] = descrever_arquivo_caso(cases_dir, m_path, "MIDIA")
                 PROGRESSO.atualizar(
                     phase="transcrevendo_midia",
                     current_file=m_path.name,
@@ -1155,6 +1270,8 @@ def _processar_arquivos_upload_sync(
                     known_ofendida=known_ofendida,
                     known_reu=known_reu,
                     consentimento_envio_externo=consentimento_envio_externo,
+                    numero_processo=numero_prelim,
+                    identidade_caso=manifesto["id"],
                 )
                 processed_count += 1
                 por_arquivo[m_path.name] = tr
@@ -1171,12 +1288,15 @@ def _processar_arquivos_upload_sync(
     PROGRESSO.atualizar(phase="classificando_laya", current_file="", percent=95, processed_files=processed_count)
     overrides_mantidos = (
         bundle.get("metadados_override")
-        if (not is_currently_demo and not is_new_process_pdf and not saved_pdfs)
+        if mesmo_caso and not saved_pdfs
         else None
     )
     new_bundle = _construir_bundle_real(novos_docs, novas_transcricoes, overrides_mantidos)
+    manifesto["midias"] = list(vinculos.values())
+    new_bundle["manifesto_caso"] = manifesto
     upload_status = {"pdfs_processo": pdfs_status_list, "midias_audiencia": midias_status_list}
-    set_active_bundle(new_bundle, explicit_demo=False, upload_status=upload_status)
+    resposta = _serialize_active_bundle(new_bundle, upload_status=upload_status)
+    _publicar_caso_preparado(new_bundle, upload_status)
 
     PROGRESSO.atualizar(
         active=False,
@@ -1187,7 +1307,7 @@ def _processar_arquivos_upload_sync(
         processed_files=total_files,
         files=[*pdfs_status_list, *midias_status_list],
     )
-    return _serialize_active_bundle(new_bundle)
+    return resposta
 
 
 def _nome_arquivo_seguro(nome_original: Optional[str], padrao: str) -> str:
@@ -1207,9 +1327,9 @@ def _colocar_arquivo(tmp: Path, cases_dir: Path, filename: str) -> tuple[Path, b
     tamanho = tmp.stat().st_size
     sha_tmp: Optional[str] = None
     n = 2
-    while destino.exists():
+    while destino.exists() or destino.is_symlink():
         try:
-            mesmo_tamanho = destino.is_file() and destino.stat().st_size == tamanho
+            mesmo_tamanho = not destino.is_symlink() and destino.is_file() and destino.stat().st_size == tamanho
         except OSError:
             mesmo_tamanho = False
         if mesmo_tamanho:
@@ -1306,6 +1426,10 @@ async def _receber_upload(
                     PROGRESSO.atualizar(phase="validando_arquivos")
                     _validar_pdf_arquivo(filename, parte.tmp)
                 PROGRESSO.atualizar(percent=min(14, 2 + int(12 * (idx + 1) / len(files))))
+            if (is_currently_demo or not bundle.get("raw_documents")) and not any(
+                ext in PDF_EXTENSIONS for _, _, ext, _ in recebidos
+            ):
+                raise HTTPException(status_code=409, detail="Carregue os autos do processo antes de vincular gravações.")
         except BaseException as exc:
             for parte in recebidos_parts:
                 try:
@@ -1441,8 +1565,10 @@ def api_analise_oral() -> Dict[str, Any]:
 
 
 @app.post("/api/cases/oral/analisar")
-def api_analisar_oral(refazer: bool = Query(False)) -> Any:
-    """Marca quem fala e extrai as alegações de cada depoimento com a IA local (job em segundo plano)."""
+def api_analisar_oral(
+    refazer: bool = Query(False), req: Optional[ConsentimentoOllamaRequest] = Body(default=None),
+) -> Any:
+    """Analisa falas e alegações em segundo plano com autorização própria ao usar destino remoto."""
     from app.transcription.falas import analisar_midia
 
     with STATE_LOCK:
@@ -1452,11 +1578,20 @@ def api_analisar_oral(refazer: bool = Query(False)) -> Any:
     ]
     if not transcricoes:
         raise HTTPException(status_code=409, detail="Não há mídias transcritas para analisar.")
+    autorizacao = req or ConsentimentoOllamaRequest()
+    settings = load_settings()
+    if not ollama_url_loopback(settings.ollama_url):
+        motivo = motivo_bloqueio_envio_externo(settings, autorizacao.consentimento_envio_externo)
+        if motivo:
+            raise EnvioExternoNaoAutorizadoError(motivo)
+        destino = autorizacao.destino_ollama_confirmado
+        if destino and destino != destino_publico_ollama(settings.ollama_url):
+            raise EnvioExternoNaoAutorizadoError("O destino do Ollama mudou. Confirme a operação novamente.")
     if not INGESTAO_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Há um processamento em andamento. Aguarde terminar.")
-    modelo = load_settings().ollama_model
+    modelo = settings.ollama_model
 
-    def _rodar() -> Dict[str, Any]:
+    def _analisar() -> Dict[str, Any]:
         _liberar_whisper()  # libera a VRAM para o modelo de linguagem
         total = len(transcricoes)
         feitas: List[str] = []
@@ -1469,6 +1604,13 @@ def api_analisar_oral(refazer: bool = Query(False)) -> Any:
             feitas.append(str(tr.get("media_id") or ""))
         PROGRESSO.atualizar(active=False, status="done", phase="Análise concluída", percent=100)
         return {"analisadas": feitas, "analises": _analises_orais_em_disco()}
+
+    def _rodar() -> Dict[str, Any]:
+        with permissao_ollama_na_operacao(
+            settings, autorizacao.consentimento_envio_externo, autorizacao.destino_ollama_confirmado,
+            lambda: construir_mapa_do_contexto(obter_contexto(bundle)),
+        ):
+            return _analisar()
 
     job = JOBS.criar("analise_oral")
     JOBS.executar_em_thread(job["job_id"], _rodar, ao_finalizar=INGESTAO_LOCK.release)
@@ -1554,8 +1696,20 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
         )
     try:
         cases_dir = _cases_dir().resolve()
+        with STATE_LOCK:
+            bundle_atual = copy.deepcopy(ACTIVE_CASE_STATE.get("bundle") or {})
+        manifesto = bundle_atual.get("manifesto_caso")
         alvo_nome = _nome_arquivo_seguro(req.filename, "") if (req and req.filename) else ""
-        if alvo_nome:
+        if manifesto:
+            try:
+                validar_manifesto_caso(cases_dir, manifesto)
+            except (OSError, ValueError, RuntimeError) as exc:
+                raise HTTPException(status_code=409, detail="Confira os arquivos do manifesto antes de refazer o OCR.") from exc
+            pdfs_manifesto = [cases_dir / item["arquivo"] for item in manifesto["documentos"]]
+            alvos = [pdf for pdf in pdfs_manifesto if not alvo_nome or pdf.name == alvo_nome]
+            if not alvos:
+                raise HTTPException(status_code=404, detail="O PDF indicado não pertence ao caso ativo.")
+        elif alvo_nome:
             pdf_path = (cases_dir / alvo_nome).resolve()
             if pdf_path.parent != cases_dir or not pdf_path.is_file():
                 raise HTTPException(status_code=404, detail=f"PDF '{alvo_nome}' não encontrado na pasta do caso.")
@@ -1576,8 +1730,6 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
             processed_files=0,
         )
 
-        with STATE_LOCK:
-            bundle_atual = copy.deepcopy(ACTIVE_CASE_STATE.get("bundle") or {})
         transcricoes_atuais = list(bundle_atual.get("transcriptions") or [])
         overrides_atuais = bundle_atual.get("metadados_override")
         up_status = _upload_status_atual()
@@ -1590,17 +1742,20 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
         # Reúne TODOS os PDFs do caso (os já registrados em upload_status existentes no disco + alvos)
         # para que refazer o OCR de 1 PDF nunca apague as peças dos outros PDFs do mesmo processo.
         alvos_nomes = {p.name for p in alvos}
-        todos_pdfs_ordem: List[Path] = []
-        vistos_pdfs: set[str] = set()
-        for nome_reg in pdfs_status_map.keys():
-            cand = (cases_dir / _nome_arquivo_seguro(nome_reg, "")).resolve()
-            if cand.parent == cases_dir and cand.is_file() and cand.name not in vistos_pdfs:
-                todos_pdfs_ordem.append(cand)
-                vistos_pdfs.add(cand.name)
-        for p_alvo in alvos:
-            if p_alvo.name not in vistos_pdfs:
-                todos_pdfs_ordem.append(p_alvo)
-                vistos_pdfs.add(p_alvo.name)
+        if manifesto:
+            todos_pdfs_ordem = pdfs_manifesto
+        else:
+            todos_pdfs_ordem: List[Path] = []
+            vistos_pdfs: set[str] = set()
+            for nome_reg in pdfs_status_map.keys():
+                cand = (cases_dir / _nome_arquivo_seguro(nome_reg, "")).resolve()
+                if cand.parent == cases_dir and cand.is_file() and cand.name not in vistos_pdfs:
+                    todos_pdfs_ordem.append(cand)
+                    vistos_pdfs.add(cand.name)
+            for p_alvo in alvos:
+                if p_alvo.name not in vistos_pdfs:
+                    todos_pdfs_ordem.append(p_alvo)
+                    vistos_pdfs.add(p_alvo.name)
 
         todos_docs: List[Dict[str, Any]] = []
         alvos_processados = 0
@@ -1648,7 +1803,10 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
             PROGRESSO.atualizar(phase="classificando_laya", etapa="classificacao", current_file="", percent=95)
             up_status["pdfs_processo"] = list(pdfs_status_map.values())
             novo_bundle = _construir_bundle_real(todos_docs, transcricoes_atuais, overrides_atuais)
-            set_active_bundle(novo_bundle, explicit_demo=False, upload_status=up_status)
+            if manifesto:
+                novo_bundle["manifesto_caso"] = manifesto
+            resposta = _serialize_active_bundle(novo_bundle, upload_status=up_status)
+            _publicar_caso_preparado(novo_bundle, up_status)
             PROGRESSO.atualizar(
                 active=False,
                 status="completed",
@@ -1658,7 +1816,7 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
                 current_file="",
                 processed_files=len(alvos),
             )
-            return _serialize_active_bundle(novo_bundle)
+            return resposta
         except BaseException as exc:
             detalhe_err = getattr(exc, "detail", None) or type(exc).__name__
             PROGRESSO.atualizar(
@@ -1701,11 +1859,6 @@ async def api_get_upload_progress(request: Request, stream: int = 0) -> Any:
 # ==============================================================================
 
 
-def _decisoes_serializaveis(decisoes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    chaves = ("crime_code", "crime_efetivo", "veredicto", "fundamento_legal", "desclassificado_de", "inciso", "presumido")
-    return [{k: d.get(k) for k in chaves if k in d} | {"presumido": bool(d.get("presumido", False))} for d in decisoes]
-
-
 def _fracao_txt(fracao: Any) -> Optional[str]:
     if isinstance(fracao, (list, tuple)) and len(fracao) == 2:
         return f"{fracao[0]}/{fracao[1]}"
@@ -1722,7 +1875,7 @@ def api_simulate_dosimetria(req: Optional[DosimetriaSimulationRequest] = Body(de
     meta = ctx.copia_meta()
     override = payload.to_override()
 
-    dt_fato = resolver_data(meta.data_fato, bundle.get("data_fato"))
+    dt_fato = resolver_data(meta.data_fato, bundle.get("data_fato"), *datas_dos_fatos(meta))
     dt_rec = resolver_data(meta.data_recebimento_denuncia, bundle.get("data_recebimento_denuncia"))
     if not meta.crimes_imputados and isinstance(bundle.get("crimes_imputados"), list):
         meta.crimes_imputados = [str(c).strip() for c in bundle["crimes_imputados"] if str(c).strip()]
@@ -1752,7 +1905,7 @@ def api_simulate_dosimetria(req: Optional[DosimetriaSimulationRequest] = Body(de
         data_sentenca=data_sentenca,
     )
     alertas: List[str] = []
-    if dt_rec is None:
+    if dt_rec is None and not ha_recebimento_por_imputacao(meta):
         alertas.append(
             "Data de recebimento da denúncia não extraída: a prescrição não pôde ser verificada (informe-a nos metadados)."
         )
@@ -1760,7 +1913,7 @@ def api_simulate_dosimetria(req: Optional[DosimetriaSimulationRequest] = Body(de
     return {
         "dosimetria": res.model_dump(mode="json"),
         "prescricao": presc.model_dump(mode="json"),
-        "decisoes_crimes": _decisoes_serializaveis(decisoes),
+        "decisoes_crimes": serializar_decisoes_imputacao(decisoes),
         "simulacao_presume_condenacao": any(d.get("presumido") for d in decisoes),
         "criterio_primeira_fase": criterio_1fase,
         "detracao_periodo": detracao_periodo,
@@ -1880,7 +2033,11 @@ def api_generate_sectional(req: Optional[GenerateSectionalRequest] = Body(defaul
         raise HTTPException(status_code=422, detail="Payload inválido: 'case_bundle' deve conter 'raw_documents' não vazio.")
 
     ctx = obter_contexto(case_bundle)
-    engine, sentenca = _executar_pipeline_seccional(payload, case_bundle)
+    with permissao_ollama_na_operacao(
+        load_settings(), payload.use_ollama and payload.consentimento_envio_externo,
+        payload.destino_ollama_confirmado, lambda: construir_mapa_do_contexto(ctx),
+    ):
+        engine, sentenca = _executar_pipeline_seccional(payload, case_bundle)
     auditoria = _auditar(sentenca, ctx)
     snapshot = engine.snapshot_telemetria()
 
@@ -1939,6 +2096,7 @@ def api_regenerate_section(req: RegenerateSectionRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=409, detail="Já existe uma regeneração de seção em andamento. Aguarde.")
     try:
         with STATE_LOCK:
+            _conferir_revisao_minuta(ACTIVE_CASE_STATE.get("last_sentence"), req.revisao_esperada)
             engine = ACTIVE_CASE_STATE.get("pipeline_engine")
 
         if engine is None or not isinstance(engine, SectionalPipelineEngine):
@@ -1972,9 +2130,17 @@ def api_regenerate_section(req: RegenerateSectionRequest) -> Dict[str, Any]:
         feedback = "\n".join(partes_feedback) or None
         effective_use_ollama = bool(req.use_ollama) if req.use_ollama is not None else bool(getattr(engine, "use_ollama", False))
 
+        settings = load_settings()
+
         def _regenerar():
-            rascunho_local = engine.regenerar_secao_atomica(secao=secao_enum, feedback=feedback, use_ollama=effective_use_ollama)
-            return rascunho_local, engine.montar_sentenca()
+            with permissao_ollama_na_operacao(
+                settings, effective_use_ollama and req.consentimento_envio_externo,
+                req.destino_ollama_confirmado, lambda: construir_mapa_do_contexto(obter_contexto(bundle)),
+            ):
+                rascunho_local = engine.regenerar_secao_atomica(
+                    secao=secao_enum, feedback=feedback, use_ollama=effective_use_ollama,
+                )
+                return rascunho_local, engine.montar_sentenca()
 
         try:
             rascunho, sentenca = _regenerar()
@@ -2012,6 +2178,7 @@ def api_regenerate_section(req: RegenerateSectionRequest) -> Dict[str, Any]:
         "status": "regenerated",
         "secao": secao_nome,
         "texto_regenerado": texto_regenerado,
+        "revisao_documento": sentenca.revisao_documento,
         "auditoria": auditoria.model_dump(mode="json"),
         "score_confiabilidade": auditoria.score_confiabilidade,
         "generation_id": generation_id,
@@ -2284,36 +2451,53 @@ def api_abrir_processo_lote(
             status_code=409,
             detail="Já existe um carregamento de autos em andamento. Aguarde a conclusão.",
         )
+    destino_pdf = None
+    novo = publicado = False
     try:
         cases_dir = _cases_dir()
-        cases_dir.mkdir(parents=True, exist_ok=True)
-        # Retira PDFs antigos da raiz de data/cases antes de copiar o selecionado (preservando _arquivados)
-        for antigo in _pdfs_na_raiz():
-            try:
-                antigo.unlink()
-            except OSError:
-                pass
-        destino_pdf = cases_dir / pdf_path.name
-        shutil.copy2(pdf_path, destino_pdf)
+        tmp_dir = cases_dir / _UPLOAD_TMP_DIRNAME
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=tmp_dir, suffix=".part", delete=False) as temporario:
+            origem_temporaria = Path(temporario.name)
+        try:
+            sha_origem = _sha256_arquivo(pdf_path)
+            shutil.copy2(pdf_path, origem_temporaria)
+            if _sha256_arquivo(origem_temporaria) != sha_origem:
+                raise OSError("A cópia do PDF não corresponde ao arquivo de origem.")
+            destino_pdf, novo = _colocar_arquivo(
+                origem_temporaria, cases_dir, _nome_arquivo_seguro(pdf_path.name, "autos.pdf")
+            )
+        finally:
+            origem_temporaria.unlink(missing_ok=True)
 
         status_saida: Dict[str, Any] = {}
-        bundle = _chamar_compat(
-            _load_real_case_from_disk_if_present,
+        bundle = _load_real_case_from_disk_if_present(
             consentimento_envio_externo=False,
             status_saida=status_saida,
+            pdf_selecionado=destino_pdf,
         )
         if bundle is None:
             raise HTTPException(status_code=422, detail="Não foi possível carregar o PDF do processo selecionado.")
-        set_active_bundle(bundle, explicit_demo=False, upload_status=status_saida if status_saida else None)
+        resposta = _serialize_active_bundle(bundle, upload_status=status_saida)
+        _publicar_caso_preparado(bundle, status_saida)
+        publicado = True
         return {
             "status": "loaded",
             "lote_id": lote_id,
             "pid": pid,
             "dossie": dossie,
-            **_serialize_active_bundle(bundle),
+            **resposta,
         }
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Não foi possível preparar os arquivos do processo selecionado.") from exc
     finally:
-        INGESTAO_LOCK.release()
+        try:
+            if novo and not publicado and destino_pdf is not None:
+                destino_pdf.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Não foi possível remover um PDF de lote cuja abertura falhou.")
+        finally:
+            INGESTAO_LOCK.release()
 
 
 @app.post("/api/cases/reset")
@@ -2416,11 +2600,24 @@ def _publicar_exportacao(tmp: Path, destino: Path) -> Path:
     raise PermissionError(f"Destino da exportacao travado: {destino.name}")
 
 
-def _exportar(formato: str, rascunho: bool) -> Any:
-    st = obter_estado("last_sentence", "last_audit")
-    sentenca, auditoria = st["last_sentence"], st["last_audit"]
-    if sentenca is None:
-        raise HTTPException(status_code=409, detail="Nenhuma sentença gerada nesta sessão. Gere a minuta antes de exportar.")
+_EXPORT_PUBLICACAO_LOCK = threading.Lock()
+
+
+def _snapshot_minuta_para_exportacao(revisao_esperada: Optional[str]) -> tuple[Any, Any]:
+    with STATE_LOCK:
+        vigente = ACTIVE_CASE_STATE.get("last_sentence")
+        if vigente is None:
+            raise HTTPException(status_code=409, detail="Nenhuma sentença gerada nesta sessão. Gere a minuta antes de exportar.")
+        _conferir_revisao_minuta(vigente, revisao_esperada)
+        sentenca = copy.deepcopy(vigente)
+        auditoria = copy.deepcopy(ACTIVE_CASE_STATE.get("last_audit"))
+    if getattr(sentenca, "texto_html", "") and _texto_visivel_html(sentenca.texto_html) != _texto_visivel_canonico(sentenca.texto_completo):
+        raise HTTPException(status_code=409, detail="O conteúdo para exportação difere do texto auditado. Reabra e reaudite a minuta.")
+    return sentenca, auditoria
+
+
+def _exportar(formato: str, rascunho: bool, revisao_esperada: Optional[str] = None) -> Any:
+    sentenca, auditoria = _snapshot_minuta_para_exportacao(revisao_esperada)
     aprovada = _auditoria_aprovada(auditoria)
     if not aprovada and not rascunho:
         return JSONResponse(
@@ -2443,10 +2640,10 @@ def _exportar(formato: str, rascunho: bool) -> Any:
     out_file = exports_dir / _nome_exportacao(sentenca, formato, rascunho=marca is not None)
     if out_file.resolve().parent != exports_dir.resolve():  # defesa em profundidade
         raise HTTPException(status_code=400, detail="Nome de arquivo de exportação inválido.")
-    # Gera num temporario no mesmo diretorio e publica com os.replace (com novas tentativas): o
-    # destino nunca fica truncado e, se o Word/leitor de PDF o mantiver aberto no Windows, a
-    # exportacao cai num nome versionado em vez de 500.
+    # Captura os bytes do mesmo instantâneo antes da publicação. O download não lê de novo
+    # um caminho compartilhado que outra exportação pode substituir.
     tmp_file = out_file.with_name(f".{uuid.uuid4().hex}.tmp{out_file.suffix}")
+    headers = {"X-JVDFM-Marca-Dagua": "1" if marca else "0"}
     try:
         if formato == "docx":
             exportar_docx(sentenca, tmp_file, marca_dagua=marca)
@@ -2454,7 +2651,19 @@ def _exportar(formato: str, rascunho: bool) -> Any:
             exportar_pdf(sentenca, tmp_file, marca_dagua=marca)
         else:
             tmp_file.write_text(exportar_html_pje(sentenca, marca_dagua=marca), encoding="utf-8")
-        out_file = _publicar_exportacao(tmp_file, out_file)
+        conteudo = tmp_file.read_bytes()
+        with _EXPORT_PUBLICACAO_LOCK:
+            with STATE_LOCK:
+                _conferir_revisao_minuta(ACTIVE_CASE_STATE.get("last_sentence"), revisao_esperada)
+            out_file = _publicar_exportacao(tmp_file, out_file)
+            cfg = load_settings()
+            if (cfg.pasta_exportacao or "").strip():
+                try:
+                    copia = copiar_exportacao(out_file, cfg.pasta_exportacao, sentenca.numero_processo, cfg.subpasta_por_processo)
+                    headers["X-JVDFM-Copia-Em"] = quote(str(copia), safe="")
+                except OSError as exc:
+                    logger.warning("Cópia para a pasta de exportação do usuário falhou: %s", exc)
+                    headers["X-JVDFM-Copia-Erro"] = quote(exc.strerror or type(exc).__name__, safe="")
     except OSError as exc:
         raise HTTPException(
             status_code=409,
@@ -2465,22 +2674,12 @@ def _exportar(formato: str, rascunho: bool) -> Any:
             tmp_file.unlink(missing_ok=True)
         except OSError:
             pass
-    headers = {"X-JVDFM-Marca-Dagua": "1" if marca else "0"}
-    cfg = load_settings()
-    if (cfg.pasta_exportacao or "").strip():
-        # Cópia na pasta do usuário: nunca derruba a exportação (o download segue valendo).
-        try:
-            copia = copiar_exportacao(out_file, cfg.pasta_exportacao, sentenca.numero_processo, cfg.subpasta_por_processo)
-            headers["X-JVDFM-Copia-Em"] = quote(str(copia), safe="")
-        except OSError as exc:
-            logger.warning("Cópia para a pasta de exportação do usuário falhou: %s", exc)
-            headers["X-JVDFM-Copia-Erro"] = quote(exc.strerror or type(exc).__name__, safe="")
-    return FileResponse(
-        path=str(out_file),
-        filename=out_file.name,
-        media_type=_MEDIA_TYPES_EXPORT[formato],
-        headers=headers,
+    nome_codificado = quote(out_file.name, safe="")
+    headers["Content-Disposition"] = (
+        f"attachment; filename*=UTF-8''{nome_codificado}" if nome_codificado != out_file.name
+        else f'attachment; filename="{out_file.name}"'
     )
+    return Response(content=conteudo, media_type=_MEDIA_TYPES_EXPORT[formato], headers=headers)
 
 
 @app.post("/api/export/abrir-pasta")
@@ -2513,19 +2712,29 @@ def api_revisar_minuta(req: _RevisaoRequest) -> Dict[str, Any]:
 
 
 @app.get("/api/export/docx")
-def api_export_docx(rascunho: bool = Query(False)) -> Any:
-    return _exportar("docx", rascunho)
+def api_export_docx(rascunho: bool = Query(False), revisao_esperada: Optional[str] = Query(None)) -> Any:
+    return _exportar("docx", rascunho, revisao_esperada)
 
 
 @app.get("/api/export/pdf")
-def api_export_pdf(rascunho: bool = Query(False)) -> Any:
-    return _exportar("pdf", rascunho)
+def api_export_pdf(rascunho: bool = Query(False), revisao_esperada: Optional[str] = Query(None)) -> Any:
+    return _exportar("pdf", rascunho, revisao_esperada)
 
 
 @app.get("/api/export/html")
-def api_export_html(rascunho: bool = Query(False)) -> Any:
-    return _exportar("html", rascunho)
+def api_export_html(rascunho: bool = Query(False), revisao_esperada: Optional[str] = Query(None)) -> Any:
+    return _exportar("html", rascunho, revisao_esperada)
 
+
+@app.get("/api/export/pje")
+def api_export_pje(revisao_esperada: str = Query(min_length=1)) -> Dict[str, Any]:
+    sentenca, auditoria = _snapshot_minuta_para_exportacao(revisao_esperada)
+    aprovada = _auditoria_aprovada(auditoria)
+    return {
+        "html_pje": exportar_html_pje(sentenca, marca_dagua=None if aprovada else MARCA_DAGUA_NAO_AUDITADA),
+        "exportacao_liberada": aprovada,
+        "marcadores_pendentes": list(getattr(auditoria, "marcadores_pendentes", []) or []),
+    }
 
 # ==============================================================================
 # Base de conhecimento e estilo
@@ -2676,7 +2885,7 @@ def api_gemini_build_script(req: Optional[BuildGeminiScriptRequest] = Body(defau
                     "mapa_reversao": dict(script_obj.mapa_reversao),
                     "mapa_hash": getattr(script_obj, "mapa_hash", "") or "",
                 }
-    return {"status": "ok", "script": script_obj.model_dump(mode="json")}
+    return {"status": "ok", "script": script_obj.model_dump(mode="json", exclude={"mapa_reversao", "mapa_hash"})}
 
 
 @app.post("/api/gemini/generate")
@@ -2703,7 +2912,7 @@ def api_gemini_generate(req: Optional[GenerateGeminiSentenceRequest] = Body(defa
         auditoria,
         generation_id,
         status="completed",
-        script=script_obj.model_dump(mode="json"),
+        script=script_obj.model_dump(mode="json", exclude={"mapa_reversao", "mapa_hash"}),
         telemetria=telemetria,
     )
 
@@ -2745,10 +2954,20 @@ def api_gemini_import_sentence(req: ImportExternalSentenceRequest) -> Dict[str, 
 
 @app.post("/api/sentence/update-and-audit")
 def api_update_and_audit_sentence(req: UpdateAndAuditSentenceRequest) -> Dict[str, Any]:
-    """Edição direta na folha: re-extrai as seções, reaudita e atualiza o estado ativo."""
+    """Reaudita um conteúdo único e publica a edição na revisão esperada da folha."""
     if not (req.texto_completo or "").strip():
         raise HTTPException(status_code=422, detail="O texto da sentença editada não pode ficar vazio.")
-    bundle = _require_active_bundle()
+    with STATE_LOCK:
+        bundle = _require_active_bundle()
+        anterior = ACTIVE_CASE_STATE.get("last_sentence")
+        if anterior is not None and not req.revisao_esperada:
+            raise HTTPException(status_code=409, detail="Informe a revisão da minuta antes de salvar a edição.")
+        _conferir_revisao_minuta(anterior, req.revisao_esperada)
+    html_limpo = sanitizar_html(req.texto_html) if req.texto_html is not None else ""
+    if req.texto_html is not None and (
+        not html_limpo or _texto_visivel_html(html_limpo) != _texto_visivel_canonico(req.texto_completo)
+    ):
+        raise HTTPException(status_code=422, detail="O texto informado e o conteúdo da folha diferem. Reabra a minuta e tente novamente.")
     try:
         sentenca, auditoria, telemetria = importar_e_auditar_sentenca_externa(
             case_bundle=bundle,
@@ -2761,28 +2980,24 @@ def api_update_and_audit_sentence(req: UpdateAndAuditSentenceRequest) -> Dict[st
         if eh_erro_de_dominio(exc):
             raise
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    # A re-auditoria reconstrói a sentença a partir do texto e perde o veredicto por crime; ele não muda
-    # ao editar o texto e alimenta o nome do arquivo (tipo da sentença e tipos penais).
-    anterior = obter_estado("last_sentence")["last_sentence"]
     if anterior is not None and not sentenca.decisoes_crimes and anterior.numero_processo == sentenca.numero_processo:
         sentenca.decisoes_crimes = list(anterior.decisoes_crimes)
-    # A auditoria roda sobre o texto; a formatação (negrito, alinhamento, recuos, margens) é preservada
-    # para a exportação exatamente como o usuário a deixou na folha.
-    if (req.texto_html or "").strip():
-        html_limpo = sanitizar_html(req.texto_html)
-        if html_limpo:
-            sentenca.texto_html = html_limpo
-            sentenca.formatacao = normalizar_formatacao(req.formatacao)
-            if re.sub(r"\s+", " ", texto_do_html(html_limpo)).strip() != re.sub(r"\s+", " ", sentenca.texto_completo).strip():
-                sentenca.alertas = list(sentenca.alertas) + [
-                    "O arquivo exportado segue o texto exatamente como está na folha; a auditoria usou a versão "
-                    "normalizada (datas por extenso, nomes restaurados). Revise as diferenças antes de assinar."
-                ]
-    elif req.formatacao:
+    if req.formatacao:
         sentenca.formatacao = normalizar_formatacao(req.formatacao)
-    generation_id = _registrar_se_caso_ativo(
-        bundle, sentenca=sentenca, auditoria=auditoria, origem="edicao_direta", pipeline_engine=None, pipeline_snapshot=None
-    )
+    if html_limpo:
+        if _texto_visivel_html(html_limpo) == _texto_visivel_canonico(sentenca.texto_completo):
+            sentenca.texto_html = html_limpo
+        else:
+            sentenca.alertas = list(sentenca.alertas) + [
+                "A auditoria normalizou o texto editado. A folha usa o conteúdo auditado com a formatação padrão."
+            ]
+    with STATE_LOCK:
+        if ACTIVE_CASE_STATE.get("last_sentence") is not anterior:
+            raise HTTPException(status_code=409, detail="A minuta mudou durante a auditoria. Reabra a revisão atual.")
+        generation_id = _registrar_se_caso_ativo(
+            bundle, revisao_esperada=req.revisao_esperada, sentenca=sentenca, auditoria=auditoria,
+            origem="edicao_direta", pipeline_engine=None, pipeline_snapshot=None,
+        )
     return _payload_geracao(sentenca, auditoria, generation_id, status="updated", telemetria=telemetria)
 
 
@@ -2903,18 +3118,27 @@ def api_save_sentence_format(req: SaveSentenceFormatRequest) -> Dict[str, Any]:
     html_limpo = sanitizar_html(req.texto_html)
     if not html_limpo:
         raise HTTPException(status_code=422, detail="O texto da sentença editada não pode ficar vazio.")
-    with STATE_LOCK:
-        sentenca = ACTIVE_CASE_STATE.get("last_sentence")
-        auditoria = ACTIVE_CASE_STATE.get("last_audit")
-        if sentenca is None:
-            raise HTTPException(status_code=409, detail="Nenhuma sentença gerada nesta sessão.")
-        sentenca.texto_html = html_limpo
-        sentenca.formatacao = normalizar_formatacao(req.formatacao)
-        aprovada = _auditoria_aprovada(auditoria)
+    if not PIPELINE_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Há uma regeneração em andamento. Aguarde a revisão atual.")
+    try:
+        with STATE_LOCK:
+            atual = ACTIVE_CASE_STATE.get("last_sentence")
+            _conferir_revisao_minuta(atual, req.revisao_esperada)
+            if _texto_visivel_html(html_limpo) != _texto_visivel_canonico(atual.texto_completo):
+                raise HTTPException(status_code=409, detail="O conteúdo da folha foi alterado. Salve e reaudite o texto antes de exportar.")
+            sentenca = copy.deepcopy(atual)
+            auditoria = ACTIVE_CASE_STATE.get("last_audit")
+            sentenca.texto_html = html_limpo
+            sentenca.formatacao = normalizar_formatacao(req.formatacao)
+            sentenca.revisao_documento = uuid.uuid4().hex
+            ACTIVE_CASE_STATE["last_sentence"] = sentenca
+    finally:
+        PIPELINE_LOCK.release()
     return {
         "status": "saved",
+        "revisao_documento": sentenca.revisao_documento,
         "formatacao": sentenca.formatacao,
-        "html_pje": exportar_html_pje(sentenca, marca_dagua=None if aprovada else MARCA_DAGUA_NAO_AUDITADA),
+        "html_pje": exportar_html_pje(sentenca, marca_dagua=None if _auditoria_aprovada(auditoria) else MARCA_DAGUA_NAO_AUDITADA),
     }
 
 

@@ -174,6 +174,49 @@ normalizar_override_metadado = _normalizar_override
 normalizar_data = _normalizar_data
 
 
+def _aplicar_confirmacoes_pontos(atual: Dict[str, Any], confirmacoes: Mapping[str, Any]) -> Dict[str, Any]:
+    """Aplica confirmações explícitas do juiz sobre ``pontos_decisivos`` aos campos de cálculo."""
+    if not isinstance(confirmacoes, Mapping):
+        return atual
+    pontos = [dict(p) if isinstance(p, Mapping) else p for p in (atual.get("pontos_decisivos") or [])]
+    por_chave = {p.get("chave"): p for p in pontos if isinstance(p, dict) and p.get("chave")}
+    conf_efetivos = dict(atual.get("pontos_decisivos_confirmados") or {})
+
+    for chave, bruto in confirmacoes.items():
+        if bruto is None:
+            continue
+        ponto = por_chave.get(chave)
+        if bruto is False:
+            if ponto is not None:
+                ponto["confirmado"] = False
+            conf_efetivos[chave] = False
+            continue
+
+        val_final = ponto.get("valor") if (bruto is True and ponto is not None) else bruto
+        if chave == "data_nascimento_reu":
+            dt_norm = _normalizar_data(val_final)
+            if dt_norm is None:
+                continue
+            val_final = dt_norm
+            atual["data_nascimento_reu"] = dt_norm
+        elif chave == "antecedentes":
+            cls = val_final.get("classificacao") if isinstance(val_final, Mapping) else str(val_final or "")
+            if cls in ("reincidencia", "maus_antecedentes"):
+                atual["reu_primario_sumula444"] = False
+            elif cls in ("primario", "neutro_em_curso"):
+                atual["reu_primario_sumula444"] = True
+
+        conf_efetivos[chave] = val_final
+        if ponto is not None:
+            ponto["valor"] = val_final
+            ponto["confirmado"] = True
+            ponto["estado"] = "extraido"
+
+    atual["pontos_decisivos"] = pontos
+    atual["pontos_decisivos_confirmados"] = conf_efetivos
+    return atual
+
+
 def _aplicar_overrides(meta: "MetadadosProcesso", overrides: Mapping[str, Any]) -> "MetadadosProcesso":
     if not overrides:
         return meta
@@ -181,6 +224,14 @@ def _aplicar_overrides(meta: "MetadadosProcesso", overrides: Mapping[str, Any]) 
     campos = classe.model_fields
     atual = meta.model_dump()
     for campo, bruto in overrides.items():
+        if campo == "pontos_decisivos_confirmados" and isinstance(bruto, Mapping):
+            candidato = _aplicar_confirmacoes_pontos(dict(atual), bruto)
+            try:
+                classe.model_validate(candidato)
+                atual = candidato
+            except Exception:
+                logger.warning("Override de metadado ignorado: valor inválido para '%s'.", campo)
+            continue
         if campo not in campos:
             logger.warning("Override de metadado ignorado: campo desconhecido '%s'.", campo)
             continue
@@ -260,7 +311,7 @@ def _construir(bundle: Mapping[str, Any], fingerprint: str) -> CaseContext:
     ]
 
     pecas = _chamar_com_is_demo(classificar_pecas_autos, raw_docs, is_demo=is_demo)
-    meta = _chamar_com_is_demo(extrair_metadados_processo, pecas, is_demo=is_demo)
+    meta = extrair_metadados_processo(pecas, is_demo=is_demo, transcricoes=transcriptions)
     meta = _aplicar_suplementos(meta, bundle_copia)
     meta = _aplicar_overrides(meta, _overrides(bundle_copia))
     matriz_oral = _chamar_com_is_demo(gerar_matriz_corroboracao_oral, pecas, transcriptions, is_demo=is_demo)

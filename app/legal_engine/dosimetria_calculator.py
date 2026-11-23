@@ -17,6 +17,7 @@ import datetime
 from typing import Dict, List, Literal, Tuple
 from pydantic import BaseModel, Field
 
+from app.core.errors import DadosInsuficientesError
 from app.legal_engine.penal_types_catalog import (
     PenaAnosMesesDias,
     PenalTypeSpec,
@@ -303,9 +304,21 @@ class DosimetriaConfig(BaseModel):
     aplicar_sumula_444_stj: bool = True
 
 
+class MajoranteArt24aP4(BaseModel):
+    hipotese: Literal["area_exclusao", "dispositivo_monitoracao"]
+    fonte_id: str = Field(min_length=1)
+    trecho: str = Field(min_length=1)
+    fracao: Tuple[int, int]
+
+
 class CrimeDosimetriaInput(BaseModel):
     crime_code: str
     data_fato: datetime.date
+    id_imputacao: str = ""
+    referencia_imputacao: str = ""
+    data_recebimento_individual: datetime.date | None = None
+    recebimento_por_imputacao: bool = False
+    reduzir_prescricao_art115: bool | None = None
     circunstancias_art59: Dict[str, CircunstanciaArt59] = Field(default_factory=dict)
     agravantes_art61_f_violencia_domestica: bool = False
     reincidente: bool = False
@@ -317,6 +330,8 @@ class CrimeDosimetriaInput(BaseModel):
     # quantum proporcional e emite alerta).
     dias_multa: int = 0
     desclassificado_de: str = ""
+    ameaca_qualificada: bool = False
+    majorante_art24a_p4: MajoranteArt24aP4 | None = None
     # Majorante do art. 147-A, § 1º, II, do CP (+1/2: crime contra mulher por razões da
     # condição de sexo feminino). PADRÃO DOCUMENTADO: True, pois no JVDFM a perseguição é
     # praticada contra mulher em contexto de violência doméstica (art. 121-A, § 1º, I, do CP);
@@ -338,6 +353,11 @@ class CrimeDosimetriaInput(BaseModel):
 
 class CrimeDosimetriaOutput(BaseModel):
     crime_spec: PenalTypeSpec
+    id_imputacao: str = ""
+    referencia_imputacao: str = ""
+    data_recebimento_individual: datetime.date | None = None
+    recebimento_por_imputacao: bool = False
+    reduzir_prescricao_art115: bool | None = None
     vetores_negativos_efetivos: List[str]
     acrescimo_por_vetor_dias: int
     pena_base: PenaAnosMesesDias
@@ -359,6 +379,7 @@ class CrimeDosimetriaOutput(BaseModel):
     fracao_diminuicao_aplicada: Tuple[int, int] | None = None
     aumento_art147a_aplicado: bool = False
     aumento_art141_p3_aplicado: bool = False
+    majorante_art24a_p4: MajoranteArt24aP4 | None = None
     dias_multa_sugeridos_pelo_motor: bool = False
     # True/False = modalidade decidida (ou inerente ao tipo); None = tipo com modalidades com e sem
     # violência/grave ameaça e o juízo ainda não decidiu.
@@ -445,6 +466,8 @@ class PrescricaoCrimeOutput(BaseModel):
     """Prescrição da pretensão punitiva de UM crime (art. 119 do CP)."""
 
     crime_code: str
+    id_imputacao: str = ""
+    referencia_imputacao: str = ""
     crime_nome: str = ""
     artigo_formatado: str = ""
     data_fato: datetime.date | None = None
@@ -484,7 +507,20 @@ def calcular_dosimetria_crime(
     cfg = config or DosimetriaConfig()
     # Conduta atípica na data do fato (tipo criado por lei posterior): não há pena a calcular.
     verificar_tipo_existente_na_data(entrada.crime_code, entrada.data_fato)
-    spec = get_penal_type_for_date(entrada.crime_code, entrada.data_fato)
+    spec = get_penal_type_for_date(
+        entrada.crime_code, entrada.data_fato, ameaca_qualificada=entrada.ameaca_qualificada
+    )
+    majorante_24a = entrada.majorante_art24a_p4
+    if majorante_24a:
+        n, d = majorante_24a.fracao
+        if (not spec.admite_aumento_art24a_p4 or d <= 0 or 3 * n < d or 2 * n > d
+                or not majorante_24a.fonte_id.strip() or not majorante_24a.trecho.strip()
+                or entrada.fracao_aumento_terceira_fase is not None):
+            raise DadosInsuficientesError(
+                [f"crimes_config.{entrada.crime_code}.majorante_art24a_p4"],
+                "Informe a hipótese, a fonte e a fração (de 1/3 a 1/2) do art. 24-A, § 4º, "
+                "da Lei Maria da Penha, vigente desde 10/04/2026, sem cumular com fração genérica.",
+            )
 
     alertas: List[str] = [spec.observacao_intertemporal]
     memoria: List[str] = [
@@ -625,7 +661,15 @@ def calcular_dosimetria_crime(
     fracao_diminuicao_aplicada: Tuple[int, int] | None = None
     aumento_147a_aplicado = False
     aumento_141_aplicado = False
-    if entrada.fracao_aumento_terceira_fase:
+    if majorante_24a:
+        n, d = majorante_24a.fracao
+        pena_def_days += (pena_def_days * n) // d
+        fracao_aumento_aplicada = majorante_24a.fracao
+        alertas.append(
+            f"Art. 24-A, § 4º, da Lei Maria da Penha: aumento de {n}/{d} segundo a decisão do juízo "
+            f"e a fonte {majorante_24a.fonte_id}."
+        )
+    elif entrada.fracao_aumento_terceira_fase:
         n_aum, d_aum = entrada.fracao_aumento_terceira_fase
         pena_def_days = pena_def_days + ((pena_def_days * n_aum) // d_aum)
         fracao_aumento_aplicada = (n_aum, d_aum)
@@ -701,6 +745,11 @@ def calcular_dosimetria_crime(
         violencia_efetiva = bool(spec.has_violence_or_grave_threat)
 
     return CrimeDosimetriaOutput(
+        id_imputacao=entrada.id_imputacao,
+        referencia_imputacao=entrada.referencia_imputacao,
+        data_recebimento_individual=entrada.data_recebimento_individual,
+        recebimento_por_imputacao=entrada.recebimento_por_imputacao,
+        reduzir_prescricao_art115=entrada.reduzir_prescricao_art115,
         crime_spec=spec,
         vetores_negativos_efetivos=vetores_negativos,
         acrescimo_por_vetor_dias=passo_vetor,
@@ -723,6 +772,7 @@ def calcular_dosimetria_crime(
         fracao_diminuicao_aplicada=fracao_diminuicao_aplicada,
         aumento_art147a_aplicado=aumento_147a_aplicado,
         aumento_art141_p3_aplicado=aumento_141_aplicado,
+        majorante_art24a_p4=majorante_24a,
         dias_multa_sugeridos_pelo_motor=multa_sugerida,
         violencia_ou_grave_ameaca_efetiva=violencia_efetiva,
     )
@@ -1049,7 +1099,7 @@ def calcular_dosimetria_global(
         fund_sursis = (
             "Preenchidos os requisitos objetivos e subjetivos do art. 77 do Código Penal (pena não superior a 2 anos, réu não reincidente em crime doloso, "
             "circunstâncias judiciais do art. 77, II, favoráveis e incabível a substituição do art. 44 do CP), "
-            "concedo a suspensão condicional da execução da pena (Sursis Penal) pelo prazo de 2 (dois) anos (STJ, AgRg no HC 698.316/SC), "
+            "concedo a suspensão condicional da execução da pena (Sursis Penal) pelo prazo de 2 (dois) anos (arts. 77 a 82 do Código Penal), "
             "nos termos dos arts. 77 e 78 do Código Penal, art. 158 da Lei nº 7.210/1984 (LEP) e art. 45 da Lei nº 11.340/2006."
         )
         sursis_condicoes = [
@@ -1357,6 +1407,8 @@ def calcular_prescricao_por_crime(
     por_crime: List[PrescricaoCrimeOutput] = []
     for crime in dosimetria_global.crimes_calculados:
         spec = crime.crime_spec
+        recebimento = crime.data_recebimento_individual if crime.recebimento_por_imputacao else data_recebimento_denuncia
+        reducao = crime.reduzir_prescricao_art115
         item = _prescricao_um_crime(
             crime_code=spec.code,
             crime_nome=spec.nome,
@@ -1364,10 +1416,14 @@ def calcular_prescricao_por_crime(
             pena_concreta=crime.pena_definitiva,
             pena_maxima_abstrata=pena_maxima_abstrata_do_crime(crime),
             data_fato=crime.data_fato or data_fato,
-            data_recebimento_denuncia=data_recebimento_denuncia,
+            data_recebimento_denuncia=recebimento,
             data_sentenca=dt_sent,
-            reduzir_metade_art115=reduz,
+            reduzir_metade_art115=reduz if reducao is None else reducao,
         )
+        item.id_imputacao = crime.id_imputacao
+        item.referencia_imputacao = crime.referencia_imputacao
+        if crime.referencia_imputacao:
+            item.fundamentacao = f"{crime.referencia_imputacao}. {item.fundamentacao}"
         por_crime.append(item)
         alertas.extend(item.alertas)
 

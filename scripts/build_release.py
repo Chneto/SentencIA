@@ -415,8 +415,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for fluxo in (sys.stdout, sys.stderr):
         try:
             fluxo.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
-        except Exception:
-            pass
+        except (AttributeError, OSError, ValueError):
+            # Fluxos redirecionados ou substituídos em testes podem não suportar reconfigure().
+            continue
     parser = argparse.ArgumentParser(description="Gera o pacote de distribuição do SentencIA.")
     parser.add_argument("--dry-run", action="store_true", help="apenas lista o que entraria no zip")
     parser.add_argument("--saida", type=Path, default=PROJECT_DIR / "dist", help="pasta de saída (padrão: dist)")

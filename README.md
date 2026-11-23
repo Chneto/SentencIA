@@ -156,7 +156,7 @@ esquerdo que concentra temas, jurisprudência, pré-análise em lote, configura�
    art. 386 do CPP, desclassificar ou extinguir a punibilidade pelo art. 107 do CP) e ajuste as circunstâncias
    judiciais e demais parâmetros. O simulador mostra penas, regime por espécie, prescrição por crime e
    alertas.
-4. **Sentença & Gemini:** gere a minuta (motor determinístico, Ollama local ou Gemini opcional com
+4. **Sentença:** gere a minuta (motor determinístico, Ollama local ou Gemini opcional com
    pseudonimização), revise na folha com barra de formatação, painel de revisão, trechos do gabinete e
    histórico de versões, e confira o **laudo da auditoria** (forma, penas do dispositivo × dosimetria e
    marcadores pendentes).

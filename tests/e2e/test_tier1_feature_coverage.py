@@ -232,7 +232,6 @@ class TestF01_F05_IngestionAndSectionalState:
   def test_f04_prompt_bounding_estrito(self, load_fixture_case):
     """F04: Estrutura do prompt bounding com restrições e diretrizes negativas (5 casos)."""
     case = load_fixture_case("1")
-    dossie_rel = construir_dossie_secao(SecaoTipo.RELATORIO, case, custom_dosimetria_override=veredictos_condenatorios(case))
     dossie_mer = construir_dossie_secao(SecaoTipo.MERITO, case, custom_dosimetria_override=veredictos_condenatorios(case))
     dossie_dos = construir_dossie_secao(SecaoTipo.DOSIMETRIA, case, custom_dosimetria_override=veredictos_condenatorios(case))
 
@@ -280,6 +279,8 @@ class TestF01_F05_IngestionAndSectionalState:
 
     # 2. Execução sequencial da máquina de estados (5 seções estanques)
     sentenca = engine.executar_pipeline(case, custom_dosimetria_override=veredictos_condenatorios(case))
+    assert sentenca.texto_completo
+    assert sentenca.secao_relatorio == engine.estado.secoes_seladas[SecaoTipo.RELATORIO]
     ordem_esperada = [
         SecaoTipo.RELATORIO,
         SecaoTipo.PRELIMINARES,
@@ -925,9 +926,6 @@ class TestF13_F19_AuditorAndAutoCorrection:
     assert sent_fallback is not None
 
     # 2. Score de confiabilidade 100.0 garantido
-    pecas = classificar_pecas_autos(case["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
-    ids_midias = [t["media_id"] for t in case["transcriptions"]]
     aud = auditar_com_dosimetria(sent_fallback, case)
     assert_auditoria_honesta(aud, sent_fallback)
 
@@ -1310,6 +1308,8 @@ class TestF25_F28_IntegrationAndExport:
     mer_original = engine.estado.secoes_seladas[SecaoTipo.MERITO]
     dos_original = engine.estado.secoes_seladas[SecaoTipo.DOSIMETRIA]
     disp_original = engine.estado.secoes_seladas[SecaoTipo.DISPOSITIVO]
+    assert sent_original.texto_completo
+    assert sent_original.secao_merito == mer_original
 
     # 1. Regeneração atômica da seção de mérito com feedback cirúrgico
     rascunho_merito = engine.regenerar_secao_atomica(

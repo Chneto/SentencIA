@@ -177,9 +177,6 @@ html[data-design="cockpit"] .sentence-paper-wrapper {
 }
 
 html[data-design="cockpit"] .sentence-paper-body {
-  max-width: 76ch;
-  margin-inline: auto;
-  padding: 28px 36px 48px;
   line-height: 1.68;
 }
 
@@ -187,9 +184,6 @@ html[data-design="cockpit"] .sentence-paper-body {
 @media (max-width: 1439px) {
   html[data-design="cockpit"] {
     --sidebar-width: 252px;
-  }
-  html[data-design="cockpit"] .sentence-paper-body {
-    padding: 24px 28px 44px;
   }
 }
 

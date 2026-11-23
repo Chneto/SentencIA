@@ -211,6 +211,23 @@ ARQUIVOS_BINARIOS_PUBLICOS_PERMITIDOS: Set[str] = {
     "docs/instalacao.pdf",
 }
 
+RE_PASTA_RAIZ_PACOTE = re.compile(r"^SentencIA-v\d+\.\d+\.\d+$")
+
+
+def resolver_raiz_verificacao(pasta: Path) -> Tuple[Path, bool]:
+    """Se ``pasta`` contém apenas uma subpasta ``SentencIA-vX.Y.Z`` e nenhum arquivo,
+    retorna ``(subpasta, True)``; caso contrário, retorna ``(pasta, False)``."""
+    pasta = Path(pasta).resolve()
+    if not pasta.is_dir():
+        return pasta, False
+    try:
+        entradas = list(pasta.iterdir())
+    except OSError:
+        return pasta, False
+    if len(entradas) == 1 and entradas[0].is_dir() and RE_PASTA_RAIZ_PACOTE.fullmatch(entradas[0].name):
+        return entradas[0].resolve(), True
+    return pasta, False
+
 
 def normalizar_texto(texto: str) -> str:
     """Remove acentos, converte para minúsculas e colapsa espaços."""
@@ -241,6 +258,7 @@ class DicionarioSigilo:
     bigramas_nomes_reais: Set[str] = field(default_factory=set)
     tokens_nomes_reais: Set[str] = field(default_factory=set)
     segredos_reais: Set[str] = field(default_factory=set)
+    falhas_coleta: List[str] = field(default_factory=list)
     _regex_tokens: Optional[re.Pattern[str]] = field(default=None, init=False, repr=False)
 
     def __repr__(self) -> str:  # pragma: no cover - proteção contra impressão acidental
@@ -346,6 +364,21 @@ def _coletar_texto_forense_em_memoria(texto: str, dic: DicionarioSigilo) -> None
             dic.adicionar_nome(m.group(1))
 
 
+def _parece_nome_de_pessoa(valor: str) -> bool:
+    """Valor curto, sem dígitos, com palavras iniciadas em maiúscula (exceto partículas): forma de nome.
+
+    Campos do caso cujo nome contém "reu", "vitima" etc. também guardam textos descritivos (pontos decisivos,
+    pedidos, efeitos); esses textos não são nomes e encheriam o dicionário de palavras comuns.
+    """
+    limpo = re.sub(r"\s+", " ", valor or "").strip()
+    if not limpo or len(limpo) > 80 or re.search(r"\d", limpo):
+        return False
+    palavras = [p for p in re.split(r"[\s,]+", limpo) if p]
+    if not 1 <= len(palavras) <= 8:
+        return False
+    return all(normalizar_texto(p) in STOPWORDS_NOME or p[:1].isupper() for p in palavras)
+
+
 def _extrair_json_em_memoria(obj: object, dic: DicionarioSigilo) -> None:
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -359,11 +392,17 @@ def _extrair_json_em_memoria(obj: object, dic: DicionarioSigilo) -> None:
                 )
             ):
                 if isinstance(v, str):
-                    dic.adicionar_nome(v)
+                    if _parece_nome_de_pessoa(v):
+                        dic.adicionar_nome(v)
+                    else:
+                        _coletar_texto_forense_em_memoria(v, dic)
                 elif isinstance(v, list):
                     for item in v:
                         if isinstance(item, str):
-                            dic.adicionar_nome(item)
+                            if _parece_nome_de_pessoa(item):
+                                dic.adicionar_nome(item)
+                            else:
+                                _coletar_texto_forense_em_memoria(item, dic)
                         else:
                             _extrair_json_em_memoria(item, dic)
             elif "cpf" in kl and isinstance(v, str):
@@ -401,7 +440,8 @@ def descobrir_raizes_locais(raiz_alvo: Optional[Path] = None, extras: Sequence[P
         for linha in proc.stdout.splitlines():
             if linha.startswith("worktree "):
                 candidatas.append(Path(linha[len("worktree ") :].strip()).resolve())
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
+        # Em pacotes extraídos sem git ou sem o executável no PATH, seguem as demais raízes candidatas.
         pass
 
     vistas: Set[Path] = set()
@@ -415,6 +455,34 @@ def descobrir_raizes_locais(raiz_alvo: Optional[Path] = None, extras: Sequence[P
             vistas.add(r)
             resultado.append(r)
     return resultado
+
+
+def _registrar_falha_coleta(dic: DicionarioSigilo, categoria: str, exc: Exception) -> None:
+    """Registra falha de leitura de fonte local sem expor caminhos, nomes ou segredos."""
+    tipo_erro = type(exc).__name__
+    dic.falhas_coleta.append(f"{categoria}:{tipo_erro}")
+    print(
+        f"ERRO: falha ao ler fonte local de sigilo ({categoria}: {tipo_erro}).",
+        file=sys.stderr,
+    )
+
+
+def _extrair_json_bruto_tolerante(bruto: str, dic: DicionarioSigilo, categoria: str) -> None:
+    """Extrai campos do JSON já coletado como texto; JSON inválido vira só aviso.
+
+    O texto bruto já entrou no dicionário antes desta etapa, então um JSON corrompido não
+    deixa a verificação cega e não deve bloquear a publicação. Falhas de leitura continuam
+    sendo registradas por ``_registrar_falha_coleta`` (falha fechada).
+    """
+    try:
+        dados = json.loads(bruto)
+    except ValueError as exc:  # json.JSONDecodeError
+        print(
+            f"AVISO: JSON inválido em fonte local de sigilo; texto bruto já coletado ({categoria}: {type(exc).__name__}).",
+            file=sys.stderr,
+        )
+        return
+    _extrair_json_em_memoria(dados, dic)
 
 
 def carregar_dicionario_sigilo_local(
@@ -437,16 +505,17 @@ def carregar_dicionario_sigilo_local(
                 if suf == ".json":
                     try:
                         bruto = p.read_text(encoding="utf-8", errors="replace")
-                        _coletar_texto_forense_em_memoria(bruto, dic)
-                        _extrair_json_em_memoria(json.loads(bruto), dic)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "cases_json", exc)
+                        continue
+                    _coletar_texto_forense_em_memoria(bruto, dic)
+                    _extrair_json_bruto_tolerante(bruto, dic, "cases_json")
                 elif suf == ".txt":
                     try:
                         bruto = p.read_text(encoding="utf-8", errors="replace")
                         _coletar_texto_forense_em_memoria(bruto, dic)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "cases_txt", exc)
                 elif suf == ".zip":
                     try:
                         with zipfile.ZipFile(p) as zf:
@@ -455,9 +524,9 @@ def carregar_dicionario_sigilo_local(
                                 if nome_interno.lower().endswith(".json"):
                                     bruto = zf.read(nome_interno).decode("utf-8", errors="replace")
                                     _coletar_texto_forense_em_memoria(bruto, dic)
-                                    _extrair_json_em_memoria(json.loads(bruto), dic)
-                    except Exception:
-                        pass
+                                    _extrair_json_bruto_tolerante(bruto, dic, "cases_zip_json")
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "cases_zip", exc)
 
         # 2. Modelos de Sentenças (.docx, .txt, .json e nomes de arquivos)
         modelos_dir = raiz / "Modelos de Sentenças"
@@ -478,14 +547,14 @@ def carregar_dicionario_sigilo_local(
                                 for cell in row.cells:
                                     blocos.append(cell.text)
                         _coletar_texto_forense_em_memoria("\n".join(blocos), dic)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "modelos_docx", exc)
                 elif suf in (".txt", ".json"):
                     try:
                         bruto = p.read_text(encoding="utf-8", errors="replace")
                         _coletar_texto_forense_em_memoria(bruto, dic)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "modelos_texto", exc)
                 elif suf == ".pdf" and "manual" not in p.name.lower():
                     try:
                         import pymupdf
@@ -494,8 +563,8 @@ def carregar_dicionario_sigilo_local(
                         for pg in doc_pdf:
                             _coletar_texto_forense_em_memoria(pg.get_text("text"), dic)
                         doc_pdf.close()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        _registrar_falha_coleta(dic, "modelos_pdf", exc)
 
         # 3. Amostras do gabinete
         amostras_dir = raiz / "data" / "templates_gabinete" / "amostras"
@@ -503,8 +572,8 @@ def carregar_dicionario_sigilo_local(
             for p in amostras_dir.rglob("*.txt"):
                 try:
                     _coletar_texto_forense_em_memoria(p.read_text(encoding="utf-8", errors="replace"), dic)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _registrar_falha_coleta(dic, "amostras_txt", exc)
 
         # 4. Cofre de segredos local
         secrets_dir = raiz / "data" / "secrets"
@@ -516,8 +585,8 @@ def carregar_dicionario_sigilo_local(
                         for v in dados.values():
                             if isinstance(v, str):
                                 dic.adicionar_segredo(v)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _registrar_falha_coleta(dic, "secrets_json", exc)
 
     return dic
 
@@ -656,7 +725,7 @@ def verificar_arvore(
 
     Nunca inclui o texto encontrado em ``AchadoSigilo``.
     """
-    pasta = Path(pasta).resolve()
+    pasta, _ = resolver_raiz_verificacao(pasta)
     if dicionario is None:
         if apenas_padroes:
             dicionario = DicionarioSigilo()
@@ -669,6 +738,8 @@ def verificar_arvore(
             dicionario = carregar_dicionario_sigilo_local(raizes)
 
     achados: List[AchadoSigilo] = []
+    for _falha in dicionario.falhas_coleta:
+        achados.append(AchadoSigilo("<fontes_locais>", 0, "FALHA_LEITURA_FONTE_SIGILO"))
     arquivos_verificados = 0
 
     for caminho in sorted(pasta.rglob("*")):
@@ -744,10 +815,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"ERRO: pasta inexistente: {pasta_alvo}", file=sys.stderr)
         return 2
 
+    pasta_efetiva, usou_subpasta_pacote = resolver_raiz_verificacao(pasta_alvo)
+    if usou_subpasta_pacote:
+        print(f"Usando pasta-raiz do pacote: {pasta_efetiva.name}/")
+
     extras = [Path(p) for p in args.raiz_dados_locais]
-    raizes = None if args.apenas_padroes else descobrir_raizes_locais(pasta_alvo, extras)
+    raizes = None if args.apenas_padroes else descobrir_raizes_locais(pasta_efetiva, extras)
     achados, total_arqs, total_termos = verificar_arvore(
-        pasta_alvo,
+        pasta_efetiva,
         raizes_dados_locais=raizes,
         apenas_padroes=args.apenas_padroes,
     )

@@ -1349,7 +1349,7 @@ textarea {
 }
 
 /* ==========================================================================
-   ESTAÇÃO 4 — SENTENÇA & GEMINI (FOLHA DE ROLAGEM NATURAL COM O DOCUMENTO)
+   ESTAÇÃO 4 — SENTENÇA (FOLHA DE ROLAGEM NATURAL COM O DOCUMENTO)
    ========================================================================== */
 .sentence-toolbar {
   position: relative;
@@ -1430,7 +1430,8 @@ textarea {
   flex-shrink: 0;
 }
 
-/* Folha em escala real de página A4 (21 cm) com as margens da formatação (padrão ABNT NBR 14724).
+/* Folha ocupando toda a largura disponível (pedido do usuário, 2026-11-22), com as margens da formatação
+   (padrão ABNT NBR 14724, ajustáveis no botão "Margens"). O .docx/.pdf exportado continua em A4.
    O texto é forense: Times New Roman 12 pt, justificado, preto — a formatação de cada parágrafo
    (alinhamento, recuos, entrelinhas, negrito...) vem inline do servidor e é a mesma do .docx/.pdf. */
 .sentence-paper-body {
@@ -1441,9 +1442,9 @@ textarea {
   flex: 1;
   overflow-y: visible;
   box-sizing: border-box;
-  width: 21cm;
+  width: 100%;
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0;
   padding: var(--folha-mt) var(--folha-md) var(--folha-mb) var(--folha-me);
   font-family: "Times New Roman", Times, var(--font-serif), serif;
   font-size: 12pt;

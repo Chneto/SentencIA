@@ -36,19 +36,20 @@ Regras invioláveis de segurança:
 from __future__ import annotations
 
 import datetime
-import hashlib
 import json
 import logging
 import os
 import shutil
 import tempfile
 import threading
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.core import config as core_config
 from app.core.case_flags import is_demo_or_test_bundle
+from app.core.case_manifest import sha256_arquivo, validar_manifesto_caso
 from app.core.limpeza_demo import ULTIMO_CASO_FILENAME
 from app.export.nomeacao import eh_arquivo_exportacao
 
@@ -264,14 +265,6 @@ def _display_path(target: Path, base_dir: Path) -> str:
 # ----------------------------------------------------------------------------------------------
 # Arquivo morto (zip deduplicado por hash)
 # ----------------------------------------------------------------------------------------------
-def sha256_arquivo(caminho: Path, bloco: int = 1024 * 1024) -> str:
-    h = hashlib.sha256()
-    with open(caminho, "rb") as fh:
-        for parte in iter(lambda: fh.read(bloco), b""):
-            h.update(parte)
-    return h.hexdigest()
-
-
 def _archive_root(cases_dir: Path) -> Optional[Path]:
     root = cases_dir / ARCHIVE_DIR_NAME
     try:
@@ -549,25 +542,46 @@ def obter_versao(versao_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _caminho_ultimo_caso() -> Path:
-    return _resolve_cases_dir().parent / ULTIMO_CASO_FILENAME
+def _caminho_ultimo_caso(cases_dir: Optional[Path] = None) -> Path:
+    return (cases_dir or _resolve_cases_dir()).parent / ULTIMO_CASO_FILENAME
+
+
+def _manifestos_registrados(destino: Path) -> Dict[str, Any]:
+    try:
+        dados = json.loads(destino.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    manifestos = dados.get("manifestos") if isinstance(dados, dict) else None
+    return manifestos if isinstance(manifestos, dict) else {}
+
+
+def consultar_manifesto_caso(identidade: str, *, cases_dir: Path) -> Dict[str, Any]:
+    manifesto = _manifestos_registrados(_caminho_ultimo_caso(cases_dir)).get(identidade)
+    return manifesto if isinstance(manifesto, dict) else {}
 
 
 def salvar_ultimo_caso_real(
     bundle: Optional[Dict[str, Any]],
     upload_status: Optional[Dict[str, Any]] = None,
+    *,
+    cases_dir: Optional[Path] = None,
 ) -> bool:
-    """Persiste o último caso REAL em ``data/cases/.ultimo_caso_real.json`` (escrita atômica).
+    """Persiste o último caso real e os manifestos registrados em um arquivo atômico.
 
     Nunca persiste demonstração, simulação ou artefato de teste.
     """
     if not isinstance(bundle, dict) or is_demo_or_test_bundle(bundle):
         return False
-    destino = _caminho_ultimo_caso()
+    destino = _caminho_ultimo_caso(cases_dir)
     try:
         destino.parent.mkdir(parents=True, exist_ok=True)
+        manifestos = _manifestos_registrados(destino)
+        manifesto = bundle.get("manifesto_caso")
+        if isinstance(manifesto, dict):
+            manifestos[manifesto["id"]] = manifesto
         payload = {
             "versao": 1,
+            "manifestos": manifestos,
             "salvo_em": _now_iso(),
             "bundle": bundle,
             "upload_status": dict(upload_status) if isinstance(upload_status, dict) else dict(_UPLOAD_STATUS_VAZIO),
@@ -616,14 +630,16 @@ def restaurar_ultimo_caso_real() -> bool:
             dados = json.loads(destino.read_text(encoding="utf-8"))
             candidato = dados.get("bundle") if isinstance(dados, dict) else None
             if isinstance(candidato, dict) and not is_demo_or_test_bundle(candidato):
+                if "manifesto_caso" in candidato:
+                    validar_manifesto_caso(_resolve_cases_dir(), candidato["manifesto_caso"])
                 bundle_valido = candidato
                 st_up = dados.get("upload_status")
                 if isinstance(st_up, dict):
                     upload_status_valido = st_up
             else:
                 logger.info("Estado persistido ignorado na inicialização (demo/teste/inválido); abertura limpa.")
-        except (OSError, ValueError):
-            logger.warning("Arquivo de último caso ilegível na inicialização; abertura limpa.")
+        except (OSError, ValueError, RuntimeError):
+            logger.warning("Último caso ilegível ou manifesto inválido na inicialização; abertura limpa.")
 
     with STATE_LOCK:
         if bundle_valido is not None:
@@ -649,9 +665,19 @@ def set_active_bundle(
     explicit_demo: bool,
     upload_status: Optional[Dict[str, Any]] = None,
     limpar_producao: bool = True,
+    cases_dir: Optional[Path] = None,
 ) -> None:
-    """Troca o caso ativo (anti-poluição: por padrão descarta a produção do caso anterior)."""
+    """Valida e persiste o manifesto antes de publicar um caso preparado."""
+    persistir = bundle is not None and not explicit_demo and not is_demo_or_test_bundle(bundle)
+    preparado = persistir and "manifesto_caso" in bundle
+    if preparado:
+        validar_manifesto_caso(cases_dir or _resolve_cases_dir(), bundle["manifesto_caso"])
     with STATE_LOCK:
+        status_para_salvar = dict(
+            upload_status if upload_status is not None else ACTIVE_CASE_STATE.get("upload_status") or _UPLOAD_STATUS_VAZIO
+        )
+        if preparado and not salvar_ultimo_caso_real(bundle, status_para_salvar, cases_dir=cases_dir):
+            raise OSError("Não foi possível persistir o caso preparado.")
         if limpar_producao:
             clear_production_state()
         ACTIVE_CASE_STATE["bundle"] = bundle
@@ -661,8 +687,7 @@ def set_active_bundle(
         ACTIVE_CASE_STATE["gemini_script_mapa"] = None
         if upload_status is not None:
             ACTIVE_CASE_STATE["upload_status"] = upload_status
-        status_para_salvar = dict(ACTIVE_CASE_STATE.get("upload_status") or _UPLOAD_STATUS_VAZIO)
-    if bundle is not None and not explicit_demo and not is_demo_or_test_bundle(bundle):
+    if persistir and not preparado:
         salvar_ultimo_caso_real(bundle, status_para_salvar)
 
 
@@ -689,6 +714,7 @@ def register_generation(
             ACTIVE_CASE_STATE["bundle"] = bundle
             if explicit_demo is not None:
                 ACTIVE_CASE_STATE["explicit_demo"] = bool(explicit_demo)
+        sentenca.revisao_documento = uuid.uuid4().hex
         ACTIVE_CASE_STATE["last_sentence"] = sentenca
         ACTIVE_CASE_STATE["last_audit"] = auditoria
         ACTIVE_CASE_STATE["last_dosimetria"] = getattr(sentenca, "dosimetria_dados", None)
@@ -705,6 +731,7 @@ def register_generation(
 def update_regenerated_section(sentenca: Any, auditoria: Any, pipeline_engine: Any, pipeline_snapshot: Any) -> int:
     """Registra a regeneração atômica de seção (mesmo ``generation_id``: é a mesma minuta)."""
     with STATE_LOCK:
+        sentenca.revisao_documento = uuid.uuid4().hex
         ACTIVE_CASE_STATE["last_sentence"] = sentenca
         ACTIVE_CASE_STATE["last_audit"] = auditoria
         ACTIVE_CASE_STATE["last_dosimetria"] = getattr(sentenca, "dosimetria_dados", None)

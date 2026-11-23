@@ -180,7 +180,8 @@ class UserSettings(BaseModel):
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "auto"
     ollama_num_ctx: int = 8192
-    whisper_model: str = "small"
+    whisper_model: str = "auto"
+    whisper_preprocessar: bool = True
     whisper_device: Literal["auto", "cuda", "cpu"] = "auto"
     laya_enabled: bool = True
     criterio_primeira_fase: Literal["um_oitavo_intervalo", "um_sexto_minima"] = "um_oitavo_intervalo"

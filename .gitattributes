@@ -6,3 +6,16 @@ SentencIA.app/Contents/MacOS/* text eol=lf
 *.ps1 text eol=crlf
 *.vbs text eol=crlf
 *.icns binary
+# Binários: nunca converter fim de linha (com core.autocrlf=true o git poderia corromper PDF e fontes).
+*.pdf binary
+*.docx binary
+*.pptx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary

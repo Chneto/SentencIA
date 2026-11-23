@@ -160,3 +160,37 @@ def test_copia_pje_clipboard_item_fallback_id_ponto_e_pendencias(_live_server: _
             context.close()
         finally:
             browser.close()
+
+def test_duas_abas_copia_pje_rejeita_revisao_anterior(_live_server: _LocalAppServer):
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch_chromium(pw)
+        try:
+            context = browser.new_context(viewport={"width": 1366, "height": 768})
+            primeira = context.new_page()
+            primeira.goto(_live_server.base_url, wait_until="networkidle")
+            _gerar_sentenca_demo(primeira)
+            segunda = context.new_page()
+            segunda.goto(_live_server.base_url, wait_until="networkidle")
+            revisao_antiga = segunda.evaluate("""async () => {
+                const {apiJson} = await import('/static/js/modulos/api.js?v=2.1.0');
+                return (await apiJson('/api/sentence/last')).sentenca.revisao_documento;
+            }""")
+            salta = primeira.evaluate("""async () => {
+                const {sincronizarFolha} = await import('/static/js/modulos/folha-editor.js?v=2.1.0');
+                const paragrafo = document.querySelector('#sentenceRenderBody p');
+                paragrafo.style.textAlign = 'right';
+                return await sincronizarFolha();
+            }""")
+            assert salta
+            resultados = segunda.evaluate("""async (anterior) => {
+                const {apiFetch, apiJson} = await import('/static/js/modulos/api.js?v=2.1.0');
+                const atual = (await apiJson('/api/sentence/last')).sentenca.revisao_documento;
+                const antiga = await apiFetch('/api/export/pje?revisao_esperada=' + anterior);
+                const nova = await apiFetch('/api/export/pje?revisao_esperada=' + atual);
+                return [atual !== anterior, antiga.status, nova.status];
+            }""", revisao_antiga)
+            assert resultados == [True, 409, 200]
+        finally:
+            browser.close()

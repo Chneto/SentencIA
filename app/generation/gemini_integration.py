@@ -21,7 +21,6 @@ v2.0.0 — privacidade e honestidade:
   (``mapa_reversao`` + ``mapa_hash``); se não for, é reconstruído de forma determinística.
 """
 
-import datetime
 import hashlib
 import logging
 import os
@@ -32,6 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.core.config import load_settings
 from app.core.errors import EnvioExternoNaoAutorizadoError
 from app.generation.case_script_engine import (
+    ResultadoMotores,
     ScriptCasoEstruturado,
     calcular_hash_mapa,
     construir_mapa_do_contexto,
@@ -86,17 +86,12 @@ def verificar_autorizacao_envio_externo(consentimento_envio_externo: bool, setti
     qualquer envio de dado do processo para serviço externo. Levanta
     ``EnvioExternoNaoAutorizadoError`` caso contrário.
     """
-    settings = settings or load_settings()
-    if not bool(getattr(settings, "permitir_envio_externo", False)):
-        raise EnvioExternoNaoAutorizadoError(
-            "Envio externo desabilitado: habilite 'Permitir envio externo' nas configurações antes de usar "
-            "o Gemini (os autos tramitam em segredo de justiça)."
-        )
-    if consentimento_envio_externo is not True:
-        raise EnvioExternoNaoAutorizadoError(
-            "Consentimento explícito ausente: confirme, nesta requisição, que autoriza o envio do Script "
-            "(pseudonimizado) do processo ao serviço externo Google Gemini."
-        )
+    from app.core.envio_externo import motivo_bloqueio_envio_externo
+
+    motivo = motivo_bloqueio_envio_externo(settings or load_settings(), consentimento_envio_externo)
+    if motivo:
+        raise EnvioExternoNaoAutorizadoError(f"Operação bloqueada: {motivo}. Confirme o envio do script ao Google Gemini.")
+
 
 
 def resolver_chave_gemini(api_key: str = "") -> str:
@@ -724,6 +719,7 @@ def importar_e_auditar_sentenca_externa(
     *,
     mapa_reversao: Optional[Dict[str, str]] = None,
     mapa_hash: Optional[str] = None,
+    resultado_motores: ResultadoMotores | None = None,
 ) -> Tuple[SentencaGerada, RelatorioAuditoriaSentenca, Dict[str, Any]]:
     """
     Recebe uma sentença gerada externamente (ex.: colada do Gemini Web/Pro a partir do Script Py),
@@ -739,7 +735,7 @@ def importar_e_auditar_sentenca_externa(
     settings = load_settings()
     # exigir_veredicto=None: em caso REAL o veredicto de cada crime e obrigatorio (422
     # decisao_judicial_pendente); so o demo simula, com a presuncao sinalizada.
-    motores = executar_motores_completo(case_bundle, custom_dosimetria_override, exigir_veredicto=None)
+    motores = resultado_motores or executar_motores_completo(case_bundle, custom_dosimetria_override)
     ctx = motores.ctx
     pecas = motores.pecas
     meta = motores.meta
@@ -783,22 +779,36 @@ def importar_e_auditar_sentenca_externa(
 
     secoes_substituidas: List[str] = []
     auditoria_final = auditoria_inicial
-    if auto_blindar_auditoria and not auditoria_inicial.aprovada_sem_alucinacao:
-        # Blindagem cirúrgica SOLICITADA: o modelo determinístico é gerado uma única vez e só as
-        # seções ausentes/reprovadas são substituídas — e cada substituição é registrada.
-        fallback_sent = gerar_sentenca_estruturada(
-            case_bundle,
-            custom_dosimetria_override=custom_dosimetria_override,
-            use_ollama_if_available=False,
+    fallback: Dict[str, str] = {}
+
+    def _substituir(nome: str) -> None:
+        if not fallback:
+            sentenca_local = gerar_sentenca_estruturada(
+                case_bundle,
+                custom_dosimetria_override=custom_dosimetria_override,
+                use_ollama_if_available=False,
+                plano=motores.plano,
+            )
+            fallback.update({n: getattr(sentenca_local, f"secao_{n}") for n in SECOES_ORDEM})
+        if secoes[nome] != fallback[nome]:
+            secoes[nome] = fallback[nome]
+            if nome not in secoes_substituidas:
+                secoes_substituidas.append(nome)
+
+    if not ctx.is_demo:
+        _substituir("merito")
+        _substituir("dispositivo")
+        texto_montado = _montar_texto(secoes)
+        auditoria_final = auditar_sentenca(
+            texto_sentenca=texto_montado,
+            pecas_autos=pecas,
+            teses_defesa=meta.teses_defesa,
+            ids_midias=ids_midias,
+            dosimetria_dados=dosimetria_auditoria,
+            secoes_fallback=secoes_substituidas,
         )
-        fallback = {n: getattr(fallback_sent, f"secao_{n}") for n in SECOES_ORDEM}
 
-        def _substituir(nome: str) -> None:
-            if secoes[nome] != fallback[nome]:
-                secoes[nome] = fallback[nome]
-                if nome not in secoes_substituidas:
-                    secoes_substituidas.append(nome)
-
+    if auto_blindar_auditoria and not auditoria_final.aprovada_sem_alucinacao:
         if not secoes["cabecalho"].strip():
             _substituir("cabecalho")
         for nome_sec in SECOES_ORDEM[1:]:
@@ -808,11 +818,11 @@ def importar_e_auditar_sentenca_externa(
             r_sec = auditar_secao(nome_sec, secoes[nome_sec], pecas, meta.teses_defesa, ids_midias=ids_midias)
             if not r_sec.aprovado:
                 _substituir(nome_sec)
-        if not auditoria_inicial.conformidade_oito_circunstancias_art59:
+        if not auditoria_final.conformidade_oito_circunstancias_art59:
             _substituir("dosimetria")
-        if not auditoria_inicial.conformidade_art21_lmp:
+        if not auditoria_final.conformidade_art21_lmp:
             _substituir("dispositivo")
-        if auditoria_inicial.penas_divergentes:
+        if auditoria_final.penas_divergentes:
             _substituir("dispositivo")
 
         texto_montado = _montar_texto(secoes)
@@ -853,7 +863,7 @@ def importar_e_auditar_sentenca_externa(
     rotulo = origem_label
     if secoes_substituidas:
         rotulo = (
-            f"{origem_label} — seções substituídas pelo modelo determinístico a pedido: "
+            f"{origem_label} — seções substituídas pelo modelo determinístico: "
             f"{', '.join(secoes_substituidas)}"
         )
 
@@ -862,7 +872,7 @@ def importar_e_auditar_sentenca_externa(
         comarca_juizado=f"{settings.juizado_nome} — {settings.comarca_nome}",
         ofendida=meta.nome_ofendida or "",
         reu=meta.nome_reu or "",
-        data_prolatacao=formatar_data_br(datetime.date.today()),
+        data_prolatacao=formatar_data_br(motores.plano.data_sentenca),
         secao_cabecalho=secoes["cabecalho"],
         secao_relatorio=secoes["relatorio"],
         secao_preliminares=secoes["preliminares"],
@@ -874,6 +884,8 @@ def importar_e_auditar_sentenca_externa(
         prescricao_dados=prescricao.model_dump(mode="json"),
         motor_utilizado=rotulo,
         simulacao_presume_condenacao=bool(motores.presume_condenacao),
+        decisoes_crimes=motores.decisoes_crimes,
+        marcadores_pendentes=list(auditoria_final.marcadores_pendentes),
     )
 
     telemetria = {
@@ -931,11 +943,13 @@ def gerar_sentenca_via_gemini_api(
         # A autorização é verificada ANTES de qualquer processamento destinado ao envio.
         verificar_autorizacao_envio_externo(consentimento_envio_externo, settings)
 
+    motores = executar_motores_completo(case_bundle, custom_dosimetria_override)
     script_obj = gerar_script_estruturado_caso(
         case_bundle=case_bundle,
         custom_dosimetria_override=custom_dosimetria_override,
         pseudonimizar=pseudonimizar,
         densidade=densidade,
+        resultado_motores=motores,
     )
 
     if resolved_key:
@@ -951,6 +965,7 @@ def gerar_sentenca_via_gemini_api(
             origem_label=f"Gemini API ({modelo_real}) sobre o Script dos 5 Motores Python",
             mapa_reversao=script_obj.mapa_reversao or None,
             mapa_hash=script_obj.mapa_hash or None,
+            resultado_motores=motores,
         )
         telemetria["modo_gemini"] = "API_DIRETA_GOOGLE_GENAI"
         telemetria["gemini_utilizado"] = True
@@ -968,11 +983,11 @@ def gerar_sentenca_via_gemini_api(
         return sentenca, auditoria, script_obj, telemetria
 
     # Sem chave: síntese local determinística, executada UMA vez, auditada diretamente.
-    motores = executar_motores_completo(case_bundle, custom_dosimetria_override, exigir_veredicto=False)
     sentenca = gerar_sentenca_estruturada(
         case_bundle=case_bundle,
         custom_dosimetria_override=custom_dosimetria_override,
         use_ollama_if_available=False,
+        plano=motores.plano,
     )
     auditoria = auditar_sentenca(
         texto_sentenca=sentenca.texto_completo,

@@ -272,17 +272,18 @@ def test_pseudonimizacao_cobre_cnj_prenomes_e_nomes_de_arquivo():
     texto = (
         "Processo 0804590-12.2025.8.00.0001, apenso 0801122-44.2025.8.00.0001. "
         "Marina relatou que Carlos a agrediu. Arquivo: Depoimento da Vítima Marina_001.mp4. "
-        "Precedente público: TJRN - Apelação Criminal nº 0801498-50.2023.8.20.5114. "
+        "Outro feito citado: 0807111-11.2025.8.20.0001. "
+        "Precedente público: REsp 1.675.874/MS e ADPF 779/STF. "
         "Aplica-se a Lei Maria da Penha."
     )
     mapa = construir_mapa_pseudonimizacao(meta, texto)
     pseudo = pseudonimizar_texto(texto, mapa)
-    for real in ("0804590-12.2025.8.00.0001", "0801122-44.2025.8.00.0001", "Marina", "Carlos"):
+    for real in ("0804590-12.2025.8.00.0001", "0801122-44.2025.8.00.0001", "0807111-11.2025.8.20.0001", "Marina", "Carlos"):
         assert real not in pseudo, real
-    assert "[PROCESSO]" in pseudo and "[PROCESSO_APENSO]" in pseudo
+    assert "[PROCESSO]" in pseudo and "[PROCESSO_APENSO]" in pseudo and "[PROCESSO_01]" in pseudo
     assert "[PRENOME_OFENDIDA]_001.mp4" in pseudo
     # Precedente público e a Lei Maria da Penha são preservados.
-    assert "0801498-50.2023.8.20.5114" in pseudo
+    assert "REsp 1.675.874/MS" in pseudo and "ADPF 779/STF" in pseudo
     assert "Lei Maria da Penha" in pseudo
     assert despseudonimizar_texto(pseudo, mapa) == texto
 
@@ -351,7 +352,7 @@ def test_script_de_caso_real_exige_veredicto_explicito():
     assert exc.value.crimes_pendentes
 
     crimes = obter_contexto(bundle).meta.crimes_imputados
-    override = {"crimes_config": [{"codigo": c, "veredicto": "condenar"} for c in crimes]}
+    override = {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
     script = gerar_script_estruturado_caso(bundle, custom_dosimetria_override=override, pseudonimizar=True)
     assert script.alertas == []
     assert script.script_json["simulacao_presume_condenacao"] is False
@@ -367,9 +368,13 @@ def test_simulacao_sinaliza_presuncao_de_condenacao():
 def test_data_do_fato_ausente_levanta_dados_insuficientes(monkeypatch):
     demo = get_demo_case_bundle()
     ctx = obter_contexto(demo)
-    meta_sem_data = ctx.meta.model_copy(update={"data_fato": None})
+    from app.generation import sentence_generator
+
+    imputacoes_sem_data = [i.model_copy(update={"data_fato": ""}) for i in ctx.meta.imputacoes]
+    meta_sem_data = ctx.meta.model_copy(update={"data_fato": "", "imputacoes": imputacoes_sem_data})
     ctx_sem_data = dataclasses.replace(ctx, meta=meta_sem_data)
-    monkeypatch.setattr(cse, "obter_contexto", lambda bundle: ctx_sem_data)
+    monkeypatch.setattr(sentence_generator, "obter_contexto", lambda bundle: ctx_sem_data)
+    sem_data = {k: v for k, v in demo.items() if k != "data_fato"}
     with pytest.raises(DadosInsuficientesError) as exc:
-        cse.executar_motores_completo(demo)
+        cse.executar_motores_completo(sem_data)
     assert exc.value.campos == ["data_fato"]

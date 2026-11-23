@@ -76,12 +76,18 @@ v2.0.0 (auditoria honesta):
 
 import re
 import threading
+from collections import Counter
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
 
-from app.core.text_utils import remover_acentos
+from app.core.text_utils import normalizar, remover_acentos
+from app.generation.adversarial_critic import repudio_explicito_honra, tese_vedada_honra, violacao_vedacao_honra
+from app.generation.date_formatter import numero_por_extenso
+from app.generation.dispositivo import ComandosDispositivo, construir_comandos_dispositivo
+from app.legal_engine.dosimetria_calculator import formatar_especie_pena
 from app.ingestion.laya_classifier import PecaClassificada, TeseDefensivaItem
 from app.knowledge.knowledge_base import get_all_knowledge_base, versao_acervo
 
@@ -335,7 +341,7 @@ def _so_digitos(texto: str) -> str:
     return re.sub(r"\D", "", texto or "")
 
 
-#: Números processuais/de acórdão dentro de uma referência (ex.: "0801498-50.2023.8.20.5114").
+#: Números processuais/de acórdão dentro de uma referência (ex.: "0807111-11.2025.8.20.0001").
 _PADRAO_NUMERO_REFERENCIA = re.compile(r"\d[\d\.\-/]{4,}\d")
 
 _INDICE_CACHE: Dict[str, Any] = {"versao": None, "indice": None}
@@ -650,7 +656,7 @@ _PADRAO_PENA_COM_ESPECIE = re.compile(
     flags=re.IGNORECASE,
 )
 _PADRAO_COMPONENTE = re.compile(r"(\d+)\s*(?:\([^)]*\)\s*)?(anos?|m[eê]s(?:es)?|dias?)", flags=re.IGNORECASE)
-_PADRAO_DIAS_MULTA = re.compile(r"(\d+)\s*(?:\([^)]*\)\s*)?dias?-multa", flags=re.IGNORECASE)
+_PADRAO_DIAS_MULTA = re.compile(r"(\d+)\s*(?:\([^)]*\)\s*)?dias?\s*[-– ]\s*multa\b", flags=re.IGNORECASE)
 
 
 def _dias_de_trecho_pena(trecho: str) -> int:
@@ -679,33 +685,6 @@ def _normalizar_especie(especie: str) -> str:
     return e
 
 
-def _dias_de_pena_dict(pena: Any) -> Optional[int]:
-    if isinstance(pena, dict):
-        try:
-            return int(pena.get("anos", 0) or 0) * 360 + int(pena.get("meses", 0) or 0) * 30 + int(pena.get("dias", 0) or 0)
-        except (TypeError, ValueError):
-            return None
-    if hasattr(pena, "to_total_days"):
-        try:
-            return int(pena.to_total_days())
-        except Exception:
-            return None
-    return None
-
-
-def _formatar_dias(total: int) -> str:
-    anos, resto = divmod(int(total), 360)
-    meses, dias = divmod(resto, 30)
-    partes = []
-    if anos:
-        partes.append(f"{anos} ano(s)")
-    if meses:
-        partes.append(f"{meses} mês(es)")
-    if dias or not partes:
-        partes.append(f"{dias} dia(s)")
-    return ", ".join(partes)
-
-
 def dosimetria_para_auditoria(dosimetria_dados: Any, is_demo: bool) -> Any:
     """No caso DEMO (ficticio), a presuncao de condenacao e inerente a simulacao e nao reprova as penas;
     em caso real a bandeira ``simulacao_presume_condenacao`` mantem as penas como PENDENTE."""
@@ -720,124 +699,310 @@ def _dosimetria_presume_condenacao(dosimetria_dados: Dict[str, Any]) -> bool:
     return bool(dosimetria_dados.get("simulacao_presume_condenacao"))
 
 
+_PALAVRAS_ESPECIE = r"reclus[ãa]o|deten[çc][ãa]o|pris[ãa]o\s+simples"
+_CARDINAL_EXTENSO = (
+    r"(?:um|dois|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|[cq]u?atorze|"
+    r"quinze|dezesseis|dezessete|dezoito|dezenove|vinte|trinta|quarenta|cinquenta|sessenta|"
+    r"setenta|oitenta|noventa|cem|cento|duzentos|trezentos|quatrocentos|quinhentos|"
+    r"seiscentos|setecentos|oitocentos|novecentos|mil)"
+)
+_PADRAO_QUANTUM_SEM_ALGARISMOS = re.compile(
+    rf"\b({_CARDINAL_EXTENSO}(?:\s+(?:e\s+)?{_CARDINAL_EXTENSO})*\s+"
+    rf"(?:dias?\s*[-– ]\s*multa|{_UNIDADE_PENA}\s+de\s+(?:{_PALAVRAS_ESPECIE})))\b",
+    re.IGNORECASE,
+)
+_PADRAO_MULTA_SEM_QUANTUM = re.compile(
+    r"\b(?:(?:fixo|aplico|imponho)\s+(?:a\s+)?(?:pena\s+de\s+)?multa|"
+    r"conden(?:o|ar)\b[^.;\n]*?\bao pagamento de (?:uma\s+)?multa|"
+    r"al[ée]m (?:do pagamento )?de multa)\b",
+    re.IGNORECASE,
+)
+_PADRAO_ALGARISMOS_E_EXTENSO = re.compile(r"(\d+)\s*\(([^()]+)\)")
+_PADRAO_REGIME_DISPOSITIVO = re.compile(
+    rf"\bregime\s+(?:inicial\s+)?(fechado|semi[- ]?aberto|aberto)\b"
+    rf"(?:\s+(?:quanto [àa] pena de|para a pena de)\s+({_PALAVRAS_ESPECIE}))?",
+    re.IGNORECASE,
+)
+_PADRAO_SOMA_PENAS = re.compile(
+    rf"\b(?:a\s+soma\s+das\s+penas(?:\s+privativas\s+de\s+liberdade)?\s+(?:é|e)\s+de|"
+    rf"pena\s+total\s+unificada\s+(?:de|em))\s+"
+    rf"({_COMPONENTE_PENA}(?:(?:\s*,\s*|\s+e\s+){_COMPONENTE_PENA})*)",
+    re.IGNORECASE,
+)
+_PADRAO_REPARACAO = re.compile(r"\b(?:repara[çc][ãa]o|indeniza[çc][ãa]o|indenizat[óo]rio|danos?\s+morais?)\b", re.IGNORECASE)
+_PADRAO_VALOR = re.compile(r"R\$\s*([0-9]+(?:\.[0-9]{3})*(?:,[0-9]{2})?)")
+_PADRAO_VEREDICTO = re.compile(
+    r"\b(condenar|condeno|absolver|absolvo|(?:extinguir|extingo)\s+a\s+punibilidade|"
+    r"(?:declaro|declarar)\s+extinta\s+a\s+punibilidade|desclassificar|desclassifico)\b",
+    re.IGNORECASE,
+)
+_PADRAO_ARTIGO_DISPOSITIVO = re.compile(
+    r"\bart\.?\s*(\d+(?:\s*[-–]\s*[a-z])?)"
+    r"(?:\s*,?\s*caput(?:\s+e)?)?"
+    r"(?:\s*,?\s*(?:§{1,2}\s*(\d+)(?:[º°])?(?!\d)|par[áa]grafo\s+[úu]nico\b))?"
+    r"(?:\s*,?\s*inciso\s+([ivxlc]+)\b)?",
+    re.IGNORECASE,
+)
+_PADRAO_DIPLOMA_PENAL = re.compile(
+    r"\b(?:c[óo]digo\s+penal|CP|(?:lei\s+(?:n[º°.]?\s*)?)?11\.340/2006|Lei\s+Maria\s+da\s+Penha|"
+    r"(?:decreto[- ]lei\s+(?:n[º°.]?\s*)?)?3\.688/1941|LCP|Lei\s+das\s+Contraven[çc][õo]es\s+Penais)\b",
+    re.IGNORECASE,
+)
+_PADRAO_FUNDAMENTO = re.compile(r"\bart\.?\s*(\d+)\s*,?\s*(?:inciso\s+)?(VII|VI|IV|V|III|II|I)\b", re.IGNORECASE)
+_ARTIGOS_ACESSORIOS = {"5", "7", "15", "19", "33", "44", "49", "59", "61", "68", "69", "70", "71", "77", "107",
+                       "201", "312", "313", "381", "383", "386", "387", "406", "804"}
+
+
+def _referencia_imputacao(citacao: re.Match) -> tuple[str, str, str, str]:
+    numero = re.sub(r"\s+", "", citacao[1]).lower().replace("–", "-")
+    paragrafo = citacao[2] or ("unico" if re.search(r"par[áa]grafo", citacao[0], re.IGNORECASE) else "")
+    trecho = re.split(r"[();]|\bart\.?\s*\d|c/c", citacao.string[citacao.end():], maxsplit=1, flags=re.IGNORECASE)[0]
+    diploma = _PADRAO_DIPLOMA_PENAL.search(trecho)
+    origem = ""
+    if diploma:
+        norma = remover_acentos(diploma[0]).lower()
+        if "11.340" in norma or "maria da penha" in norma:
+            origem = "LMP"
+        elif "3.688" in norma or "contravencoes" in norma or norma == "lcp":
+            origem = "LCP"
+        else:
+            origem = "CP"
+    return numero, paragrafo, (citacao[3] or "").upper(), origem
+
+
+def _fundamento_correto(veredicto: str, fundamento: str, clausula: str) -> bool:
+    if veredicto == "desclassificar":
+        return bool(re.search(r"\bart\.?\s*383\b", clausula, re.IGNORECASE))
+    esperado = _PADRAO_FUNDAMENTO.search(fundamento)
+    if esperado:
+        citados = {(artigo, inciso.upper()) for artigo, inciso in _PADRAO_FUNDAMENTO.findall(clausula)}
+        return (esperado[1], esperado[2].upper()) in citados
+    return bool(_PADRAO_MARCADOR_COMPLETAR.search(clausula))
+
+
+def _divergencias_imputacoes(dispositivo: str, comandos: ComandosDispositivo) -> list[str]:
+    previstos: dict[tuple[str, tuple[str, str, str, str]], list[tuple[str, str, str]]] = {}
+    contagem_tipos = Counter(item.codigo for item in comandos.imputacoes)
+    for item in comandos.imputacoes:
+        referencia_fato = item.referencia_imputacao if contagem_tipos[item.codigo] > 1 else ""
+        artigo = _PADRAO_ARTIGO_DISPOSITIVO.search(item.artigo)
+        if artigo:
+            verbo = "condenar" if item.veredicto == "desclassificar" else item.veredicto
+            fundamento = item.fundamento if item.veredicto in ("absolver", "extinguir") else ""
+            previstos.setdefault((verbo, _referencia_imputacao(artigo)), []).append((item.artigo, fundamento, referencia_fato))
+        original = _PADRAO_ARTIGO_DISPOSITIVO.search(item.artigo_original)
+        if item.veredicto == "desclassificar" and original:
+            previstos.setdefault(("desclassificar", _referencia_imputacao(original)), []).append(
+                (item.artigo_original, item.fundamento, referencia_fato)
+            )
+
+    if not previstos and not comandos.sem_condenacao:
+        return []
+
+    divergencias: list[str] = []
+    encontrados: dict[tuple, set[int]] = {}
+    citacoes_previstas = {chave[1][0] for chave in previstos}
+    partes = _PADRAO_VEREDICTO.split(dispositivo)
+    for verbo_texto, trecho in zip(partes[1::2], partes[2::2]):
+        verbo = verbo_texto.lower()
+        if verbo.startswith("conden"):
+            verbo = "condenar"
+        elif verbo.startswith("absol"):
+            verbo = "absolver"
+        elif verbo.startswith("desclassific"):
+            verbo = "desclassificar"
+        else:
+            verbo = "extinguir"
+
+        clausula = re.split(r";|\n\s*\n|(?<=[.!?])\s+(?=[A-ZÀ-Ú])", trecho.strip(), maxsplit=1)[0]
+        if verbo == "condenar" and re.search(r"\bao pagamento\b", clausula, re.IGNORECASE):
+            continue  # Custas e reparação são comandos distintos do veredicto penal.
+        if comandos.sem_condenacao and verbo == "condenar":
+            divergencias.append("O dispositivo contém um comando condenatório penal sem condenação calculada.")
+            continue
+
+        artigos = [
+            (m.group(0), referencia) for m in _PADRAO_ARTIGO_DISPOSITIVO.finditer(clausula)
+            if (referencia := _referencia_imputacao(m))[0] in citacoes_previstas or referencia[0] not in _ARTIGOS_ACESSORIOS
+        ]
+        if not artigos and previstos:
+            divergencias.append(f"Comando {verbo} sem indicação da imputação no dispositivo.")
+        for rotulo, referencia in artigos:
+            chave = verbo, referencia
+            obrigacoes = previstos.get(chave, [])
+            conferidos = encontrados.setdefault(chave, set())
+            normalizada = normalizar(clausula)
+            posicao = next((
+                indice for indice, (_, _, fato) in enumerate(obrigacoes)
+                if indice not in conferidos and (not fato or normalizar(fato) in normalizada)
+            ), None)
+            if posicao is None:
+                divergencias.append(f"Comando {verbo} para {rotulo} excedente ou incompatível com a imputação registrada.")
+                continue
+            conferidos.add(posicao)
+            rotulo, fundamento, _ = obrigacoes[posicao]
+            if fundamento and not _fundamento_correto(verbo, fundamento, clausula):
+                divergencias.append(f"Fundamento do comando {verbo} para {rotulo} ausente ou divergente: esperado {fundamento}.")
+
+    for chave, obrigacoes in previstos.items():
+        for indice, (rotulo, _, fato) in enumerate(obrigacoes):
+            if indice not in encontrados.get(chave, ()):
+                referencia = f" ({fato})" if fato else ""
+                divergencias.append(f"O comando {chave[0]} para {rotulo}{referencia} não consta do dispositivo.")
+    return divergencias
+
+
+def _divergencias_regime(dispositivo: str, comandos: ComandosDispositivo) -> list[str]:
+    regimes = _PADRAO_REGIME_DISPOSITIVO.findall(dispositivo)
+    if comandos.sem_condenacao:
+        return [f"Regime {regime} indicado sem condenação calculada." for regime, _ in regimes]
+    previstos = comandos.regime_por_especie
+    if not previstos:
+        return []
+    conferidos: Counter = Counter()
+    divergencias: list[str] = []
+    for regime, rotulo in regimes:
+        regime = re.sub(r"[-\s]", "", regime.lower())
+        especies = [_normalizar_especie(rotulo)] if rotulo else list(previstos)
+        for especie in especies:
+            esperado = previstos.get(especie)
+            if regime != esperado:
+                divergencias.append(f"Regime {regime} divergente para {formatar_especie_pena(especie)}: esperado {esperado or 'nenhum'}.")
+            else:
+                conferidos[especie] += 1
+                if conferidos[especie] > 1:
+                    divergencias.append(f"Regime inicial duplicado para {formatar_especie_pena(especie)}.")
+    for especie, regime in previstos.items():
+        if not conferidos[especie]:
+            divergencias.append(f"O regime inicial {regime} para {formatar_especie_pena(especie)} não consta do dispositivo.")
+    return divergencias
+
+
+def _divergencias_reparacao(dispositivo: str, comandos: ComandosDispositivo) -> list[str]:
+    if comandos.reparacao is None:
+        return []
+    paragrafos = re.split(r"\n\s*\n|[;]", dispositivo)
+    citados = [
+        Decimal(valor.replace(".", "").replace(",", "."))
+        for paragrafo in paragrafos if _PADRAO_REPARACAO.search(paragrafo)
+        for valor in _PADRAO_VALOR.findall(paragrafo)
+    ]
+    if comandos.reparacao_pendente and not re.search(
+        r"\[\s*COMPLETAR\s+PELO\s+JU[ÍI]ZO:\s*valor\s+da\s+repara[çc][ãa]o\s+m[íi]nima\s*\]",
+        dispositivo, flags=re.IGNORECASE,
+    ):
+        return ["A reparação mínima aguarda arbitramento e a pendência não consta do dispositivo."] + [
+            f"Valor de reparação {valor} indicado sem arbitramento." for valor in citados
+        ]
+    esperado = [comandos.reparacao] if comandos.reparacao > 0 else []
+    divergencias = [f"Valor de reparação {valor} divergente ou excedente no dispositivo." for valor in (Counter(citados) - Counter(esperado)).elements()]
+    if esperado and comandos.reparacao not in citados:
+        divergencias.append(f"O valor calculado da reparação mínima ({comandos.reparacao}) não consta do dispositivo.")
+    return divergencias
+
+
+def _quantias_contraditorias(trecho: str) -> list[str]:
+    divergencias = []
+    for numero, extenso in _PADRAO_ALGARISMOS_E_EXTENSO.findall(trecho):
+        literal = " ".join(remover_acentos(extenso).lower().split())
+        esperado = remover_acentos(numero_por_extenso(int(numero))).replace("quatorze", "catorze")
+        if literal.replace("quatorze", "catorze") not in (esperado, numero):
+            divergencias.append(f"Quantidade {numero} contradiz sua redação por extenso ({extenso}).")
+    return divergencias
+
+
+def verificar_comandos_dispositivo(dispositivo: str, comandos: ComandosDispositivo) -> list[str]:
+    """Compara os comandos, as penas definitivas por espécie e os valores efetivamente declarados."""
+    divergencias: list[str] = []
+    for quantum in _PADRAO_QUANTUM_SEM_ALGARISMOS.findall(dispositivo):
+        divergencias.append(f"Quantifique em algarismos a pena ou a multa indicada em '{quantum}' para conferência.")
+    penas = comandos.penas_por_especie
+    conferidas: Counter = Counter()
+    for m in _PADRAO_PENA_COM_ESPECIE.finditer(dispositivo):
+        trecho = " ".join(m[0].split())
+        divergencias.extend(_quantias_contraditorias(m[1]))
+        especie = _normalizar_especie(m[2])
+        esperada = penas.get(especie)
+        if comandos.sem_condenacao:
+            divergencias.append(f"O dispositivo cita a pena '{trecho}', mas a dosimetria calculada não contém condenação.")
+        elif esperada is None or _dias_de_trecho_pena(m[1]) != esperada.to_total_days():
+            ref = esperada.format_extenso() if esperada else "nenhuma pena desta espécie calculada"
+            divergencias.append(f"Pena citada no dispositivo '{trecho}' não corresponde à pena total da espécie ({ref}).")
+        else:
+            conferidas[especie] += 1
+            if conferidas[especie] > 1:
+                divergencias.append(f"Pena total de {formatar_especie_pena(especie)} repetida no dispositivo: '{trecho}'.")
+    for especie, pena in penas.items():
+        if not conferidas[especie]:
+            divergencias.append(f"A pena calculada de {pena.format_extenso()} de {formatar_especie_pena(especie)} não consta do dispositivo.")
+
+    total = comandos.pena_total_unificada
+    somas_conferidas = 0
+    for m in _PADRAO_SOMA_PENAS.finditer(dispositivo):
+        divergencias.extend(_quantias_contraditorias(m[1]))
+        if total is None or _dias_de_trecho_pena(m[1]) != total.to_total_days():
+            divergencias.append(f"Soma explícita das penas divergente ou indevida no dispositivo: '{m[0]}'.")
+        else:
+            somas_conferidas += 1
+            if somas_conferidas > 1:
+                divergencias.append("Soma das penas privativas de liberdade repetida no dispositivo.")
+    if len(penas) > 1 and total is not None and not somas_conferidas:
+        divergencias.append(f"A soma das penas privativas de liberdade ({total.format_extenso()}) não consta do dispositivo.")
+
+    multas = list(_PADRAO_DIAS_MULTA.finditer(dispositivo))
+    esperada = comandos.total_dias_multa
+    for obrigacao in _PADRAO_MULTA_SEM_QUANTUM.finditer(dispositivo):
+        trecho = re.split(r"[.;\n]", dispositivo[obrigacao.end():], maxsplit=1)[0]
+        if not _PADRAO_DIAS_MULTA.search(trecho):
+            divergencias.append(f"Comando de multa sem quantidade conferível no dispositivo: '{obrigacao[0]}'.")
+    conferidas_multa = 0
+    for multa in multas:
+        trecho = " ".join(multa[0].split())
+        divergencias.extend(_quantias_contraditorias(trecho))
+        if not esperada or int(multa[1]) != esperada:
+            divergencias.append(f"Multa citada no dispositivo '{trecho}' não corresponde à calculada ({esperada} dias-multa).")
+        else:
+            conferidas_multa += 1
+            if conferidas_multa > 1:
+                divergencias.append(f"Multa total repetida no dispositivo: '{trecho}'.")
+    if esperada and not conferidas_multa:
+        divergencias.append(f"A multa calculada de {esperada} dias-multa não consta do dispositivo.")
+
+    divergencias.extend(_divergencias_imputacoes(dispositivo, comandos))
+    divergencias.extend(_divergencias_regime(dispositivo, comandos))
+    divergencias.extend(_divergencias_reparacao(dispositivo, comandos))
+    return divergencias
+
+
 def _verificar_penas_dispositivo(
     texto_sentenca: str,
     dosimetria_dados: Optional[Dict[str, Any]],
 ) -> Tuple[str, List[str], str]:
-    """
-    Confronta as penas privativas de liberdade (e os dias-multa) citadas no DISPOSITIVO com as
-    calculadas pela calculadora determinística.
-
-    Retorna ``(status, divergencias, descricao)`` com status ``APROVADO``, ``REPROVADO`` ou
-    ``NAO_APLICAVEL``.
-    """
-    if not dosimetria_dados:
-        return "NAO_APLICAVEL", [], "Dosimetria calculada não fornecida ao auditor; penas não conferidas."
+    """Confronta o dispositivo com os comandos calculados e preserva o contrato público do laudo."""
     if hasattr(dosimetria_dados, "model_dump"):
-        dosimetria_dados = dosimetria_dados.model_dump(mode="json")  # type: ignore[union-attr]
-    if not isinstance(dosimetria_dados, dict):
-        return "NAO_APLICAVEL", [], "Dosimetria em formato não reconhecido; penas não conferidas."
+        dosimetria_dados = dosimetria_dados.model_dump(mode="json")
+    if not isinstance(dosimetria_dados, dict) or not dosimetria_dados:
+        return "NAO_APLICAVEL", [], "Dosimetria calculada não fornecida ao auditor; penas não conferidas."
     if _dosimetria_presume_condenacao(dosimetria_dados):
-        # Presuncao de condenacao = simulacao sem veredicto do juizo: as penas NAO foram conferidas e
-        # a minuta nao pode ser aprovada/exportada como se tivesse sido (principios 4 e 5 do plano).
-        return (
-            "PENDENTE",
-            [
-                "A dosimetria de referência presume condenação (crime sem veredicto do juízo): as penas do "
-                "dispositivo não puderam ser conferidas. Informe o veredicto de cada crime."
-            ],
-            "A dosimetria de referência é uma simulação que presume condenação; penas não conferidas "
-            "(auditoria pendente).",
+        mensagem = (
+            "A dosimetria de referência presume condenação (crime sem veredicto do juízo): as penas do "
+            "dispositivo não puderam ser conferidas. Informe o veredicto de cada crime."
         )
+        return "PENDENTE", [mensagem], mensagem
 
     m_disp = _PADRAO_DISPOSITIVO.search(texto_sentenca or "")
     if not m_disp:
-        return "NAO_APLICAVEL", [], "Dispositivo não localizado no texto; penas não conferidas."
-    dispositivo = m_disp.group(1)
-
-    citadas: List[Tuple[str, str, int]] = []
-    for m in _PADRAO_PENA_COM_ESPECIE.finditer(dispositivo):
-        trecho = re.sub(r"\s+", " ", m.group(0)).strip()
-        citadas.append((trecho, _normalizar_especie(m.group(2)), _dias_de_trecho_pena(m.group(1))))
-
-    divergencias: List[str] = []
-    sem_condenacao = bool(dosimetria_dados.get("sem_condenacao"))
-    if sem_condenacao:
-        for trecho, _esp, _dias in citadas:
-            divergencias.append(
-                f"O dispositivo cita a pena '{trecho}', mas a dosimetria calculada não contém condenação."
-            )
-        status = "REPROVADO" if divergencias else "APROVADO"
-        desc = (
-            "Dosimetria sem condenação: nenhuma pena privativa de liberdade citada no dispositivo."
-            if not divergencias
-            else f"{len(divergencias)} pena(s) citada(s) sem condenação calculada."
-        )
-        return status, divergencias, desc
-
-    esperadas_por_especie: Dict[str, set] = {}
-    for crime in dosimetria_dados.get("crimes_calculados") or []:
-        if not isinstance(crime, dict):
-            continue
-        esp = _normalizar_especie((crime.get("crime_spec") or {}).get("especie_pena", ""))
-        dias = _dias_de_pena_dict(crime.get("pena_definitiva"))
-        if esp and dias is not None:
-            esperadas_por_especie.setdefault(esp, set()).add(dias)
-    totais_especie: Dict[str, int] = {}
-    for esp_bruta, pena in (dosimetria_dados.get("penas_por_especie") or {}).items():
-        esp = _normalizar_especie(esp_bruta)
-        dias = _dias_de_pena_dict(pena)
-        if dias is not None:
-            totais_especie[esp] = dias
-            esperadas_por_especie.setdefault(esp, set()).add(dias)
-    genericas: set = set()
-    for chave in ("pena_total_unificada", "pena_remanescente_detracao"):
-        dias = _dias_de_pena_dict(dosimetria_dados.get(chave))
-        if dias:
-            genericas.add(dias)
-
-    especies_conferidas: set = set()
-    for trecho, esp, dias in citadas:
-        aceitas = esperadas_por_especie.get(esp, set()) | genericas
-        if dias in aceitas:
-            especies_conferidas.add(esp)
-        else:
-            calculadas = sorted(esperadas_por_especie.get(esp, set()))
-            ref = ", ".join(_formatar_dias(d) for d in calculadas) or "nenhuma pena desta espécie calculada"
-            divergencias.append(
-                f"Pena citada no dispositivo '{trecho}' não corresponde às penas calculadas ({ref})."
-            )
-
-    for esp, dias in sorted(totais_especie.items()):
-        if dias > 0 and esp not in especies_conferidas:
-            divergencias.append(
-                f"A pena calculada de {_formatar_dias(dias)} de {esp.replace('_', ' ')} não consta do dispositivo."
-            )
-
-    multas_esperadas = {
-        int(c.get("dias_multa") or 0)
-        for c in (dosimetria_dados.get("crimes_calculados") or [])
-        if isinstance(c, dict) and int(c.get("dias_multa") or 0) > 0
-    }
-    total_multa = int(dosimetria_dados.get("total_dias_multa") or 0)
-    if total_multa > 0:
-        multas_esperadas.add(total_multa)
-    for m in _PADRAO_DIAS_MULTA.finditer(dispositivo):
-        valor = int(m.group(1))
-        if valor not in multas_esperadas:
-            ref = ", ".join(str(v) for v in sorted(multas_esperadas)) or "nenhuma multa calculada"
-            trecho_multa = " ".join(m.group(0).split())
-            divergencias.append(
-                f"Multa citada no dispositivo '{trecho_multa}' não corresponde à calculada ({ref})."
-            )
-
-    status = "REPROVADO" if divergencias else "APROVADO"
-    desc = (
-        f"{len(citadas)} pena(s) citada(s) no dispositivo conferida(s) com a dosimetria calculada."
-        if not divergencias
-        else f"{len(divergencias)} divergência(s) entre o dispositivo e a dosimetria calculada."
-    )
-    return status, divergencias, desc
+        mensagem = "Dispositivo não localizado no texto; comandos e penas não conferidos."
+        return "REPROVADO", [mensagem], mensagem
+    try:
+        comandos = construir_comandos_dispositivo(dosimetria_dados)
+    except (ArithmeticError, TypeError, ValueError):
+        mensagem = "A referência de dosimetria contém comandos inválidos e deve ser recalculada."
+        return "PENDENTE", [mensagem], mensagem
+    divergencias = verificar_comandos_dispositivo(m_disp.group(1), comandos)
+    if divergencias:
+        return "REPROVADO", divergencias, f"{len(divergencias)} divergência(s) entre o dispositivo e os comandos calculados."
+    return "APROVADO", [], "Comandos e penas do dispositivo conferidos com a dosimetria calculada."
 
 
 def _avaliar_art21_lmp(texto: str) -> bool:
@@ -869,17 +1034,12 @@ def _avaliar_abnt_citacoes(texto: str) -> bool:
     return True
 
 
-def _avaliar_estilo_cnj_amb(texto: str) -> bool:
+def _avaliar_estilo_cnj_amb(texto: str, *, permitir_relato: bool = False) -> bool:
     """
     Diretrizes CNJ/AMB: vedação da tese de legítima defesa da honra (ADPF 779/STF) e
     expurgo de solecismos forenses.
     """
-    ldh_afastada = True
-    for m in re.finditer(r"leg[íi]tima\s+defesa\s+da\s+honra", texto or "", flags=re.IGNORECASE):
-        trecho = (texto or "")[max(0, m.start() - 100):min(len(texto), m.end() + 100)].lower()
-        if not any(termo in trecho for termo in ("afasta", "veda", "inconstituc", "adpf 779", "rejeit", "inadmiss", "repel")):
-            ldh_afastada = False
-            break
+    ldh_afastada = not violacao_vedacao_honra(texto, permitir_relato=permitir_relato)
     erros_gramatica = re.findall(
         r"\b(?:hajam\s+vistas?|haja\s+visto|ao\s+meu\s+ver|a\s+nível\s+de)\b",
         texto or "",
@@ -1068,7 +1228,7 @@ _SINONIMOS_TESE: Dict[str, Tuple[str, ...]] = {
 
 def _normalizar_tipo_tese(tipo_bruto: Any, codigo: str, titulo: str) -> str:
     """
-    Normaliza o tipo da tese para PRELIMINAR, MERITO ou SUBSIDIARIA.
+    Normaliza os tipos das teses, incluindo a tese vedada com repúdio obrigatório.
 
     Teses cujo objeto é a dosimetria (pena no mínimo, sursis, substituição por
     restritivas, pedidos subsidiários) são classificadas como SUBSIDIARIA ainda que o
@@ -1080,6 +1240,8 @@ def _normalizar_tipo_tese(tipo_bruto: Any, codigo: str, titulo: str) -> str:
     valor = _remover_acentos(str(tipo_bruto or "").strip().upper())
     codigo_upper = (codigo or "").upper()
 
+    if tese_vedada_honra({"codigo": codigo_upper, "tipo": valor}):
+        return "VEDADA"
     if valor.startswith("PREL") or codigo_upper.startswith("PREL"):
         return "PRELIMINAR"
     if valor.startswith("SUB") or codigo_upper.startswith("SUB"):
@@ -1146,6 +1308,9 @@ def _tese_linha_enfrentada(texto: str, texto_norm: str, tese: _TeseAuditavel) ->
     Confronto determinístico de enfrentamento de tese: código formal, prefixo do título,
     sobreposição de tokens significativos e sinônimos forenses conhecidos.
     """
+    if tese.tipo == "VEDADA":
+        return repudio_explicito_honra(texto)
+
     codigo = (tese.codigo or "").strip()
     if codigo and re.search(r"\b" + re.escape(codigo) + r"\b", texto_norm, flags=re.IGNORECASE):
         return True
@@ -1212,7 +1377,7 @@ def _filtrar_teses_aplicaveis_secao(
     if secao == "preliminares":
         return [t for t in teses if t.tipo == "PRELIMINAR"]
     if secao == "merito":
-        return [t for t in teses if t.tipo == "MERITO"]
+        return [t for t in teses if t.tipo in ("MERITO", "VEDADA")]
     if secao == "dosimetria":
         return [t for t in teses if t.tipo == "SUBSIDIARIA"]
     return []
@@ -1443,7 +1608,7 @@ def auditar_sentenca(
                 "status": "SINALIZADO",
                 "descricao": (
                     "As seguintes seções NÃO são do texto original: foram substituídas pelo modelo "
-                    f"determinístico a pedido do usuário: {', '.join(secoes_fb)}."
+                    f"determinístico: {', '.join(secoes_fb)}."
                 ),
             }
         )
@@ -1534,6 +1699,7 @@ def auditar_secao(
     teses_defesa: List[Any],
     ids_midias: List[str] | None = None,
     texto_sentenca_completo: str | None = None,
+    comandos_dispositivo: ComandosDispositivo | None = None,
 ) -> RelatorioAuditoriaSecao:
     """
     Auditoria anti-alucinação granular de UMA seção do pipeline (M3).
@@ -1664,7 +1830,12 @@ def auditar_secao(
     teses_normalizadas = _normalizar_teses(teses_defesa)
     teses_aplicaveis = _filtrar_teses_aplicaveis_secao(secao_nome, teses_normalizadas)
     teses_enfrentadas, teses_omitidas = _auditar_teses_seccionais(texto, teses_aplicaveis)
+    referencias_vedadas = {t.referencia for t in teses_aplicaveis if t.tipo == "VEDADA"}
     for tese_omitida in teses_omitidas:
+        if any(tese_omitida.startswith(ref) for ref in referencias_vedadas):
+            erros.append(f"Camada 3 — Ausência de repúdio expresso à tese vedada {tese_omitida}.")
+            feedbacks.append("Repudie expressamente a legítima defesa da honra, nos termos da ADPF 779/STF.")
+            continue
         erros.append(
             "Camada 3 — Art. 381, III, CPP: omissão de enfrentamento da tese defensiva "
             f"{tese_omitida}."
@@ -1746,7 +1917,10 @@ def auditar_secao(
         )
         feedbacks.append("Remova as aspas externas dos blocos de citação longa recuados (ABNT NBR 10520).")
 
-    conf_estilo = _avaliar_estilo_cnj_amb(texto)
+    conf_estilo = _avaliar_estilo_cnj_amb(
+        texto,
+        permitir_relato=secao_nome == "relatorio" and any(t.tipo == "VEDADA" for t in teses_normalizadas),
+    )
     if not conf_estilo:
         erros.append(
             "Camada 4 — Diretrizes CNJ/AMB e Resolução CNJ nº 492/2023: uso de 'legítima "
@@ -1798,6 +1972,14 @@ def auditar_secao(
         conf_oito = True
         vetores_ausentes = []
         vetores_sem_valoracao = []
+
+    divergencias = (
+        verificar_comandos_dispositivo(texto, comandos_dispositivo)
+        if secao_nome == "dispositivo" and comandos_dispositivo is not None
+        else []
+    )
+    erros.extend(divergencias)
+    feedbacks.extend(divergencias)
 
     # Conteúdo — marcadores de complementação pelo juízo ainda pendentes.
     marcadores = _detectar_marcadores_pendentes(texto)
@@ -1861,8 +2043,10 @@ def auditar_secao(
     if not conf_evasiva:
         score -= 15.0
     score -= len(marcadores) * 15.0
+    score -= len(divergencias) * 25.0
 
     aprovado = (
+        not divergencias and
         conf_marcadores and
         len(ids_falsos) == 0
         and len(citacoes_invalidas) == 0

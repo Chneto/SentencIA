@@ -130,7 +130,7 @@ class TestTempusRegitActumBoundary:
     post_date = datetime.date(2024, 10, 10)
 
     pre_spec = get_penal_type_for_date("art_147_cp", pre_date)
-    post_spec = get_penal_type_for_date("art_147_cp", post_date)
+    post_spec = get_penal_type_for_date("art_147_cp", post_date, ameaca_qualificada=True)
 
     assert pre_spec.especie_pena == "detencao"
     assert pre_spec.min_pena.meses == 1
@@ -419,14 +419,15 @@ class TestBisInIdemDomesticViolenceLock:
         == calc.pena_base.to_total_days()
     )
 
-  def test_art147_p2_post14994_blocks_art61_ii_f(self):
-    """Art. 147 § 2º (post-14.994) has domestic violence as elementar; blocks Art. 61 II f."""
-    spec = get_penal_type_for_date("art_147_cp", datetime.date(2025, 1, 1))
+  def test_art147_p1_post14994_blocks_art61_ii_f(self):
+    """Art. 147 § 1º (post-14.994) has domestic violence as elementar; blocks Art. 61 II f."""
+    spec = get_penal_type_for_date("art_147_cp", datetime.date(2025, 1, 1), ameaca_qualificada=True)
     assert spec.has_builtin_domestic_violence_element is True
 
     crime_input = CrimeDosimetriaInput(
         crime_code="art_147_cp",
         data_fato=datetime.date(2025, 1, 1),
+        ameaca_qualificada=True,
         circunstancias_art59=_make_c59_dict(),
         agravantes_art61_f_violencia_domestica=True,
     )

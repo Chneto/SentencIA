@@ -16,12 +16,12 @@ from typing import Any, Dict, List, Tuple
 
 from app.generation.date_formatter import formatar_data_br, formatar_moeda_com_extenso
 from app.knowledge.knowledge_base import (
-    DOUTRINA_VERIFICADA,
-    SUMULAS_E_TEMAS_VERIFICADOS,
     formatar_citacao_acervo,
+    obter_doutrina_por_id,
     obter_item_oficial_por_id,
 )
 from app.legal_engine.dosimetria_calculator import CircunstanciaArt59, CrimeDosimetriaInput
+from app.legal_engine.penal_types_catalog import DATA_VIGENCIA_LEI_14994_2024
 
 __all__ = [
     "DEMO_CRIMES",
@@ -115,6 +115,7 @@ def construir_inputs_dosimetria_demo(
         CrimeDosimetriaInput(
             crime_code="art_147_cp",
             data_fato=dt_fato,
+            ameaca_qualificada=dt_fato >= DATA_VIGENCIA_LEI_14994_2024,
             circunstancias_art59={},
             agravantes_art61_f_violencia_domestica=agravante_art61f,
             confissao_espontanea=False,
@@ -145,6 +146,8 @@ def gerar_secoes_demo(
     data_sentenca: datetime.date,
 ) -> Tuple[str, str, str, str, str]:
     """Relatório, preliminares, mérito, dosimetria e dispositivo do caso demonstrativo."""
+    from app.generation.dispositivo import construir_comandos_dispositivo
+
     # Import tardio: sentence_generator importa este módulo.
     from app.generation.sentence_generator import (
         formatar_secao_dosimetria_completa,
@@ -204,25 +207,23 @@ def gerar_secoes_demo(
         f"1.2. Da Natureza da Ação Penal e do Direito Intertemporal (Lei nº 14.994/2024 e Súmula 542/STJ):\n"
         f"Os fatos delituosos ocorreram em {dt_fato_extenso}, portanto já sob a plena vigência da Lei nº 14.994/2024 (publicada em 10 de outubro de 2024), aplicando-se a regra do tempus regit actum (art. 2º do Código Penal). "
         f"Tanto no crime de lesão corporal praticada contra a mulher por razões da condição do sexo feminino (art. 129, § 13, do CP e Súmula 542/STJ), quanto no crime de descumprimento de medida protetiva (art. 24-A da Lei nº 11.340/2006) "
-        f"e no crime de ameaça contra a mulher (art. 147, § 2º, do CP, acrescentado pela Lei nº 14.994/2024), a ação penal é pública incondicionada. Ainda que assim não fosse, a ofendida manifestou inequívoco interesse "
-        f"na persecução penal tanto na Delegacia (ID-4100101) quanto em juízo (Mídia ID-4100301). De igual modo, nos termos do art. 41 da Lei nº 11.340/2006, da Súmula 536/STJ, da ADC 19/STF e da ADI 4424/STF, são constitucionalmente inaplicáveis os institutos despenalizadores da Lei nº 9.099/1995.\n\n"
-        f"1.3. {titulo_prescricao}:\n"
-        f"{texto_prescricao}"
+        f"e no crime de ameaça contra a mulher (art. 147, § 1º e § 2º, parte final, do CP, acrescentados pela Lei nº 14.994/2024), a ação penal é pública incondicionada. Ainda que assim não fosse, a ofendida manifestou inequívoco interesse "
+        f"na persecução penal tanto na Delegacia (ID-4100101) quanto em juízo (Mídia ID-4100301). De igual modo, nos termos do art. 41 da Lei nº 11.340/2006, da Súmula 536/STJ, da ADC 19/STF e da ADI 4424/STF, são constitucionalmente inaplicáveis os institutos despenalizadores da Lei nº 9.099/1995."
+        + (f"\n\n1.3. {titulo_prescricao}:\n{texto_prescricao}" if titulo_prescricao else "")
     )
 
     depoimentos_texto = "\n\n".join(
         f"• {d.depoente} ({d.papel} — {d.media_id}): {d.discurso_indireto_sentenca}" for d in matriz_oral.depoentes
     )
-    doutrina_mbd = DOUTRINA_VERIFICADA[0]
-    doutrina_vds = DOUTRINA_VERIFICADA[1]
-    doutrina_rsc = DOUTRINA_VERIFICADA[2]
+    doutrina_mbd = obter_doutrina_por_id("DOUT-01")
+    doutrina_rsc = obter_doutrina_por_id("DOUT-03")
 
     merito = (
-        f"2. Do Mérito: Materialidade, Autoria, Valoração da Prova sob Perspectiva de Gênero e Enfrentamento das Teses Defensivas\n\n"
+        f"2. Do Mérito: Materialidade, Autoria, Valoração da Prova sob Perspectiva de Gênero e Apreciação das Teses Defensivas\n\n"
         f"2.1. Da Incidência da Lei nº 11.340/2006 e da Resolução CNJ nº 492/2023:\n"
         f"Restou incontroverso nos autos que o acusado {meta.nome_reu} e a ofendida {meta.nome_ofendida} conviveram em união estável pelo período de 6 (seis) anos e possuem uma filha comum de 5 (cinco) anos de idade, "
         f"configurando-se a relação íntima de afeto e o âmbito familiar previstos no art. 5º, inciso III, da Lei nº 11.340/2006, sendo prescindível a coabitação à época dos fatos, consoante enuncia a Súmula 600/STJ: "
-        f"{formatar_citacao_acervo(SUMULAS_E_TEMAS_VERIFICADOS[4])}, o Enunciado 1 FONAVID e o Enunciado 45 FONAVID, em conformidade com o entendimento do Superior Tribunal de Justiça (AgRg no AREsp 2.682.075/SE e APn 1.079/DF) e a vedação absoluta da legítima defesa da honra proclamada na ADPF 779/STF.\n\n"
+        f"{formatar_citacao_acervo(obter_item_oficial_por_id('SUMULA-600-STJ'))}, o Enunciado 1 FONAVID e o Enunciado 45 FONAVID, em conformidade com o entendimento do Superior Tribunal de Justiça (AgRg no AREsp 2.682.075/SE e APn 1.079/DF) e a vedação absoluta da legítima defesa da honra proclamada na ADPF 779/STF.\n\n"
         f"{matriz_oral.fundamentacao_sintese}\n\n"
         f"Nesse sentido, a Jurisprudência em Teses do STJ (Edição 41, Tese 13):\n\n"
         f"    {obter_item_oficial_por_id('TESE-STJ-ED41-13')['texto_literal']}\n\n"
@@ -236,7 +237,7 @@ def gerar_secoes_demo(
         f"Não prospera a tese defensiva (MER-03, ID-4100420) de ausência de dolo sob o argumento de que o réu teria comparecido ao imóvel apenas para ver a filha menor. "
         f"O tipo penal do art. 24-A da Lei nº 11.340/2006 exige apenas o dolo genérico, consistente na vontade livre e consciente de desrespeitar as restrições impostas na decisão judicial da qual tinha plena ciência. "
         f"No próprio interrogatório judicial (Mídia ID-4100304, aos 00min40s), o réu confessou que sabia da ordem restritiva vigente e, ainda assim, dirigiu-se à residência da vítima às 21h30min, invadindo o quintal. "
-        f"Na síntese doutrinária de {doutrina_vds['autor']} ({doutrina_vds.get('referencia_abnt', doutrina_vds['obra'])}), {doutrina_vds['sintese'][0].lower() + doutrina_vds['sintese'][1:]}\n\n"
+        f"A medida protetiva de urgência constitui instrumento autônomo de salvaguarda da integridade da mulher, cuja eficácia vincula o destinatário independentemente de alegações paralelas de convivência familiar, que devem ser equacionadas pelas vias judiciais próprias.\n\n"
         f"Impõe-se, portanto, a condenação do acusado nas penas do art. 24-A da Lei nº 11.340/2006.\n\n"
         f"2.4. Do 2º Fato Delituoso — Lesão Corporal contra a Mulher (Art. 129, § 13, do Código Penal) e Rejeição da Tese Defensiva MER-01:\n"
         f"A materialidade do delito de lesão corporal encontra-se positivada pelo Auto de Prisão em Flagrante e Boletim de Ocorrência (ID-4100101, fls. 02/05) e, de forma irretorquível, "
@@ -247,7 +248,7 @@ def gerar_secoes_demo(
         f"descrevendo com precisão a dinâmica em que o acusado segurou seu braço direito com força e desferiu-lhe um soco no lado esquerdo do rosto — exatamente as duas regiões anatômicas nas quais os peritos oficiais "
         f"constataram as lesões poucas horas depois (ID-4100108). Além disso, o policial militar Cb. PM Roberto Silva confirmou em juízo (Mídia ID-4100302, aos 01min10s) que visualizou o rosto da vítima já inchado e avermelhado "
         f"imediatamente após o fato. Por sua vez, a testemunha arrolada pela Defesa, João Batista Soares (Mídia ID-4100303), nada presenciou dos fatos. Finalmente, recorde-se que a Súmula 589/STJ veda qualquer cogitação de bagatela ou insignificância: "
-        f"{formatar_citacao_acervo(SUMULAS_E_TEMAS_VERIFICADOS[3])}. Caracterizado, assim, o crime do art. 129, § 13, do Código Penal.\n\n"
+        f"{formatar_citacao_acervo(obter_item_oficial_por_id('SUMULA-589-STJ'))}. Caracterizado, assim, o crime do art. 129, § 13, do Código Penal.\n\n"
         f"2.5. Do 3º Fato Delituoso — Ameaça contra a Mulher (Art. 147, caput e § 1º, do Código Penal) e Rejeição da Tese Defensiva MER-02:\n"
         f"De igual modo, restaram comprovadas a materialidade e a autoria do crime de ameaça. A ofendida relatou de modo seguro (Mídia ID-4100301, aos 03min31s) que o réu, logo após agredi-la fisicamente, "
         f"apontou-lhe o dedo e afirmou que, caso ela não retirasse a queixa e não reatasse o relacionamento, voltaria para \"acabar com a sua vida\", provocando-lhe fundado temor.\n\n"
@@ -265,13 +266,10 @@ def gerar_secoes_demo(
         **DEMO_IDS_DOSIMETRIA,
     )
 
-    penas_partes: List[str] = []
-    for especie, rotulo in (("reclusao", "reclusão"), ("detencao", "detenção"), ("prisao_simples", "prisão simples")):
-        if especie in dosimetria_global.penas_por_especie:
-            penas_partes.append(f"{dosimetria_global.penas_por_especie[especie].format_extenso()} de {rotulo}")
-    penas_txt = " e ".join(penas_partes) or dosimetria_global.pena_total_unificada.format_extenso()
-    multa_txt = texto_multa_dispositivo(dosimetria_global)
-    regime_txt = texto_regime_dispositivo(dosimetria_global)
+    comandos = construir_comandos_dispositivo(dosimetria_global)
+    condenacoes = "; e ".join(item.texto(meta.nome_reu) for item in comandos.imputacoes)
+    multa_txt = texto_multa_dispositivo(comandos)
+    regime_txt = texto_regime_dispositivo(comandos)
     dano_txt = texto_dano_moral_dispositivo(
         dosimetria_global,
         nome_ofendida=meta.nome_ofendida,
@@ -283,10 +281,9 @@ def gerar_secoes_demo(
     dispositivo = (
         f"III – DISPOSITIVO\n\n"
         f"{style['abertura_dispositivo']}\n\n"
-        f"a) CONDENAR o acusado {meta.nome_reu}, qualificado nos autos, como incurso nas sanções do art. 24-A da Lei nº 11.340/2006, do art. 129, § 13, do Código Penal "
-        f"e do art. 147, caput e § 1º, do Código Penal, na forma do art. 69 do Código Penal, às penas definitivas de "
-        f"{penas_txt}{multa_txt}, a serem cumpridas no {regime_txt}, "
-        f"vedada a substituição por penas restritivas de direitos (Súmula 588/STJ);\n\n"
+        f"a) {condenacoes}. Na forma do art. 69 do Código Penal, fixo as penas definitivas em "
+        f"{comandos.texto_penas()}{multa_txt}, a serem cumpridas no {regime_txt}, "
+        f"vedada a substituição por penas restritivas de direitos (Súmula 588/STJ).{comandos.texto_soma_penas()}\n\n"
         f"b) {dano_txt};\n\n"
         f"c) MANTER integralmente em vigor as Medidas Protetivas de Urgência deferidas em favor da ofendida nos autos em apenso (ID-4100115), dada a persistência da situação de risco à sua integridade física e psicológica "
         f"(art. 19, § 6º, da Lei nº 11.340/2006, acrescentado pela Lei nº 14.550/2023, e Tema Repetitivo 1249/STJ);\n\n"

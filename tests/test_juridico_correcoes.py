@@ -17,7 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.case_context import obter_contexto
-from app.core.errors import DecisaoJudicialPendenteError
+from app.core.errors import DadosInsuficientesError, DecisaoJudicialPendenteError
 from app.generation import case_script_engine as cse
 from app.generation.sentence_generator import (
     calcular_secoes_deterministicas,
@@ -49,7 +49,10 @@ def _cenario(n: int = 1) -> dict:
 
 def _veredictos(bundle: dict, veredicto: str = "condenar", **extra) -> dict:
     crimes = obter_contexto(bundle).meta.crimes_imputados
-    return {"crimes_config": [{"codigo": c, "veredicto": veredicto, **extra} for c in crimes]}
+    return {"crimes_config": [
+        {"codigo": c, "veredicto": veredicto, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), **extra}
+        for c in crimes
+    ]}
 
 
 # ==============================================================================
@@ -383,15 +386,139 @@ def test_segunda_fase_explica_o_saldo_em_vez_de_dizer_que_se_compensam():
 # ==============================================================================
 # 44. Art. 129, § 9º, nunca vira o § 13 em silêncio
 # ==============================================================================
-def test_art129_p9_mantem_pena_propria_apos_a_lei_14994():
-    pos = get_penal_type_for_date("art_129_p9_cp", D(2025, 1, 10))
-    assert pos.min_pena == PenaAnosMesesDias(meses=3) and pos.max_pena == PenaAnosMesesDias(anos=3)
-    assert pos.especie_pena == "detencao" and "§ 9º" in pos.artigo_formatado and "§ 13" not in pos.artigo_formatado
-    assert "emendatio" in pos.observacao_intertemporal and "art_129_p13_cp" in pos.observacao_intertemporal
-    p13 = get_penal_type_for_date("art_129_p13_cp", D(2025, 1, 10))
-    assert p13.especie_pena == "reclusao" and p13.min_pena == PenaAnosMesesDias(anos=2)
-    res = calcular_dosimetria_crime(CrimeDosimetriaInput(crime_code="art_129_p9_cp", data_fato=D(2025, 1, 10)))
-    assert res.pena_definitiva == PenaAnosMesesDias(meses=3)
+@pytest.mark.parametrize("dia", [9, 10, 11])
+def test_art129_p9_mantem_capitulacao_e_observa_pena_da_lei_14994(dia):
+    """Lei 14.994/2024, vigência 10/10/2024.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm
+    """
+    data = D(2024, 10, dia)
+    spec = get_penal_type_for_date("art_129_p9_cp", data)
+    assert spec.code == "art_129_p9_cp"
+    assert "§ 9º" in spec.artigo_formatado and "§ 13" not in spec.artigo_formatado
+    assert (spec.especie_pena, spec.min_pena, spec.max_pena) == (
+        ("detencao", PenaAnosMesesDias(meses=3), PenaAnosMesesDias(anos=3))
+        if dia < 10 else ("reclusao", PenaAnosMesesDias(anos=2), PenaAnosMesesDias(anos=5))
+    )
+    res = calcular_dosimetria_crime(CrimeDosimetriaInput(crime_code=spec.code, data_fato=data))
+    assert res.pena_definitiva == spec.min_pena
+
+
+@pytest.mark.parametrize("dia", [1, 2, 3])
+def test_art129_p9_redacao_trabalho_domestico(dia):
+    """Lei 15.455/2026, art. 4º, vigência 02/07/2026.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15455.htm
+    """
+    spec = get_penal_type_for_date("art_129_p9_cp", D(2026, 7, dia))
+    assert ("trabalho doméstico" in spec.observacao_intertemporal) is (dia >= 2)
+    assert spec.min_pena == PenaAnosMesesDias(anos=2)
+
+
+@pytest.mark.parametrize("dia", [9, 10, 11])
+def test_ameaca_caput_e_paragrafo_1_tem_acao_distinta(dia):
+    """Lei 14.994/2024, art. 1º, vigência 10/10/2024.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm
+    """
+    data = D(2024, 10, dia)
+    caput = get_penal_type_for_date("art_147_cp", data)
+    assert caput.acao_penal == "publica_condicionada_representacao"
+    assert caput.max_pena == PenaAnosMesesDias(meses=6)
+    if dia == 9:
+        with pytest.raises(DadosInsuficientesError):
+            get_penal_type_for_date("art_147_cp", data, ameaca_qualificada=True)
+    else:
+        qualificada = get_penal_type_for_date("art_147_cp", data, ameaca_qualificada=True)
+        assert qualificada.acao_penal == "publica_incondicionada"
+        assert qualificada.max_pena == PenaAnosMesesDias(anos=1)
+
+
+def test_veredicto_de_ameaca_exige_enquadramento_confirmado():
+    """Lei 14.994/2024, art. 1º, vigência 10/10/2024.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2024/lei/l14994.htm
+    """
+    bundle = _cenario(1)
+    override = _veredictos(bundle)
+    ameaca = next(c for c in override["crimes_config"] if c["codigo"] == "art_147_cp")
+    del ameaca["enquadramento_ameaca"]
+    with pytest.raises(DadosInsuficientesError, match="Confirme o enquadramento da ameaça"):
+        calcular_secoes_deterministicas(bundle, override)
+
+    ameaca["enquadramento_ameaca"] = "paragrafo_1"
+    resultado = calcular_secoes_deterministicas(bundle, override)
+    especial = next(c.crime_spec for c in resultado.dosimetria_global.crimes_calculados if c.crime_spec.code == "art_147_cp")
+    assert especial.acao_penal == "publica_incondicionada"
+
+
+@pytest.mark.parametrize("dia", [3, 4, 5])
+def test_art24a_inexistente_antes_da_publicacao(dia):
+    """Lei 13.641/2018, vigência 04/04/2018.
+    https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13641.htm
+    """
+    entrada = CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2018, 4, dia))
+    if dia == 3:
+        with pytest.raises(DadosInsuficientesError):
+            calcular_dosimetria_crime(entrada)
+    else:
+        resultado = calcular_dosimetria_crime(entrada)
+        assert resultado.pena_definitiva == PenaAnosMesesDias(meses=3)
+
+
+@pytest.mark.parametrize("dia", [7, 8, 9])
+def test_art338a_inexistente_antes_da_publicacao(dia):
+    """Lei 15.280/2025, arts. 1º e 7º, vigência 08/12/2025.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15280.htm
+    """
+    entrada = CrimeDosimetriaInput(crime_code="art_338a_cp", data_fato=D(2025, 12, dia))
+    if dia == 7:
+        with pytest.raises(DadosInsuficientesError):
+            calcular_dosimetria_crime(entrada)
+    else:
+        resultado = calcular_dosimetria_crime(entrada)
+        assert resultado.crime_spec.code == "art_338a_cp"
+        assert resultado.crime_spec.max_pena == PenaAnosMesesDias(anos=5)
+        assert resultado.pena_definitiva == PenaAnosMesesDias(anos=2)
+        assert resultado.dias_multa > 0
+
+
+@pytest.mark.parametrize("dia", [9, 10, 11])
+def test_majorante_monitoracao_art24a_exige_reconhecimento_e_vigencia(dia):
+    """Lei 15.383/2026, art. 2º, vigência 10/04/2026.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15383.htm
+    """
+    entrada = CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2026, 4, dia))
+    assert calcular_dosimetria_crime(entrada).fracao_aumento_aplicada is None
+    com_majorante = CrimeDosimetriaInput(
+        crime_code=entrada.crime_code, data_fato=entrada.data_fato,
+        majorante_art24a_p4={
+            "hipotese": "area_exclusao", "fonte_id": "ID-MONITORAMENTO",
+            "trecho": "Relatório fictício de violação de área monitorada.", "fracao": (1, 3),
+        },
+    )
+    if dia == 9:
+        with pytest.raises(DadosInsuficientesError):
+            calcular_dosimetria_crime(com_majorante)
+    else:
+        ajustada = calcular_dosimetria_crime(com_majorante)
+        assert ajustada.fracao_aumento_aplicada == (1, 3)
+        assert ajustada.pena_definitiva == PenaAnosMesesDias(anos=2, meses=8)
+        assert ajustada.majorante_art24a_p4.fonte_id == "ID-MONITORAMENTO"
+
+
+def test_majorante_monitoracao_confere_trecho_no_documento_indicado():
+    """Lei 15.383/2026, art. 2º, vigência 10/04/2026.
+    https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2026/lei/l15383.htm
+    """
+    from types import SimpleNamespace
+    from app.generation.sentence_generator import _majorante_art24a_p4
+
+    peca = SimpleNamespace(doc_id="ID-MONITORAMENTO", conteudo="Relatório fictício de violação de área monitorada.")
+    campo = {
+        "hipotese": "area_exclusao", "fonte_id": peca.doc_id,
+        "fracao": "1/2", "trecho": peca.conteudo,
+    }
+    assert _majorante_art24a_p4({"majorante_art24a_p4": campo}, "art_24a_lmp", [peca]).fracao == (1, 2)
+    campo["trecho"] = "A afirmação não consta da peça."
+    with pytest.raises(DadosInsuficientesError, match="trecho da peça indicada"):
+        _majorante_art24a_p4({"majorante_art24a_p4": campo}, "art_24a_lmp", [peca])
 
 
 # ==============================================================================

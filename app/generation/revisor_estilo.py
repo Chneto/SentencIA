@@ -127,7 +127,7 @@ def revisar_estilo(texto: str, *, reu: str = "") -> List[Dict[str, Any]]:
         if not re.search(r"alega[çc][õo]es\s+finais|memoriais", rel, re.IGNORECASE):
             itens.append(_item(M, "pedidos_finais", "Relatório", "recomendado", "Pedidos das partes nas alegações finais",
                                "O relatório deve historiar os pedidos (condenação, absolvição, desclassificação, atenuantes...) "
-                               "para que todos sejam enfrentados na fundamentação.", base_rel))
+                               "para que todos sejam apreciados na fundamentação.", base_rel))
         palavras = len(rel.split())
         if palavras > _RELATORIO_MAX_PALAVRAS:
             itens.append(_item(M, "relatorio_longo", "Relatório", "observacao", "Relatório extenso",
@@ -213,7 +213,7 @@ def pendencias_do_laudo(texto: str, auditoria: Any = None, sentenca: Any = None)
             itens.append(_item(L, "citacao_nao_autorizada", "Laudo", "obrigatorio", "Citação fora da base fechada", str(c),
                                "Auditoria — base jurídica fechada", str(c)))
         for t in getattr(auditoria, "teses_omitidas", []) or []:
-            itens.append(_item(L, "tese_omitida", "Laudo", "obrigatorio", "Tese defensiva não enfrentada", str(t),
+            itens.append(_item(L, "tese_omitida", "Laudo", "obrigatorio", "Tese defensiva não apreciada", str(t),
                                "Auditoria — teses da defesa; CPP, art. 315, § 2º, IV"))
         for p in getattr(auditoria, "penas_divergentes", []) or []:
             itens.append(_item(L, "pena_divergente", "Laudo", "obrigatorio", "Pena do dispositivo diverge da dosimetria", str(p),

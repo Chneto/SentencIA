@@ -62,7 +62,7 @@ def _carregar(nome: str) -> Dict[str, Any]:
 
 def _veredictos(bundle: Dict[str, Any], veredicto: str = "condenar") -> Dict[str, Any]:
     crimes = list(obter_contexto(bundle).meta.crimes_imputados) or list(bundle.get("crimes_imputados") or [])
-    return {"crimes_config": [{"codigo": c, "veredicto": veredicto} for c in crimes]}
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": veredicto} for c in crimes]}
 
 
 def _pdf(texto: str = "ID-0000000 - Autos de teste") -> bytes:
@@ -614,8 +614,9 @@ class TestUpload:
             }
 
         monkeypatch.setattr(main_module, "transcrever_midia_audiencia", _fake_transcrever)
-        client.post("/api/cases/load-demo")
-        _ativar(_carregar("case_scenario_2_descumprimento_mpu.json"))
+        caso = _carregar("case_scenario_2_descumprimento_mpu.json")
+        monkeypatch.setattr(main_module, "segmentar_autos_pdf_pje", lambda _p: copy.deepcopy(caso["raw_documents"]))
+        assert self._upload(client, "autos.pdf", _pdf()).status_code == 200
         resp = self._upload(client, "audiencia.m4a", b"\x00\x01audio", consentimento_envio_externo="true")
         assert resp.status_code == 200, resp.text
         assert recebido["consentimento"] is True
@@ -776,11 +777,16 @@ class TestVersoesFormatosTrechos:
         v = client.get("/api/sentence/versions").json()["versoes"]
         assert [x["id"] for x in v] == ["v1"] and v[0]["rotulo"] == "Gerada pelo motor local"
 
-        texto = client.get("/api/sentence/last").json()["sentenca"]["texto_completo"]
+        atual = client.get("/api/sentence/last").json()["sentenca"]
+        texto = atual["texto_completo"]
         editado = texto.replace("Vistos etc.", "Vistos, relatados e examinados.")
         upd = client.post(
             "/api/sentence/update-and-audit",
-            json={"texto_completo": editado, "texto_html": "<p style='text-align:center'>Vistos, relatados e examinados.</p>"},
+            json={
+                "texto_completo": editado,
+                "texto_html": atual["texto_html"].replace("Vistos etc.", "Vistos, relatados e examinados."),
+                "revisao_esperada": atual["revisao_documento"],
+            },
         )
         assert upd.status_code == 200, upd.text
         v = client.get("/api/sentence/versions").json()["versoes"]
@@ -800,11 +806,88 @@ class TestVersoesFormatosTrechos:
     def test_nova_geracao_reinicia_historico(self, client: TestClient):
         client.post("/api/cases/load-demo")
         client.post("/api/sentence/generate", json={"use_ollama": False})
-        texto = client.get("/api/sentence/last").json()["sentenca"]["texto_completo"]
-        client.post("/api/sentence/update-and-audit", json={"texto_completo": texto + "\n\nParágrafo extra."})
+        atual = client.get("/api/sentence/last").json()["sentenca"]
+        client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": atual["texto_completo"] + "\n\nParágrafo extra.",
+            "revisao_esperada": atual["revisao_documento"],
+        })
         assert len(client.get("/api/sentence/versions").json()["versoes"]) == 2
         client.post("/api/sentence/generate", json={"use_ollama": False})
         assert [x["id"] for x in client.get("/api/sentence/versions").json()["versoes"]] == ["v1"]
+
+    def test_auditoria_edicao_e_quatro_saidas_usam_mesma_revisao(self, client: TestClient):
+        from io import BytesIO
+
+        import pymupdf
+        from docx import Document
+
+        client.post("/api/cases/load-demo")
+        inicial = client.post("/api/sentence/generate", json={"use_ollama": False}).json()
+        folha = inicial["sentenca"]
+        revisao_inicial = folha["revisao_documento"]
+        assert revisao_inicial and inicial["exportacao_liberada"] is True
+
+        formatada = client.post("/api/sentence/save-format", json={
+            "texto_html": folha["texto_html"].replace("Vistos etc.", "<strong>Vistos etc.</strong>"),
+            "formatacao": {"margens_cm": {"esquerda": 2.5}},
+            "revisao_esperada": revisao_inicial,
+        })
+        assert formatada.status_code == 200, formatada.text
+        revisao_formatada = formatada.json()["revisao_documento"]
+        assert revisao_formatada != revisao_inicial
+        assert client.get("/api/sentence/last").json()["exportacao_liberada"] is True
+
+        novo_trecho = "Observação editorial sintética registrada."
+        edicao = client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": folha["texto_completo"] + "\n\n" + novo_trecho,
+            "texto_html": folha["texto_html"] + f"<p><strong>{novo_trecho}</strong></p>",
+            "revisao_esperada": revisao_formatada,
+        })
+        assert edicao.status_code == 200, edicao.text
+        final = edicao.json()
+        assert final["exportacao_liberada"] is True
+        assert f'<span style="font-weight: bold">{novo_trecho}</span>' in final["sentenca"]["texto_html"]
+        revisao_final = final["sentenca"]["revisao_documento"]
+        assert revisao_final not in (revisao_inicial, revisao_formatada)
+        for formato in ("docx", "pdf", "html", "pje"):
+            assert client.get(f"/api/export/{formato}", params={"revisao_esperada": revisao_formatada}).status_code == 409
+            resp = client.get(f"/api/export/{formato}", params={"revisao_esperada": revisao_final})
+            assert resp.status_code == 200, (formato, resp.text if formato in {"html", "pje"} else resp.status_code)
+            if formato == "docx":
+                texto = "\n".join(p.text for p in Document(BytesIO(resp.content)).paragraphs)
+            elif formato == "pdf":
+                with pymupdf.open(stream=resp.content, filetype="pdf") as pdf:
+                    texto = "\n".join(p.get_text() for p in pdf)
+            else:
+                texto = resp.json()["html_pje"] if formato == "pje" else resp.text
+            assert novo_trecho in texto, formato
+
+    def test_duas_abas_nao_sobrescrevem_a_revisao_ativa(self, client: TestClient):
+        client.post("/api/cases/load-demo")
+        folha = client.post("/api/sentence/generate", json={"use_ollama": False}).json()["sentenca"]
+        primeira_aba = folha["revisao_documento"]
+        segunda_aba = client.get("/api/sentence/last").json()["sentenca"]["revisao_documento"]
+        assert primeira_aba == segunda_aba
+        params = {"texto_html": folha["texto_html"], "revisao_esperada": primeira_aba}
+        salva = client.post("/api/sentence/save-format", json=params)
+        assert salva.status_code == 200, salva.text
+        nova = salva.json()["revisao_documento"]
+
+        assert client.post("/api/sentence/save-format", json={**params, "revisao_esperada": segunda_aba}).status_code == 409
+        assert client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": folha["texto_completo"], "revisao_esperada": segunda_aba,
+        }).status_code == 409
+
+        assert client.post("/api/sentence/save-format", json={
+            "texto_html": folha["texto_html"] + "<p>Alteração de conteúdo.</p>", "revisao_esperada": nova,
+        }).status_code == 409
+        assert client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": folha["texto_completo"], "texto_html": "<p>Outro conteúdo.</p>",
+            "revisao_esperada": nova,
+        }).status_code == 422
+        ultima = client.get("/api/sentence/last").json()
+        assert ultima["sentenca"]["revisao_documento"] == nova
+        assert ultima["exportacao_liberada"] is True
 
     def test_modelos_e_trechos_crud(self, client: TestClient, sandbox, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(core_config, "TEMPLATES_DIR", sandbox["templates_dir"])
@@ -898,7 +981,140 @@ class TestPastaDeExportacaoEPainelDeRevisao:
         client.post("/api/sentence/generate", json={"use_ollama": False})
         antes = unquote(client.get("/api/export/docx", params={"rascunho": "true"}).headers["content-disposition"])
         texto = client.get("/api/sentence/last").json()["sentenca"]["texto_completo"]
-        assert client.post("/api/sentence/update-and-audit", json={"texto_completo": texto + "\n\nParágrafo extra."}).status_code == 200
+        revisao = client.get("/api/sentence/last").json()["sentenca"]["revisao_documento"]
+        assert client.post("/api/sentence/update-and-audit", json={
+            "texto_completo": texto + "\n\nParágrafo extra.", "revisao_esperada": revisao,
+        }).status_code == 200
         depois = unquote(client.get("/api/export/docx", params={"rascunho": "true"}).headers["content-disposition"])
         assert "Condenatória" in antes and "Condenatória" in depois
         assert "art. " in antes and "art. " in depois  # tipos penais preservados após a re-auditoria
+
+def test_marcos_de_recebimento_por_imputacao_sem_data_global(client):
+    from tests.test_identidade_imputacoes import _denuncia, _julgado
+
+    bundle = {
+        "case_id": "CASO-FICTICIO-IMPUTACOES",
+        "is_demo": False,
+        "raw_documents": [
+            _denuncia(),
+            _julgado("ID-PRIMEIRO-ATO", "Recebo a denúncia quanto ao Fato 1.", "2024-04-12"),
+            _julgado("ID-SEGUNDO-ATO", "Recebo a denúncia quanto ao Fato 2.", "2024-05-02"),
+        ],
+        "transcriptions": [],
+    }
+    _ativar(bundle)
+    caso = client.get("/api/cases/active").json()
+    assert caso["metadados"]["data_recebimento_denuncia"] == ""
+    ids = [i["id_imputacao"] for i in caso["metadados"]["imputacoes"]]
+    payload = {
+        "crimes_config": [{"id_imputacao": id_, "veredicto": "condenar"} for id_ in ids],
+        "data_sentenca": "2024-06-01",
+    }
+    resposta = client.post("/api/dosimetria/simulate", json=payload)
+    assert resposta.status_code == 200, resposta.json()
+    resultado = resposta.json()
+    assert len(resultado["dosimetria"]["crimes_calculados"]) == 2
+    assert not resultado["simulacao_presume_condenacao"]
+    prescricao = resultado["prescricao"]["por_crime"]
+    assert [(i["id_imputacao"], i["data_recebimento_denuncia"]) for i in prescricao] == [
+        (ids[0], "2024-04-12"), (ids[1], "2024-05-02"),
+    ]
+    assert all(i["verificacao_completa"] for i in prescricao)
+
+
+def _rotas_plano(override, texto, revisao=None, *, usar_ollama=False):
+    externo = {"custom_dosimetria_override": override, "pseudonimizar": False}
+    return (
+        ("/api/sentence/generate", {**override, "use_ollama": False}),
+        ("/api/sentence/generate-sectional", {**override, "use_ollama": usar_ollama, "usar_duplo_crivo": False}),
+        ("/api/gemini/build-script", externo),
+        ("/api/gemini/generate", {**externo, "consentimento_envio_externo": True}),
+        ("/api/gemini/import-sentence", {**externo, "texto_sentenca": texto}),
+        ("/api/sentence/update-and-audit", {**externo, "texto_completo": texto, "revisao_esperada": revisao}),
+    )
+
+
+@pytest.mark.parametrize("gemini_direto", [False, True])
+def test_plano_e_data_do_override_sao_iguais_em_todos_os_modos(client, sandbox, monkeypatch, gemini_direto):
+    from app.generation import gemini_integration, sentence_generator
+
+    _gravar_settings(sandbox, permitir_envio_externo=True)
+    monkeypatch.setattr(gemini_integration, "resolver_chave_gemini", lambda _: "chave-ficticia" if gemini_direto else "")
+    bundle = _carregar("case_scenario_1_ameaca_lesao.json")
+    bundle["data_sentenca"] = "2040-01-01"
+    _ativar(bundle)
+    override = {**_veredictos(bundle), "data_sentenca": "2025-07-08"}
+    calcular = sentence_generator.resolver_dosimetria_e_decisoes
+    chamadas = []
+
+    def conferir_calculo(**kwargs):
+        chamadas.append(kwargs["data_sentenca"].isoformat())
+        return calcular(**kwargs)
+
+    monkeypatch.setattr(sentence_generator, "resolver_dosimetria_e_decisoes", conferir_calculo)
+    rotas = _rotas_plano(override, "")
+    primeira = client.post(rotas[0][0], json=rotas[0][1])
+    assert primeira.status_code == 200, primeira.json()
+    local = primeira.json()["sentenca"]
+    texto = local["texto_completo"]
+    revisao = local["revisao_documento"]
+    envios = []
+
+    def redigir_ficticio(script, _chave, _modelo):
+        envios.append(script)
+        return texto, {
+            "modelo_utilizado": "ficticio",
+            "modelo_solicitado": "ficticio",
+            "motivo_troca": None,
+            "finish_reason": "STOP",
+        }
+
+    monkeypatch.setattr(gemini_integration, "_chamar_gemini_detalhado", redigir_ficticio)
+    for rota, corpo in _rotas_plano(override, texto)[1:]:
+        if rota.endswith("update-and-audit"):
+            corpo["revisao_esperada"] = revisao
+        chamadas.clear()
+        resposta = client.post(rota, json=corpo)
+        assert resposta.status_code == 200, (rota, resposta.json())
+        assert chamadas == ["2025-07-08"], rota
+        dados = resposta.json()
+        if rota.endswith("build-script"):
+            script = dados["script"]["script_json"]
+            assert script["data_sentenca"] == "2025-07-08"
+            assert script["dosimetria_calculada"] == local["dosimetria_dados"]
+            assert script["prescricao_calculada"] == local["prescricao_dados"]
+        else:
+            sentenca = dados["sentenca"]
+            assert sentenca["data_prolatacao"] == "08/07/2025"
+            assert sentenca["dosimetria_dados"] == local["dosimetria_dados"]
+            assert sentenca["prescricao_dados"] == local["prescricao_dados"]
+            revisao = sentenca["revisao_documento"]
+    assert len(envios) == int(gemini_direto)
+
+
+@pytest.mark.parametrize(("data_sentenca", "erro"), [
+    ("2040-01-01", "decisao_judicial_pendente"),
+    ("31/02/2025", "dados_insuficientes"),
+])
+def test_plano_bloqueia_todos_os_modos_antes_de_consultar_modelos(client, sandbox, monkeypatch, data_sentenca, erro):
+    """Conserva o bloqueio existente de prescrição em abstrato, CP arts. 107, IV, e 109.
+    Fonte primária conferida em 22/11/2026: https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm
+    """
+    from app.generation import gemini_integration, sectional_pipeline
+
+    _gravar_settings(sandbox, permitir_envio_externo=True)
+    monkeypatch.setattr(gemini_integration, "resolver_chave_gemini", lambda _: "chave-ficticia")
+    monkeypatch.setattr(gemini_integration, "_chamar_gemini_detalhado", lambda *args: pytest.fail("Gemini chamado antes da liberação"))
+    monkeypatch.setattr(sectional_pipeline, "resolver_modelo_ollama", lambda: pytest.fail("Ollama consultado antes da liberação"))
+    bundle = _carregar("case_scenario_1_ameaca_lesao.json")
+    _ativar(bundle)
+    override = {**_veredictos(bundle), "data_sentenca": data_sentenca}
+    respostas = []
+    for rota, corpo in _rotas_plano(override, "Texto fictício.", usar_ollama=True):
+        resposta = client.post(rota, json=corpo)
+        assert resposta.status_code == 422, (rota, resposta.json())
+        dados = resposta.json()
+        assert dados["erro"] == erro, dados
+        respostas.append(dados)
+    assert all(r == respostas[0] for r in respostas)
+    assert ACTIVE_CASE_STATE["last_sentence"] is None

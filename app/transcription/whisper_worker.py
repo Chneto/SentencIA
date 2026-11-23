@@ -22,23 +22,15 @@ def main(argv: list[str]) -> int:
     from app.transcription import audio_transcriber as at
 
     try:
-        if entrada.get("beam_size") is not None:
-            segmentos, duracao = at._executar_whisper(
-                Path(entrada["media"]),
-                entrada["modelo"],
-                entrada["device"],
-                entrada["compute_type"],
-                entrada["prompt"],
-                beam_size=entrada["beam_size"],
-            )
-        else:
-            segmentos, duracao = at._executar_whisper(
-                Path(entrada["media"]),
-                entrada["modelo"],
-                entrada["device"],
-                entrada["compute_type"],
-                entrada["prompt"],
-            )
+        opcoes = {chave: entrada[chave] for chave in ("beam_size", "hotwords", "batch_size") if entrada.get(chave) is not None}
+        segmentos, duracao = at._executar_whisper(
+            Path(entrada["media"]),
+            entrada["modelo"],
+            entrada["device"],
+            entrada["compute_type"],
+            entrada["prompt"],
+            **opcoes,
+        )
         Path(argv[2]).write_text(
             json.dumps({"segmentos": segmentos, "duracao": duracao}, ensure_ascii=False), encoding="utf-8"
         )

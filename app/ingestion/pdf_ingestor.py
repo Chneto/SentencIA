@@ -33,13 +33,14 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 import pymupdf
 
 from app.core.platform_utils import IS_MACOS, IS_WINDOWS
+from app.ingestion.imputacoes import contem_ato_judicial_sobre_imputacoes, titulo_indica_aditamento
 
 logger = logging.getLogger(__name__)
 
 # Versão do esquema do cache ``<arquivo>.pdf.pje_cache_v2.json`` (o nome do arquivo é mantido por
 # compatibilidade com a rotina de reset/arquivamento). Caches de esquemas anteriores — validados só
 # pelo tamanho e com ``data_peca`` = data de hoje quando ausente — são simplesmente ignorados.
-PDF_CACHE_SCHEMA = 6
+PDF_CACHE_SCHEMA = 7
 PDF_CACHE_SUFFIX = ".pje_cache_v2.json"
 
 # Limiares de texto "substantivo" abaixo dos quais a página é tratada como digitalizada.
@@ -358,6 +359,16 @@ def _infer_title_and_phase(toc_title: str, body_text: str, doc_id: str) -> tuple
         return (f"{base_title} ({doc_id})", "JUDICIAL", False)
     if clean_len < 40 and ("ANEXO" in norm_up or not norm_up):
         return (f"{base_title} ({doc_id})", "JUDICIAL", False)
+
+    if titulo_indica_aditamento(base_title):
+        return (f"Aditamento à denúncia ({doc_id})", "JUDICIAL", True)
+
+    if (
+        re.match(r"^(?:DECIS[ÃA]O|SENTEN[ÇC]A|DESPACHO)\b", base_up)
+        and "RECEBO A DENÚNCIA" not in norm_up
+        and contem_ato_judicial_sobre_imputacoes(body_sem_tag)
+    ):
+        return (f"Decisão sobre imputações ({doc_id})", "JUDICIAL", True)
 
     # Petição Inicial que contém Auto de Prisão em Flagrante, BO, Termos e Laudos Periciais
     if base_up == "PETIÇÃO INICIAL":

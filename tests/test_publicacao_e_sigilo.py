@@ -231,3 +231,60 @@ def test_arvore_exportada_do_repositorio_tem_zero_achados(tmp_path: Path):
     achados, total_arqs, _ = verificar_sigilo.verificar_arvore(destino)
     assert total_arqs > 100
     assert achados == [], [a.formatar() for a in achados]
+
+
+def _criar_pdf_ficticio(destino: Path, texto: str = "Guia de instalacao ficticio do SentencIA.") -> None:
+    import pymupdf
+
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    doc = pymupdf.open()
+    pag = doc.new_page()
+    pag.insert_text((72, 72), texto)
+    doc.save(str(destino))
+    doc.close()
+
+
+def test_task045_pasta_raiz_pacote_release_aceita_instalacao_pdf(tmp_path: Path, capsys):
+    extraido = tmp_path / "zip_extraido"
+    _criar_pdf_ficticio(extraido / "SentencIA-v9.9.9" / "docs" / "INSTALACAO.pdf")
+
+    rc = verificar_sigilo.main([str(extraido), "--apenas-padroes"])
+    saida = capsys.readouterr().out
+
+    assert rc == 0, saida
+    assert "SentencIA-v9.9.9/" in saida
+    assert "VERIFICACAO DE SIGILO APROVADA: 0 achados" in saida
+
+
+def test_task045_arquivo_proibido_dentro_da_pasta_pacote_continua_acusado(tmp_path: Path, capsys):
+    extraido = tmp_path / "zip_extraido"
+    raiz_pacote = extraido / "SentencIA-v9.9.9"
+    _criar_pdf_ficticio(raiz_pacote / "docs" / "INSTALACAO.pdf")
+    _criar_pdf_ficticio(raiz_pacote / "docs" / "anexo_indevido.pdf")
+    (raiz_pacote / "CLAUDE.md").write_text("interno\n", encoding="utf-8")
+
+    rc = verificar_sigilo.main([str(extraido), "--apenas-padroes"])
+    saida = capsys.readouterr().out
+
+    assert rc == 1
+    assert "SentencIA-v9.9.9/" in saida
+    assert "docs/anexo_indevido.pdf:0: ARQUIVO_PROIBIDO_NA_PUBLICACAO" in saida
+    assert "CLAUDE.md:0: ARQUIVO_PROIBIDO_NA_PUBLICACAO" in saida
+    assert "docs/INSTALACAO.pdf:0: ARQUIVO_PROIBIDO_NA_PUBLICACAO" not in saida
+
+
+def test_task045_pasta_com_duas_subpastas_nao_troca_raiz(tmp_path: Path, capsys):
+    extraido = tmp_path / "zip_duas_pastas"
+    _criar_pdf_ficticio(extraido / "SentencIA-v9.9.9" / "docs" / "INSTALACAO.pdf")
+    (extraido / "outra_pasta").mkdir(parents=True)
+    (extraido / "outra_pasta" / "nota.txt").write_text("ok\n", encoding="utf-8")
+
+    raiz_resolvida, trocou = verificar_sigilo.resolver_raiz_verificacao(extraido)
+    assert trocou is False
+    assert raiz_resolvida == extraido.resolve()
+
+    rc = verificar_sigilo.main([str(extraido), "--apenas-padroes"])
+    saida = capsys.readouterr().out
+
+    assert rc == 1
+    assert "SentencIA-v9.9.9/docs/INSTALACAO.pdf:0: ARQUIVO_PROIBIDO_NA_PUBLICACAO" in saida

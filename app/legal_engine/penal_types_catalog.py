@@ -92,6 +92,7 @@ class PenalTypeSpec(BaseModel):
     violencia_ou_grave_ameaca_ambigua: bool = False
     # Crimes contra a honra (138/139/140): a partir da Lei 14.994/2024 admitem a majorante do art. 141, § 3º.
     admite_aumento_art141_p3: bool = False
+    admite_aumento_art24a_p4: bool = False
     observacao_intertemporal: str
 
 
@@ -101,6 +102,11 @@ DATA_VIGENCIA_LEI_14994_2024 = datetime.date(2024, 10, 10)
 DATA_VIGENCIA_LEI_14132_2021 = datetime.date(2021, 4, 1)
 # Lei nº 14.188/2021 (cria o art. 129, § 13, e o art. 147-B do CP): publicada e vigente em 29/07/2021
 DATA_VIGENCIA_LEI_14188_2021 = datetime.date(2021, 7, 29)
+
+DATA_VIGENCIA_LEI_13641_2018 = datetime.date(2018, 4, 4)
+DATA_VIGENCIA_LEI_15280_2025 = datetime.date(2025, 12, 8)
+DATA_VIGENCIA_LEI_15383_2026 = datetime.date(2026, 4, 10)
+DATA_VIGENCIA_LEI_15455_2026 = datetime.date(2026, 7, 2)
 
 
 def _aviso_fato_anterior_ao_tipo(lei: str, vigencia: datetime.date) -> str:
@@ -126,6 +132,8 @@ class TipoPenalInexistenteNaDataError(DadosInsuficientesError):
 
 # Tipos criados por lei posterior (código -> (vigência, lei)).
 _TIPOS_CRIADOS_POR_LEI = {
+    "art_24a_lmp": (DATA_VIGENCIA_LEI_13641_2018, "Lei nº 13.641/2018"),
+    "art_338a_cp": (DATA_VIGENCIA_LEI_15280_2025, "Lei nº 15.280/2025"),
     "art_147a_cp": (DATA_VIGENCIA_LEI_14132_2021, "Lei nº 14.132/2021"),
     "art_147b_cp": (DATA_VIGENCIA_LEI_14188_2021, "Lei nº 14.188/2021"),
 }
@@ -138,7 +146,9 @@ def verificar_tipo_existente_na_data(code: str, data_fato: datetime.date) -> Non
         raise TipoPenalInexistenteNaDataError(code, criado[0], criado[1], data_fato)
 
 
-def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpec:
+def get_penal_type_for_date(
+    code: str, data_fato: datetime.date, *, ameaca_qualificada: bool = False
+) -> PenalTypeSpec:
     """Retorna a especificação exata do tipo penal respeitando o Direito Intertemporal (Tempus Regit Actum - art. 5º, XL, CF e art. 2º CP)."""
     pos_pacote_antifeminicidio = data_fato >= DATA_VIGENCIA_LEI_14994_2024
 
@@ -156,29 +166,26 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
             }
         )
 
-    # A Lei nº 14.994/2024 elevou a pena apenas do § 13; o § 9º manteve a detenção de 3 meses a 3 anos.
-    # O código do § 9º NUNCA é convertido silenciosamente no § 13 (a emendatio libelli do art. 383 do
-    # CPP é decisão do juízo, que deve ser expressa).
     if code == "art_129_p9_cp":
-        obs_p9 = "Fato anterior a 10/10/2024: aplica-se a pena de detenção de 3 meses a 3 anos (art. 5º, XL, CF)."
-        if pos_pacote_antifeminicidio:
-            obs_p9 = (
-                "Mantida a capitulação do art. 129, § 9º, do CP (detenção de 3 meses a 3 anos; a Lei nº 14.994/2024 não alterou este parágrafo). "
-                "Se os autos indicarem lesão contra a mulher por razões da condição do sexo feminino (art. 129, § 13), a eventual emendatio libelli "
-                "(art. 383 do CPP) para pena de reclusão de 2 a 5 anos depende de decisão expressa do juízo (desclassificar para 'art_129_p13_cp')."
-            )
+        obs_p9 = (
+            "Art. 129, § 9º: reclusão de 2 a 5 anos desde 10/10/2024 (Lei nº 14.994/2024)."
+            if pos_pacote_antifeminicidio
+            else "Antes de 10/10/2024: detenção de 3 meses a 3 anos (art. 5º, XL, CF)."
+        )
+        lei = "Código Penal, art. 129, § 9º"
+        if data_fato >= DATA_VIGENCIA_LEI_15455_2026:
+            lei = "Lei nº 15.455/2026 (redação) e Lei nº 14.994/2024 (pena)"
+            obs_p9 += " Desde 02/07/2026, a redação inclui relações de trabalho doméstico (Lei nº 15.455/2026)."
+        elif pos_pacote_antifeminicidio:
+            lei = "Lei nº 14.994/2024"
         return PenalTypeSpec(
             code=code,
             nome="Lesão Corporal em Contexto de Violência Doméstica e Familiar",
-            artigo_formatado=(
-                "art. 129, § 9º, do Código Penal"
-                if pos_pacote_antifeminicidio
-                else "art. 129, § 9º, do Código Penal (redação anterior à Lei nº 14.994/2024)"
-            ),
-            lei_vigente="Código Penal, art. 129, § 9º",
-            min_pena=PenaAnosMesesDias(anos=0, meses=3, dias=0),
-            max_pena=PenaAnosMesesDias(anos=3, meses=0, dias=0),
-            especie_pena="detencao",
+            artigo_formatado="art. 129, § 9º, do Código Penal",
+            lei_vigente=lei,
+            min_pena=PenaAnosMesesDias(anos=2) if pos_pacote_antifeminicidio else PenaAnosMesesDias(meses=3),
+            max_pena=PenaAnosMesesDias(anos=5 if pos_pacote_antifeminicidio else 3),
+            especie_pena="reclusao" if pos_pacote_antifeminicidio else "detencao",
             acao_penal="publica_incondicionada",
             has_builtin_domestic_violence_element=True,
             has_violence_or_grave_threat=True,
@@ -216,7 +223,9 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
             )
 
     if code == "art_147_cp":
-        if pos_pacote_antifeminicidio:
+        if ameaca_qualificada:
+            if not pos_pacote_antifeminicidio:
+                raise TipoPenalInexistenteNaDataError(code, DATA_VIGENCIA_LEI_14994_2024, "Lei nº 14.994/2024 (§ 1º do art. 147)", data_fato)
             return PenalTypeSpec(
                 code=code,
                 nome="Ameaça contra a Mulher por Razões da Condição do Sexo Feminino",
@@ -228,15 +237,16 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
                 acao_penal="publica_incondicionada",
                 has_builtin_domestic_violence_element=True,
                 has_violence_or_grave_threat=True,
-                observacao_intertemporal="Fato posterior a 10/10/2024: pena aplicada em dobro (2 meses a 1 ano de detenção), ação penal pública incondicionada e vedação de bis in idem com art. 61, II, 'f', CP.",
+                tem_multa_alternativa=True,
+                observacao_intertemporal="Art. 147, § 1º, aplicável desde 10/10/2024: pena em dobro (2 meses a 1 ano de detenção), ação penal pública incondicionada e vedação de bis in idem com art. 61, II, 'f', CP.",
             )
         return PenalTypeSpec(
             code=code,
-            nome="Ameaça em Contexto de Violência Doméstica",
+            nome="Ameaça (caput)",
             # A agravante do art. 61, II, 'f', só entra na capitulação quando efetivamente aplicada
             # (``calcular_dosimetria_crime`` anexa "c/c art. 61, II, f" a ``agravantes_ativas``).
             artigo_formatado="art. 147, caput, do Código Penal",
-            lei_vigente="Redação anterior à Lei nº 14.994/2024",
+            lei_vigente="Código Penal, art. 147, caput",
             min_pena=PenaAnosMesesDias(anos=0, meses=1, dias=0),
             max_pena=PenaAnosMesesDias(anos=0, meses=6, dias=0),
             especie_pena="detencao",
@@ -244,7 +254,27 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
             has_builtin_domestic_violence_element=False,
             has_violence_or_grave_threat=True,
             tem_multa_alternativa=True,
-            observacao_intertemporal="Fato anterior a 10/10/2024: pena de 1 a 6 meses de detenção (ou multa), ação condicionada à representação e incidência da agravante do art. 61, II, 'f', do CP.",
+            observacao_intertemporal="Art. 147, caput: detenção de 1 a 6 meses ou multa. A ação depende de representação.",
+        )
+
+    if code == "art_338a_cp":
+        return PenalTypeSpec(
+            code=code,
+            nome="Descumprimento de Medida Protetiva de Urgência (Código Penal)",
+            artigo_formatado="art. 338-A do Código Penal",
+            lei_vigente="Lei nº 15.280/2025",
+            min_pena=PenaAnosMesesDias(anos=2),
+            max_pena=PenaAnosMesesDias(anos=5),
+            especie_pena="reclusao",
+            acao_penal="publica_incondicionada",
+            has_builtin_domestic_violence_element=False,
+            has_violence_or_grave_threat=False,
+            tem_multa_cumulativa=True,
+            observacao_intertemporal=(
+                _aviso_fato_anterior_ao_tipo("Lei nº 15.280/2025", DATA_VIGENCIA_LEI_15280_2025)
+                if data_fato < DATA_VIGENCIA_LEI_15280_2025
+                else "Vigente desde 08/12/2025. O enquadramento deve corresponder à medida e à imputação confirmadas pelo juízo."
+            ),
         )
 
     if code == "art_24a_lmp":
@@ -261,6 +291,7 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
                 has_builtin_domestic_violence_element=True,
                 has_violence_or_grave_threat=False,
                 tem_multa_cumulativa=True,
+                admite_aumento_art24a_p4=data_fato >= DATA_VIGENCIA_LEI_15383_2026,
                 observacao_intertemporal="Fato posterior a 10/10/2024: pena de reclusão de 2 a 5 anos e multa (Lei nº 14.994/2024). Pressupõe ciência prévia da decisão judicial (art. 24-A da Lei nº 11.340/2006).",
             )
         return PenalTypeSpec(
@@ -274,7 +305,11 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
             acao_penal="publica_incondicionada",
             has_builtin_domestic_violence_element=True,
             has_violence_or_grave_threat=False,
-            observacao_intertemporal="Fato anterior a 10/10/2024: pena de detenção de 3 meses a 2 anos (vedação da lex gravior retroativa).",
+            observacao_intertemporal=(
+                _aviso_fato_anterior_ao_tipo("Lei nº 13.641/2018", DATA_VIGENCIA_LEI_13641_2018)
+                if data_fato < DATA_VIGENCIA_LEI_13641_2018
+                else "De 04/04/2018 até 09/10/2024: detenção de 3 meses a 2 anos (Lei nº 13.641/2018)."
+            ),
         )
 
     if code == "art_147a_cp":
@@ -333,7 +368,7 @@ def get_penal_type_for_date(code: str, data_fato: datetime.date) -> PenalTypeSpe
             has_builtin_domestic_violence_element=False,
             has_violence_or_grave_threat=False,
             tem_multa_alternativa=True,
-            observacao_intertemporal="Pena de detenção de 1 a 3 meses, ou multa. Bem jurídico autônomo (inviolabilidade do domicílio — art. 5º, XI, CF), não absorvido por lesão corporal ou ameaça (STJ, AgRg no HC 687.211/SC).",
+            observacao_intertemporal="Pena de detenção de 1 a 3 meses, ou multa. Bem jurídico autônomo (inviolabilidade do domicílio — art. 5º, XI, CF), não absorvido pela lesão corporal (STJ, 6ª Turma, Informativo 846).",
         )
 
     if code == "art_150_p1_cp":
@@ -588,6 +623,7 @@ def list_all_penal_types(reference_date: datetime.date | None = None) -> List[Di
         "art_129_p9_cp",
         "art_147_cp",
         "art_24a_lmp",
+        "art_338a_cp",
         "art_147a_cp",
         "art_147b_cp",
         "art_150_cp",

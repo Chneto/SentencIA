@@ -513,6 +513,8 @@ class TestDefectRemediationsIteration2:
 
             # 1. Validador foi obrigatoriamente executado
             assert validator_invocado is True, "gating_validator foi ignorado em regenerar_secao_atomica!"
+            assert rascunho.secao == SecaoTipo.RELATORIO
+            assert "ID-DOC-INEXISTENTE" not in rascunho.texto_redigido
             # 2. O texto alucinado NÃO pode estar no buffer selado
             texto_selado = engine.estado.secoes_seladas[SecaoTipo.RELATORIO]
             assert "ID-DOC-INEXISTENTE" not in texto_selado
@@ -538,6 +540,8 @@ class TestDefectRemediationsIteration2:
         # Regenera a seção com validador aprovado
         engine.gating_validator = default_in_flight_gating_validator
         rascunho = engine.regenerar_secao_atomica(SecaoTipo.RELATORIO, use_ollama=False)
+        assert rascunho.secao == SecaoTipo.RELATORIO
+        assert len(rascunho.texto_redigido) > 50
 
         # O status em status_secoes DEVE ser sincronizado para APROVADO
         assert engine.estado.status_secoes[SecaoTipo.RELATORIO] == StatusSecao.APROVADO

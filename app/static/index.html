@@ -266,7 +266,7 @@
               <span class="station-count" id="badgeCountCrimes">0</span>
             </button>
 
-            <button type="button" class="station-btn" data-station="sentenca" title="Etapa 4 — Sentença &amp; Gemini">
+            <button type="button" class="station-btn" data-station="sentenca" title="Etapa 4 — Sentença">
               <span class="station-label-wrap">
                 <span class="station-icon-box" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -276,7 +276,7 @@
                 </span>
                 <span class="station-text-stack">
                   <span class="station-step-tag">Etapa 4</span>
-                  <span class="station-name">Sentença &amp; Gemini</span>
+                  <span class="station-name">Sentença</span>
                 </span>
               </span>
               <span class="station-count" id="badgeAuditMini">—</span>
@@ -311,7 +311,7 @@
           <span class="stepper-connector" aria-hidden="true"></span>
           <button type="button" class="stepper-node" data-goto-station="sentenca">
             <span class="stepper-dot">4</span>
-            <span>Sentença &amp; Gemini</span>
+            <span>Sentença</span>
           </button>
         </nav>
 
@@ -528,14 +528,28 @@
               <p class="station-subtitle">Cronologia Laya S1, prova oral consolidada por interlocutor, protocolo de gênero CNJ 492 e teses defensivas mapeadas.</p>
             </div>
             <div class="subtab-bar" role="tablist" data-subtab-group="analise">
-              <button type="button" class="subtab-btn active" data-subtab="sub-analise-timeline">Linha do Tempo Laya S1</button>
+              <button type="button" class="subtab-btn active" data-subtab="sub-analise-pontos">Pontos decisivos</button>
+              <button type="button" class="subtab-btn" data-subtab="sub-analise-timeline">Linha do Tempo Laya S1</button>
               <button type="button" class="subtab-btn" data-subtab="sub-analise-oral">Prova Oral &amp; Áudio Consolidado</button>
               <button type="button" class="subtab-btn" data-subtab="sub-analise-cnj">Matriz CNJ 492</button>
               <button type="button" class="subtab-btn" data-subtab="sub-analise-quadro">Quadro Sinóptico &amp; Teses</button>
             </div>
           </div>
 
-          <div class="subtab-pane active" id="sub-analise-timeline">
+          <div class="subtab-pane active" id="sub-analise-pontos">
+            <section class="surface-card pd-painel" aria-labelledby="pdTitulo">
+              <div class="pd-cartao-topo">
+                <h2 id="pdTitulo">Pontos decisivos</h2>
+                <span id="pdContador" class="pd-estado" role="status" hidden></span>
+              </div>
+              <div class="pd-conteudo">
+                <div id="pdQuadro"></div>
+                <div id="pdCards" class="pd-cartoes"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="subtab-pane" id="sub-analise-timeline">
             <div class="surface-card">
               <div class="laya-timeline-spine" id="timelineContainer"></div>
             </div>
@@ -580,7 +594,7 @@
               <div id="alertasExtracaoContainer" style="margin-top:12px;"></div>
             </div>
             <div class="surface-card">
-              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Teses Defensivas Mapeadas (Enfrentamento Obrigatório)</h2>
+              <h2 style="margin:0 0 12px; font-size:16px; font-weight:700;">Teses Defensivas Mapeadas (Apreciação Obrigatória)</h2>
               <div id="tesesListContainer"></div>
             </div>
           </div>
@@ -749,7 +763,7 @@
                 <span>Recalcular / Simular</span>
               </button>
               <button type="button" class="btn btn-primary btn-lg" id="btnGoToSentenceFromDos" data-goto-station="sentenca">
-                <span>Avançar para Etapa 4: Sentença &amp; Gemini</span>
+                <span>Avançar para Etapa 4: Sentença</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
@@ -759,9 +773,9 @@
           </div>
         </section>
 
-        <!-- ESTAÇÃO 4: SENTENÇA & GEMINI (TOOLBAR + FOLHA EDITORIAL EXPANSÍVEL) -->
+        <!-- ESTAÇÃO 4: SENTENÇA (TOOLBAR + FOLHA EDITORIAL EXPANSÍVEL) -->
         <section class="station-panel" data-station-panel="sentenca">
-          <div class="sentence-toolbar" role="toolbar" aria-label="Ações da Sentença e Gemini">
+          <div class="sentence-toolbar" role="toolbar" aria-label="Ações da Sentença">
             <div class="toolbar-group">
               <label class="switch-inline" title="Pseudonimizar dados sensíveis (Segredo de Justiça / LGPD) antes de enviar ao Gemini">
                 <input type="checkbox" id="chkPseudonimizarScript" checked />
@@ -771,11 +785,11 @@
                 <option value="compacto" selected>Compacto</option>
                 <option value="integral">Integral</option>
               </select>
-              <button type="button" class="btn btn-sm btn-gold" id="btnCopyScriptMd" title="Copiar Script Py (.md) para o Gemini">Copiar Script Py (.md)</button>
+              <button type="button" class="btn btn-sm btn-gold" id="btnCopyScriptMd" data-aviso-pontos title="Copiar Script Py (.md) para o Gemini">Copiar Script Py (.md)</button>
               <button type="button" class="btn btn-sm" id="btnOpenScriptModal">Ver Script</button>
               <button type="button" class="btn btn-sm" id="btnOpenPasteGeminiModal" title="Colar Sentença do Gemini Web/Pro">Colar Gemini</button>
               <button type="button" class="btn btn-sm btn-primary" id="btnOpenGeminiApiModal" title="Gerar Sentença via API Gemini (exige consentimento de envio externo)">API Gemini</button>
-              <button type="button" class="btn btn-sm" id="btnGenerateSentence" title="Gerar minuta pelo motor local determinístico (exige veredicto por crime)">Gerar (motor local)</button>
+              <button type="button" class="btn btn-sm" id="btnGenerateSentence" data-aviso-pontos title="Gerar minuta pelo motor local determinístico (exige veredicto por crime)">Gerar (motor local)</button>
             </div>
 
             <div class="toolbar-group">
@@ -790,6 +804,7 @@
             </div>
           </div>
 
+          <p id="pdAvisoGeracao" class="pd-aviso-geracao" role="status" hidden></p>
           <div class="pendencias-panel" id="sentencePendenciasPanel" hidden></div>
 
           <div class="sentence-paper-wrapper">
@@ -1026,7 +1041,7 @@
 
         <h3 style="font-size:13px; margin:14px 0 8px;">Pipeline Seccional &amp; Regeneração Cirúrgica</h3>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-          <button type="button" class="btn btn-sm" id="btnGenerateSectional">Gerar em Pipeline Seccional (M4)</button>
+          <button type="button" class="btn btn-sm" id="btnGenerateSectional" data-aviso-pontos>Gerar em Pipeline Seccional (M4)</button>
         </div>
         <div id="sectionalTelemetryGrid" style="margin-bottom:10px;"></div>
         <div class="inner-tile" style="display:flex; flex-direction:column; gap:8px;">
@@ -1045,6 +1060,18 @@
       </div>
     </div>
   </div>
+
+  <dialog id="pdCorrecao" class="pd-dialogo" aria-labelledby="pdCorrecaoTitulo">
+    <form id="pdCorrecaoForm">
+      <h2 id="pdCorrecaoTitulo">Corrigir ponto decisivo</h2>
+      <div id="pdCorrecaoCampos" class="pd-campos"></div>
+      <p id="pdCorrecaoErro" class="pd-honra" role="alert"></p>
+      <div class="pd-acoes">
+        <button type="button" class="btn btn-sm" id="pdCancelarCorrecao">Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary" id="pdSalvarCorrecao">Salvar correção</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- GAVETA LATERAL INSPETOR DE PEÇA / PROVA -->
   <div class="modal-backdrop drawer-mode" id="modalEvidence" hidden>
@@ -1267,7 +1294,8 @@
           </div>
           <div>
             <label class="form-label" for="setWhisperModel">Modelo Whisper</label>
-            <input class="form-control mono" type="text" id="setWhisperModel" />
+            <input class="form-control mono" type="text" id="setWhisperModel" placeholder="auto" />
+            <p class="muted">Auto usa turbo com VRAM suficiente e small na CPU. O primeiro uso do turbo baixa cerca de 1,6 GB.</p>
           </div>
           <div>
             <label class="form-label" for="setWhisperDevice">Dispositivo do Whisper</label>
@@ -1277,6 +1305,10 @@
               <option value="cpu">CPU</option>
             </select>
           </div>
+          <label class="form-label">
+            <input type="checkbox" id="setWhisperPreprocessar" checked />
+            Filtrar ruído grave e normalizar o volume antes da transcrição
+          </label>
           <div>
             <label class="form-label" for="setModoGpu">Modo de uso da placa de vídeo (GPU)</label>
             <select class="form-select" id="setModoGpu">
@@ -1454,7 +1486,7 @@
           <span>Substituir seções reprovadas pelo motor local (sinalizado no laudo)</span>
         </label>
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
-          <button type="button" class="btn btn-primary" id="btnRunGeminiApi">Executar Script Py + Gemini API</button>
+          <button type="button" class="btn btn-primary" id="btnRunGeminiApi" data-aviso-pontos>Executar Script Py + Gemini API</button>
         </div>
       </div>
     </div>
@@ -1756,7 +1788,7 @@
             <li><strong>Autos &amp; Mídias:</strong> envie o PDF integral do PJe e as gravações das audiências.</li>
             <li><strong>Análise &amp; Provas:</strong> confira as peças, transcrições citáveis e complete dados faltantes.</li>
             <li><strong>Dosimetria da Pena:</strong> informe o veredicto de cada crime e ajuste os parâmetros.</li>
-            <li><strong>Sentença &amp; Gemini:</strong> gere a minuta, revise o laudo e copie com segurança para o PJe.</li>
+            <li><strong>Sentença:</strong> gere a minuta, revise o laudo e copie com segurança para o PJe.</li>
           </ol>
           <a href="/guia-usuario" target="_blank" rel="noopener noreferrer" class="btn btn-sm" id="linkAssistenteGuiaUsuario">Abrir Guia do Usuário completo</a>
         </div>
