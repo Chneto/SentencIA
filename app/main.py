@@ -1891,7 +1891,11 @@ def api_simulate_dosimetria(req: Optional[DosimetriaSimulationRequest] = Body(de
             + ", ".join(faltantes)
             + "). Complemente-os em POST /api/cases/metadata-override.",
         )
-    data_sentenca = resolver_data(override.get("data_sentenca"), bundle.get("data_sentenca")) or datetime.date.today()
+    data_informada = override.get("data_sentenca")
+    data_sentenca = resolver_data(data_informada)
+    if data_informada and data_sentenca is None:
+        raise DadosInsuficientesError(["data_sentenca"], "Informe uma data válida para a sentença.")
+    data_sentenca = data_sentenca or resolver_data(bundle.get("data_sentenca")) or datetime.date.today()
 
     res, presc, decisoes, criterio_1fase, detracao_periodo = resolver_dosimetria_e_decisoes(
         pecas=list(ctx.pecas),
@@ -2873,7 +2877,9 @@ def api_gemini_build_script(req: Optional[BuildGeminiScriptRequest] = Body(defau
     bundle = _require_active_bundle()
     script_obj = gerar_script_estruturado_caso(
         case_bundle=bundle,
-        custom_dosimetria_override=payload.custom_dosimetria_override,
+        custom_dosimetria_override=(
+            payload.custom_dosimetria_override.model_dump(exclude_none=True) if payload.custom_dosimetria_override else None
+        ),
         pseudonimizar=payload.pseudonimizar,
         densidade=payload.densidade,
     )
@@ -2900,7 +2906,9 @@ def api_gemini_generate(req: Optional[GenerateGeminiSentenceRequest] = Body(defa
         model_name=payload.model,
         pseudonimizar=payload.pseudonimizar,
         densidade=payload.densidade,
-        custom_dosimetria_override=payload.custom_dosimetria_override,
+        custom_dosimetria_override=(
+            payload.custom_dosimetria_override.model_dump(exclude_none=True) if payload.custom_dosimetria_override else None
+        ),
         consentimento_envio_externo=payload.consentimento_envio_externo,
         auto_blindar_auditoria=payload.auto_blindar_auditoria,
     )
@@ -2937,7 +2945,10 @@ def api_gemini_import_sentence(req: ImportExternalSentenceRequest) -> Dict[str, 
         sentenca, auditoria, telemetria = importar_e_auditar_sentenca_externa(
             case_bundle=bundle,
             texto_sentenca_externa=req.texto_sentenca,
-            custom_dosimetria_override=req.custom_dosimetria_override,
+            custom_dosimetria_override=(
+                req.custom_dosimetria_override.model_dump(exclude_none=True)
+                if req.custom_dosimetria_override else None
+            ),
             auto_blindar_auditoria=req.auto_blindar_auditoria,
             mapa_reversao=mapa,
             mapa_hash=mapa_hash,
@@ -2972,7 +2983,10 @@ def api_update_and_audit_sentence(req: UpdateAndAuditSentenceRequest) -> Dict[st
         sentenca, auditoria, telemetria = importar_e_auditar_sentenca_externa(
             case_bundle=bundle,
             texto_sentenca_externa=req.texto_completo,
-            custom_dosimetria_override=req.custom_dosimetria_override,
+            custom_dosimetria_override=(
+                req.custom_dosimetria_override.model_dump(exclude_none=True)
+                if req.custom_dosimetria_override else None
+            ),
             auto_blindar_auditoria=False,
             origem_label="Edição Direta em Gabinete (Re-Auditada 4 Camadas)",
         )

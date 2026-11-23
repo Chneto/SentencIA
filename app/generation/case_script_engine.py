@@ -948,7 +948,11 @@ def gerar_script_estruturado_caso(
                 f"  - g) Consequências do Crime: {v['consequencias'].fundamentacao}\n"
                 f"  - h) Comportamento da Vítima: {v['comportamento_vitima'].fundamentacao}"
             )
-        multa_line = f" | Multa: `{c.dias_multa} dias-multa`" if getattr(c, "dias_multa", 0) > 0 else ""
+        multa_line = ""
+        if c.multa_pendente:
+            multa_line = " | Multa: preserve o marcador de decisão pendente."
+        elif c.dias_multa and c.valor_unitario_multa:
+            multa_line = f" | Multa: {c.dias_multa} dias-multa, à razão de {c.valor_unitario_multa} do salário mínimo ao tempo do fato."
         linhas_crimes_dos.append(
             f"### Crime {idx}: {spec.nome} ({spec.artigo_formatado})\n"
             f"- Preceito secundário aplicável (direito intertemporal já resolvido): {spec.min_pena.format_extenso()} a {spec.max_pena.format_extenso()} de {esp}\n"
@@ -1048,7 +1052,7 @@ def gerar_script_estruturado_caso(
                 data_fato_br=formatar_data_br(meta.data_fato), id_den="denúncia",
             ) + ".",
         ])
-        if not comandos.total_dias_multa:
+        if not comandos.multas and not comandos.multa_pendente:
             linhas_dispositivo.append("- Nenhuma multa penal calculada.")
     texto_comandos_dispositivo = "\n".join(linhas_dispositivo)
 

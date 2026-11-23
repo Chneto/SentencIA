@@ -60,6 +60,9 @@ _DEMO_DATA_INTIMACAO_MPU = "2025-01-22"
 _DEMO_DATA_AIJ = "2025-06-18"
 
 
+REPARACAO_ARBITRADA_DEMO = 3000.0
+
+
 def construir_inputs_dosimetria_demo(
     dt_fato: datetime.date,
     *,
@@ -76,6 +79,8 @@ def construir_inputs_dosimetria_demo(
         CrimeDosimetriaInput(
             crime_code="art_24a_lmp",
             data_fato=dt_fato,
+            dias_multa=10 if dt_fato >= DATA_VIGENCIA_LEI_14994_2024 else None,
+            valor_unitario_multa="1/30" if dt_fato >= DATA_VIGENCIA_LEI_14994_2024 else None,
             circunstancias_art59={
                 "antecedentes": CircunstanciaArt59(
                     desfavoravel=True,

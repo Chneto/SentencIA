@@ -502,7 +502,8 @@ def construir_dossie_secao(
             fatos.append(
                 f"{sp.nome} ({sp.artigo_formatado}): pena-base {c.pena_base.format_extenso()}; intermediária "
                 f"{c.pena_intermediaria.format_extenso()}; definitiva {c.pena_definitiva.format_extenso()}"
-                + (f" e {c.dias_multa} dias-multa" if getattr(c, "dias_multa", 0) else "")
+                + (f" e {c.dias_multa} dias-multa, cada qual a {c.valor_unitario_multa} salário mínimo ao tempo do fato"
+                   if c.dias_multa and c.valor_unitario_multa else "")
                 + f"; vetores do art. 59 desfavoráveis: {', '.join(negativos) if negativos else 'nenhum (pena-base no mínimo legal)'}."
             )
             for k in c.vetores_negativos_efetivos:

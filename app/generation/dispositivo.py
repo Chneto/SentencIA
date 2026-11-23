@@ -46,6 +46,13 @@ class ComandoImputacao:
 
 
 @dataclass(frozen=True)
+class ComandoMulta:
+    dias: int
+    valor_unitario: str
+    imputacao: str
+
+
+@dataclass(frozen=True)
 class ComandosDispositivo:
     imputacoes: tuple[ComandoImputacao, ...]
     penas_por_especie: dict[str, PenaAnosMesesDias]
@@ -56,6 +63,9 @@ class ComandosDispositivo:
     reparacao: Decimal | None
     reparacao_pendente: bool
     sem_condenacao: bool
+
+    multas: tuple[ComandoMulta, ...] = ()
+    multa_pendente: bool = False
 
     def texto_penas(self) -> str:
         return " e ".join(
@@ -122,17 +132,32 @@ def construir_comandos_dispositivo(
     reparacao = Decimal(f"{float(valor):.2f}") if valor is not None else None
     if sem_condenacao:
         reparacao = Decimal("0")
-    multa = dados.get("total_dias_multa")
-    if multa is None:
-        multa = sum(int(crime.get("dias_multa") or 0) for crime in condenacoes)
+    total_multa = int(dados.get("total_dias_multa") or 0)
+    multas = tuple(
+        ComandoMulta(int(c["dias_multa"]), c["valor_unitario_multa"], imputacao.rotulo)
+        for c, imputacao in zip(condenacoes, imputacoes)
+        if c.get("dias_multa") and c.get("valor_unitario_multa")
+    )
+    multa_pendente = any(
+        c.get("multa_pendente") or (c.get("dias_multa") and not c.get("valor_unitario_multa"))
+        for c in condenacoes
+    ) or bool(total_multa and not multas)
+    if dados.get("tipo_concurso") == "continuado" and multas:
+        maior = max(m.dias for m in multas)
+        maiores = tuple(m for m in multas if m.dias == maior)
+        if len({m.valor_unitario for m in maiores}) > 1:
+            multa_pendente = True
+        multas = (ComandoMulta(total_multa, maiores[0].valor_unitario, ""),) if not multa_pendente else ()
     return ComandosDispositivo(
         imputacoes=tuple(imputacoes),
         penas_por_especie={} if sem_condenacao else penas,
         pena_total_unificada=None if sem_condenacao else total,
         regime_inicial="" if sem_condenacao else regime,
         regime_por_especie={} if sem_condenacao else {e: regimes.get(e, regime) for e in penas if regimes.get(e, regime)},
-        total_dias_multa=0 if sem_condenacao else int(multa),
+        total_dias_multa=0 if sem_condenacao or multa_pendente else total_multa,
         reparacao=reparacao,
         reparacao_pendente=not sem_condenacao and bool(dados.get("dano_moral_arbitramento_pendente")),
         sem_condenacao=sem_condenacao,
+        multas=multas,
+        multa_pendente=not sem_condenacao and multa_pendente,
     )

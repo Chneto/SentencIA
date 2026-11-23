@@ -1,4 +1,3 @@
-// SentencIA — Módulo ES: estacao-dosimetria.js (TASK-015)
 import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, VEREDICTO_LABELS, VETORES_59_META, hooks, state } from "./estado.js?v=2.1.0";
 import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.1.0";
 import { handleApiError, postJson } from "./api.js?v=2.1.0";
@@ -26,8 +25,10 @@ function novoCrimeConfig(code, isDemo) {
     reincidente: false,
     agravante_art61f: !!isDemo,
     tentativa_fracao: "",
-    dias_multa: 0,
-    aplicar_aumento_art147a_p1_ii: true,
+    dias_multa: "",
+    valor_unitario_multa: "",
+    aplicar_aumento_art147a_p1_ii: false,
+    majorante_147a_confirmada: false,
   };
 }
 
@@ -38,7 +39,6 @@ function chaveCaso(c, usarManifesto = true) {
   return `${c.case_id || ""}|${c.is_demo ? "demo" : "real"}|${(c.pecas || []).length}|${ids}`;
 }
 
-/* Decisoes do juizo (veredicto, vetores, fundamentacoes) sobrevivem ao F5: sessionStorage por caso. */
 const CHAVE_DECISOES_SESSAO = "jvdfm.decisoes.v1";
 let salvarDecisoesTimer = null;
 
@@ -129,6 +129,9 @@ function initCrimeConfigsFromCase(caseData, mesmoCaso) {
     const referencia = item.fonte_id ? `${etiqueta} · ${item.fonte_id}` : "";
     return {
       ...inicial, ...anterior,
+      // Rascunhos antigos vinham com o aumento marcado. Exija nova confirmação.
+      aplicar_aumento_art147a_p1_ii: anterior?.majorante_147a_confirmada === true
+        && anterior.aplicar_aumento_art147a_p1_ii === true,
       id_imputacao: item.id_imputacao || "",
       data_fato_autos: dataAutos,
       referencia,
@@ -167,7 +170,7 @@ function atualizarHintDanoMoral() {
   const valor = Number(meta.valor_dano_moral_pedido_mp || 0);
   if (!state.activeCase || state.activeCase.empty) hint.textContent = "";
   else if (!meta.pedido_dano_moral_expresso_mp) hint.textContent = "Pedido do MP não identificado nos autos.";
-  else if (valor > 0) hint.textContent = `Pedido do MP: ${fmtMoeda(valor)}.`;
+  else if (valor > 0) hint.textContent = `Pedido do MP: ${fmtMoeda(valor)}. Referência para arbitramento.`;
   else hint.textContent = "MP pediu sem indicar valor: arbitramento pendente se o campo ficar vazio.";
 }
 
@@ -438,8 +441,13 @@ function renderDosimetryCrimeTabsAndEditor() {
           </select>
         </div>
         <div>
-          <label class="form-label" for="inputCrimeMulta">Dias-multa (0 = sugestão do motor, com alerta)</label>
-          <input class="form-control mono" type="number" id="inputCrimeMulta" min="0" value="${Number(cfg.dias_multa || 0)}" />
+          <label class="form-label" for="inputCrimeMulta">Multa cumulativa decidida (10 a 360 dias-multa)</label>
+          <input class="form-control mono" type="number" id="inputCrimeMulta" min="10" max="360" value="${escapeHtml(String(cfg.dias_multa || ""))}" />
+        </div>
+        <div>
+          <label class="form-label" for="inputCrimeMultaUnidade">Valor unitário em salários mínimos ao tempo do fato</label>
+          <input class="form-control mono" type="text" id="inputCrimeMultaUnidade" placeholder="Ex.: 1/30"
+            value="${escapeHtml(cfg.valor_unitario_multa || "")}" />
         </div>
         <label class="switch-inline" ${codigoEfetivo === "art_147a_cp" ? "" : "hidden"} title="Art. 147-A, § 1º, II, CP (contra mulher por razões da condição de sexo feminino)">
           <input type="checkbox" id="chkCrime147aAumento" ${cfg.aplicar_aumento_art147a_p1_ii ? "checked" : ""} />
@@ -546,11 +554,16 @@ function renderDosimetryCrimeTabsAndEditor() {
     aoMudar(false);
   });
   $("inputCrimeMulta")?.addEventListener("input", (e) => {
-    cfg.dias_multa = Math.max(0, parseInt(e.target.value || "0", 10) || 0);
+    cfg.dias_multa = e.target.value;
+    aoMudar(false);
+  });
+  $("inputCrimeMultaUnidade")?.addEventListener("input", (e) => {
+    cfg.valor_unitario_multa = e.target.value;
     aoMudar(false);
   });
   $("chkCrime147aAumento")?.addEventListener("change", (e) => {
     cfg.aplicar_aumento_art147a_p1_ii = e.target.checked;
+    cfg.majorante_147a_confirmada = true;
     aoMudar(false);
   });
 }
@@ -584,25 +597,25 @@ function buildCrimesConfig() {
     const vetores_art59 = {};
     VETORES_59_META.forEach((v) => {
       const f = (c.vetores_fundamentacao?.[v.key] || "").trim();
-      vetores_art59[v.key] = { desfavoravel: !!c.vetores[v.key] };
+      vetores_art59[v.key] = { desfavoravel: c.vetores[v.key] === true };
       if (f) vetores_art59[v.key].fundamentacao = f;
     });
     item.vetores_art59 = vetores_art59;
     if (c.confissao === "sim") item.confissao = true;
     else if (c.confissao === "nao") item.confissao = false;
-    item.reincidente = !!c.reincidente;
-    item.agravante_art61f = !!c.agravante_art61f;
+    item.reincidente = c.reincidente === true;
+    item.agravante_art61f = c.agravante_art61f === true;
     item.tentativa_fracao = (c.tentativa_fracao || "").trim() || null;
-    item.dias_multa = Number(c.dias_multa || 0);
+    if (c.dias_multa) item.dias_multa = Number(c.dias_multa);
+    if (c.valor_unitario_multa?.trim()) item.valor_unitario_multa = c.valor_unitario_multa.trim();
     const efetivo = tipoEfetivoCrime(c);
     if (efetivo === "art_147_cp" && c.enquadramento_ameaca) item.enquadramento_ameaca = c.enquadramento_ameaca;
     if (efetivo === "art_24a_lmp" && c.majorante_art24a_p4?.hipotese) item.majorante_art24a_p4 = c.majorante_art24a_p4;
-    if (efetivo === "art_147a_cp") item.aplicar_aumento_art147a_p1_ii = !!c.aplicar_aumento_art147a_p1_ii;
+    if (efetivo === "art_147a_cp") item.aplicar_aumento_art147a_p1_ii = c.majorante_147a_confirmada === true && c.aplicar_aumento_art147a_p1_ii === true;
     return item;
   });
 }
 
-/** Somente o que o juízo informou; ausente = padrão correto do motor (sem valores inventados). */
 function buildDosimetryPayload() {
   const p = { crimes_config: buildCrimesConfig() };
   if (state.decisaoCautelar?.decisao) p.decisao_cautelar = state.decisaoCautelar;
@@ -612,8 +625,8 @@ function buildDosimetryPayload() {
   if (tipo) p.tipo_concurso = tipo;
   const fracao = $("selFracaoConcurso")?.value;
   if (fracao) p.concurso_fracao = fracao;
-  const valor = Number($("inputValorDanoMoral")?.value || 0);
-  if (Number.isFinite(valor) && valor > 0) p.valor_dano_moral = valor;
+  const valor = $("inputValorDanoMoral")?.value;
+  if (valor) p.valor_dano_moral = Number(valor);
   const dataSent = $("inputDataSentenca")?.value;
   if (dataSent) p.data_sentenca = dataSent;
   const diasRaw = String($("inputDiasPrisaoCautelar")?.value || "").trim();
@@ -660,7 +673,6 @@ function renderDosimetryAlerts(res) {
     (c.alertas_juridicos || []).forEach((a) => {
       if (a && a !== c.crime_spec?.observacao_intertemporal) add(`${c.crime_spec?.nome || ""}: ${a}`, "info");
     });
-    if (c.dias_multa_sugeridos_pelo_motor) add(`${c.crime_spec?.nome || ""}: ${c.dias_multa} dia(s)-multa SUGERIDOS pelo motor (confirme ou informe o quantum).`, "warn");
   });
   (p.alertas || []).forEach((a) => add(`Prescrição: ${a}`, "info"));
   const presumidos = (res?.decisoes_crimes || []).filter((x) => x.presumido);

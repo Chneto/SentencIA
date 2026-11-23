@@ -31,7 +31,12 @@ from app.core.case_context import CaseContext, obter_contexto
 from app.core.config import load_settings
 from app.core.errors import DadosInsuficientesError, DecisaoJudicialPendenteError
 from app.core.text_utils import normalizar
-from app.demo.demo_sentence import DEMO_CRIMES, construir_inputs_dosimetria_demo, gerar_secoes_demo
+from app.demo.demo_sentence import (
+    DEMO_CRIMES,
+    REPARACAO_ARBITRADA_DEMO,
+    construir_inputs_dosimetria_demo,
+    gerar_secoes_demo,
+)
 from app.generation.date_formatter import (
     converter_mencoes_textuais_para_extenso,
     formatar_data_br,
@@ -413,13 +418,13 @@ def parse_fracao_str(frac_str: str | None) -> tuple[int, int] | None:
             num, den = int(frac_str[0]), int(frac_str[1])
         except (TypeError, ValueError):
             return None
-        return (num, den) if num > 0 and den > 0 else None
+        return (num, den) if 0 < num < den else None
     s = str(frac_str).strip()
     m = re.match(r"^(\d+)\s*/\s*(\d+)$", s)
     if not m:
         return None
     num, den = int(m.group(1)), int(m.group(2))
-    if num <= 0 or den <= 0:
+    if not 0 < num < den:
         return None
     return (num, den)
 
@@ -450,22 +455,25 @@ def _como_dict(item: Any) -> Dict[str, Any]:
     return dict(getattr(item, "__dict__", {}) or {})
 
 
-def _bool_ov(ov: Dict[str, Any], chave: str, padrao: bool) -> bool:
+def _bool_ov(ov: Dict[str, Any], chave: str, padrao: bool, prefixo: str = "") -> bool:
     valor = ov.get(chave)
-    return padrao if valor is None else bool(valor)
+    if valor is None:
+        return padrao
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, str) and valor.strip().lower() in ("true", "false"):
+        return valor.strip().lower() == "true"
+    raise DadosInsuficientesError([prefixo + chave], "Informe um valor booleano (true ou false).")
 
 
-def _valor_dano_moral(ov: Dict[str, Any], meta: MetadadosProcesso) -> float | None:
-    """Valor da reparação: o informado pelo juízo; senão o pedido pelo MP; senão ``None`` (pendente)."""
-    bruto = ov.get("valor_dano_moral")
-    try:
-        valor_juizo = float(bruto) if bruto not in (None, "") else 0.0
-    except (TypeError, ValueError):
-        valor_juizo = 0.0
-    if valor_juizo > 0:
-        return valor_juizo
-    pedido = float(getattr(meta, "valor_dano_moral_pedido_mp", 0.0) or 0.0)
-    return pedido if pedido > 0 else None
+def _fracao_override(ov: Dict[str, Any], chave: str, prefixo: str = "") -> tuple[int, int] | None:
+    valor = ov.get(chave)
+    if valor is None:
+        return None
+    fracao = parse_fracao_str(valor)
+    if fracao is None:
+        raise DadosInsuficientesError([prefixo + chave], "Informe uma fração positiva menor que 1.")
+    return fracao
 
 
 def _majorante_art24a_p4(
@@ -488,6 +496,13 @@ def _majorante_art24a_p4(
             [campo], "A majorante do art. 24-A, § 4º, exige hipótese, fração e trecho da peça indicada."
         )
     return MajoranteArt24aP4(hipotese=hipotese, fonte_id=fonte_id, trecho=trecho, fracao=fracao)
+
+
+def _quantidade_multa(item: Dict[str, Any], prefixo: str) -> int | None:
+    dias = item.get("dias_multa")
+    if dias is not None and (type(dias) is not int or not (dias == 0 or 10 <= dias <= 360)):
+        raise DadosInsuficientesError([prefixo + "dias_multa"], "Informe de 10 a 360 dias-multa (art. 49 do CP).")
+    return dias
 
 
 def resolver_dosimetria_e_decisoes(
@@ -568,8 +583,8 @@ def resolver_dosimetria_e_decisoes(
         if ov.get("confissao_art24a") is not None and not is_demo:
             conf_por_crime = (
                 conf_dinamica
-                if (ov["confissao_art24a"] and any(conf_dinamica.values()))
-                else {c: bool(ov["confissao_art24a"]) for c in crimes_imputados}
+                if (confissao_art24a and any(conf_dinamica.values()))
+                else {c: confissao_art24a for c in crimes_imputados}
             )
         else:
             conf_por_crime = None if is_demo else conf_dinamica
@@ -598,7 +613,13 @@ def resolver_dosimetria_e_decisoes(
     reinc_confirmada = (ant_cls == "reincidencia") or (ant_conf is True)
     reincidente_global = _bool_ov(ov, "reincidente", reinc_confirmada)
     agravante_art61f_global = _bool_ov(ov, "agravante_art61f", True if is_demo else False)
-    valor_dano_moral = _valor_dano_moral(ov, meta)
+    dano_pedido = (
+        float(getattr(meta, "valor_dano_moral_pedido_mp", 0.0) or 0.0) or None
+        if meta.pedido_dano_moral_expresso_mp else None
+    )
+
+    decisoes_do_enredo_demo = is_demo and not config_raw and crimes_imputados == list(DEMO_CRIMES)
+    valor_dano_decidido = ov.get("valor_dano_moral", REPARACAO_ARBITRADA_DEMO if decisoes_do_enredo_demo else None)
 
     decisoes_crimes: List[Dict[str, Any]] = []
     crimes_condenados_inputs: List[CrimeDosimetriaInput] = []
@@ -637,6 +658,7 @@ def resolver_dosimetria_e_decisoes(
         item = configs.get(chave, {})
         veredicto = str(item.get("veredicto") or "").strip().lower()
         campo = chave if repetido or item.get("id_imputacao") else orig_code
+        prefixo = f"crimes_config.{campo}."
         data_informada = item.get("data_fato")
         data_item = _resolver_data(data_informada) if data_informada else _resolver_data(
             alvo.data_fato if repetido or len(datas_expressas) > 1 else None
@@ -668,6 +690,9 @@ def resolver_dosimetria_e_decisoes(
                 "data_fato": data_item,
                 "menoridade_relativa_ou_senilidade": atenuante_item,
                 "confissao_espontanea": modelo.confissao_espontanea and not repetido,
+                "dias_multa": modelo.dias_multa if decisoes_do_enredo_demo else _quantidade_multa(item, prefixo),
+                "valor_unitario_multa": modelo.valor_unitario_multa if decisoes_do_enredo_demo else item.get("valor_unitario_multa"),
+                "aplicar_aumento_art147a_p1_ii": _bool_ov(item, "aplicar_aumento_art147a_p1_ii", False, prefixo),
             })
             if not is_demo and orig_code == "art_147_cp" and data_item >= DATA_VIGENCIA_LEI_14994_2024:
                 alternativa = item.get("enquadramento_ameaca")
@@ -783,13 +808,13 @@ def resolver_dosimetria_e_decisoes(
         desclassificado_de = ""
         if veredicto == "desclassificar":
             alvo = str(item.get("crime_desclassificado") or "").strip()
-            if alvo and alvo != orig_code:
-                effective_code = alvo
-                desclassificado_de = orig_code
-            else:
-                alertas_resolucao.append(
-                    f"Desclassificação de {spec_orig.artigo_formatado} sem tipo penal de destino: mantida a capitulação original na simulação."
+            if not alvo or alvo == orig_code:
+                raise DadosInsuficientesError(
+                    [prefixo + "crime_desclassificado"],
+                    "Informe um tipo penal de destino diferente do tipo da imputação.",
                 )
+            effective_code = alvo
+            desclassificado_de = orig_code
 
         ameaca_qualificada = False
         if effective_code == "art_147_cp":
@@ -817,37 +842,38 @@ def resolver_dosimetria_e_decisoes(
         for v_key in VETORES_ART_59:
             v_raw = vetores_in.get(v_key) if isinstance(vetores_in, dict) else None
             if isinstance(v_raw, dict):
-                desfav = bool(v_raw.get("desfavoravel", False))
+                prefixo_vetor = f"{prefixo}vetores_art59.{v_key}."
+                desfav = _bool_ov(v_raw, "desfavoravel", False, prefixo_vetor)
                 circs_map[v_key] = CircunstanciaArt59(
                     desfavoravel=desfav,
-                    possui_transito_em_julgado_anterior=bool(v_raw.get("possui_transito_em_julgado_anterior", True)),
+                    possui_transito_em_julgado_anterior=_bool_ov(v_raw, "possui_transito_em_julgado_anterior", True, prefixo_vetor),
                     fundamentacao=_fundamentacao_vetor(v_key, desfav and v_key != "comportamento_vitima", str(v_raw.get("fundamentacao") or "")),
                 )
 
-        confissao_item = item.get("confissao")
-        confissao = bool(confissao_item) if confissao_item is not None else not repetido and bool(conf_dinamica.get(orig_code, False))
-        tent_frac = parse_fracao_str(item.get("tentativa_fracao"))
-        aum_frac = parse_fracao_str(item.get("fracao_aumento"))
+        confissao = _bool_ov(item, "confissao", not repetido and bool(conf_dinamica.get(orig_code, False)), prefixo)
+        tent_frac = _fracao_override(item, "tentativa_fracao", prefixo)
+        aum_frac = _fracao_override(item, "fracao_aumento", prefixo)
         crimes_condenados_inputs.append(
             CrimeDosimetriaInput(
                 **dados_calculo,
                 crime_code=effective_code,
                 data_fato=data_item,
                 circunstancias_art59=circs_map,
-                agravantes_art61_f_violencia_domestica=bool(item.get("agravante_art61f", agravante_art61f_global)),
-                reincidente=bool(item.get("reincidente", reincidente_global)),
+                agravantes_art61_f_violencia_domestica=_bool_ov(item, "agravante_art61f", agravante_art61f_global, prefixo),
+                reincidente=_bool_ov(item, "reincidente", reincidente_global, prefixo),
                 confissao_espontanea=confissao,
                 fracao_aumento_terceira_fase=aum_frac,
                 fracao_diminuicao_terceira_fase=tent_frac,
-                dias_multa=int(item.get("dias_multa") or 0),
+                dias_multa=_quantidade_multa(item, prefixo),
+                valor_unitario_multa=item.get("valor_unitario_multa"),
                 desclassificado_de=desclassificado_de,
                 ameaca_qualificada=ameaca_qualificada,
                 majorante_art24a_p4=majorante_24a,
-                aplicar_aumento_art147a_p1_ii=bool(item.get("aplicar_aumento_art147a_p1_ii", True)),
-                aplicar_aumento_art141_p3=bool(item.get("aplicar_aumento_art141_p3", False)),
-                menoridade_relativa_ou_senilidade=bool(item.get("menoridade_relativa_ou_senilidade", atenuante_item)),
+                aplicar_aumento_art147a_p1_ii=_bool_ov(item, "aplicar_aumento_art147a_p1_ii", False, prefixo),
+                aplicar_aumento_art141_p3=_bool_ov(item, "aplicar_aumento_art141_p3", False, prefixo),
+                menoridade_relativa_ou_senilidade=_bool_ov(item, "menoridade_relativa_ou_senilidade", atenuante_item, prefixo),
                 violencia_ou_grave_ameaca=(
-                    None if item.get("violencia_ou_grave_ameaca") is None else bool(item.get("violencia_ou_grave_ameaca"))
+                    None if item.get("violencia_ou_grave_ameaca") is None else _bool_ov(item, "violencia_ou_grave_ameaca", False, prefixo)
                 ),
             )
         )
@@ -880,7 +906,7 @@ def resolver_dosimetria_e_decisoes(
     if tipo_concurso_raw not in ("nenhum", "material", "formal", "continuado"):
         tipo_concurso_raw = "material" if n_cond > 1 else "nenhum"
     # Fração ausente => o motor sugere conforme o número de crimes (a do juízo prevalece).
-    frac_conc = parse_fracao_str(ov.get("concurso_fracao"))
+    frac_conc = _fracao_override(ov, "concurso_fracao")
 
     cfg_dos = DosimetriaConfig(
         criterio_primeira_fase=criterio_1fase,
@@ -895,7 +921,9 @@ def resolver_dosimetria_e_decisoes(
             fracao_exasperacao=frac_conc,
         ),
         pedido_expresso_dano_moral_mp=bool(meta.pedido_dano_moral_expresso_mp),
-        valor_dano_moral_sugerido=valor_dano_moral,
+        valor_dano_moral_pedido=dano_pedido,
+        valor_dano_moral_sugerido=dano_pedido,
+        valor_dano_moral_decidido=valor_dano_decidido,
         dias_prisao_cautelar=detracao_dias,
         crimes_nao_condenados=crimes_nao_condenados,
     )
@@ -943,10 +971,8 @@ def flags_idade_art115(
     nasc = _resolver_data(data_nascimento_reu)
     menor_21 = bool(nasc and dt_fato and _idade_em(nasc, dt_fato) < 21)
     maior_70 = bool(nasc and data_sentenca and _idade_em(nasc, data_sentenca) >= 70)
-    if override_menor_21 is not None:
-        menor_21 = bool(override_menor_21)
-    if override_maior_70 is not None:
-        maior_70 = bool(override_maior_70)
+    menor_21 = _bool_ov({"reu_menor_21_na_data_fato": override_menor_21}, "reu_menor_21_na_data_fato", menor_21)
+    maior_70 = _bool_ov({"reu_maior_70_na_sentenca": override_maior_70}, "reu_maior_70_na_sentenca", maior_70)
     return menor_21, maior_70
 
 
@@ -958,15 +984,25 @@ def _dias_multa_extenso(n: int) -> str:
     return f"{n} ({numero_por_extenso(n)}) dias-multa"
 
 
+def _texto_valor_unitario_multa(valor: str) -> str:
+    return f"no valor unitário de {valor} do salário mínimo vigente ao tempo do fato (art. 49, § 1º, do CP)"
+
+
 def texto_multa_dispositivo(dosimetria_global: DosimetriaGlobalOutput | ComandosDispositivo) -> str:
-    """", além do pagamento de N (extenso) dias-multa, ..." ou "" quando não há multa."""
-    total = int(getattr(dosimetria_global, "total_dias_multa", 0) or 0)
-    if total <= 0:
-        return ""
-    return (
-        f", além do pagamento de {_dias_multa_extenso(total)}, no valor unitário mínimo de 1/30 (um trigésimo) "
-        f"do salário mínimo vigente ao tempo do fato (art. 49, § 1º, do CP)"
+    comandos = (
+        dosimetria_global if isinstance(dosimetria_global, ComandosDispositivo)
+        else construir_comandos_dispositivo(dosimetria_global)
     )
+    partes = [
+        f"{_dias_multa_extenso(multa.dias)}"
+        + (f" pela imputação de {multa.imputacao}" if len(comandos.multas) > 1 else "")
+        + f", {_texto_valor_unitario_multa(multa.valor_unitario)}"
+        for multa in comandos.multas
+    ]
+    texto = ", além do pagamento de " + "; ".join(partes) if partes else ""
+    if comandos.multa_pendente:
+        texto += f". {marcador('decisão sobre a quantidade e o valor unitário da multa')}"
+    return texto
 
 
 _ROTULO_ESPECIE = {"reclusao": "reclusão", "detencao": "detenção", "prisao_simples": "prisão simples"}
@@ -994,8 +1030,7 @@ def texto_dano_moral_dispositivo(
 ) -> str:
     """Comando do dispositivo sobre a reparação mínima (art. 387, IV, do CPP).
 
-    Três situações: valor fixado; pedido SEM valor (arbitramento pendente — marcador, nunca
-    "ausência de pedido"); ausência de pedido.
+    Distingue arbitramento positivo, decisão de deixar de fixar, arbitramento pendente e ausência de pedido.
     """
     valor = float(getattr(dosimetria_global, "indenizacao_dano_moral_tema983", 0.0) or 0.0)
     vitima = f" {nome_ofendida}" if nome_ofendida else ""
@@ -1007,12 +1042,11 @@ def texto_dano_moral_dispositivo(
             f"calculados pela Taxa Selic deduzido o índice de atualização monetária, na forma do art. 406, § 1º, do Código Civil (Lei nº 14.905/2024)"
         )
         return f"CONDENAR o acusado {corpo}" if infinitivo else f"CONDENO o acusado {corpo}"
-    if getattr(dosimetria_global, "dano_moral_arbitramento_pendente", False):
-        corpo = (
-            f"a título de reparação mínima dos danos morais sofridos pela ofendida{vitima}, pedida expressamente pelo Ministério Público ({id_den}) sem indicação de valor, "
-            f"o montante de {marcador('valor da reparação mínima')} (art. 387, inciso IV, do CPP e Tema Repetitivo 983/STJ)"
-        )
-        return f"FIXAR, {corpo}" if infinitivo else f"FIXO, {corpo}"
+    if dosimetria_global.valor_dano_moral_decidido == 0:
+        corpo = "valor mínimo para reparação do dano moral, conforme decisão expressa do juízo"
+        return f"DEIXAR DE FIXAR {corpo}" if infinitivo else f"DEIXO DE FIXAR {corpo}"
+    if dosimetria_global.dano_moral_arbitramento_pendente:
+        return marcador("decisão sobre a reparação mínima pedida pelo Ministério Público")
     corpo = (
         f"valor mínimo indenizatório a título de danos morais (art. 387, inciso IV, do CPP e Tema Repetitivo 983/STJ), "
         f"ante a ausência de pedido expresso na peça acusatória ({id_den})"
@@ -1264,10 +1298,11 @@ def formatar_secao_dosimetria_completa(
         )
         texto_3fase = _texto_terceira_fase(c, spec)
 
-        dias_multa = int(getattr(c, "dias_multa", 0) or 0)
-        multa_crime_txt = (
-            f", além de {_dias_multa_extenso(dias_multa)}, no valor unitário mínimo legal (art. 49, § 1º, do CP)" if dias_multa > 0 else ""
-        )
+        multa_crime_txt = ""
+        if c.multa_pendente:
+            multa_crime_txt = f". {marcador('decisão sobre a quantidade e o valor unitário da multa desta imputação')}"
+        elif c.dias_multa and c.valor_unitario_multa:
+            multa_crime_txt = f", além de {_dias_multa_extenso(c.dias_multa)}, {_texto_valor_unitario_multa(c.valor_unitario_multa)}"
         texto_def = (
             f"d) Pena Definitiva do Delito: Torno concreta e definitiva a reprimenda privativa de liberdade fixada para o crime de "
             f"{spec.nome} ({spec.artigo_formatado}) em {c.pena_definitiva.format_extenso()} de {especie_formatada}{multa_crime_txt}."
@@ -1465,11 +1500,15 @@ def formatar_secao_dosimetria_completa(
             f"montante que deverá ser corrigido monetariamente pelo IPCA a partir desta sentença (Súmula 362/STJ) e acrescido de juros legais de mora a contar da data do evento danoso{dt_ev} "
             f"(art. 398 do Código Civil e Súmula 54/STJ), calculados pela Taxa Selic deduzido o índice de atualização monetária, na forma do art. 406, § 1º, do Código Civil (Lei nº 14.905/2024)."
         )
-    elif getattr(dosimetria_global, "dano_moral_arbitramento_pendente", False):
+    elif dosimetria_global.dano_moral_arbitramento_pendente:
         bloco_dano_especifico = (
-            f"Houve requerimento expresso de reparação mínima formulado pelo Ministério Público{den_ref}, sem indicação de valor. "
-            f"Sendo o dano moral presumido (in re ipsa), arbitro a reparação mínima em favor da ofendida{nome_vitima_ref} no montante de "
-            f"{marcador('valor da reparação mínima')}, com correção monetária desde esta sentença (Súmula 362/STJ) e juros de mora desde o evento danoso (Súmula 54/STJ)."
+            f"Houve requerimento expresso de reparação mínima formulado pelo Ministério Público{den_ref}. "
+            f"{marcador('decisão sobre a reparação mínima')}"
+        )
+    elif dosimetria_global.valor_dano_moral_decidido == 0:
+        bloco_dano_especifico = (
+            f"Houve requerimento expresso de reparação mínima formulado pelo Ministério Público{den_ref}. "
+            "Deixo de fixar valor mínimo indenizatório, conforme decisão expressa do juízo."
         )
     else:
         bloco_dano_especifico = (

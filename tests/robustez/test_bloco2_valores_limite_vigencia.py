@@ -23,7 +23,8 @@ import datetime
 
 import pytest
 
-from app.legal_engine.dosimetria_calculator import PenaAnosMesesDias
+from app.core.errors import DadosInsuficientesError
+from app.legal_engine.dosimetria_calculator import CrimeDosimetriaInput, PenaAnosMesesDias, calcular_dosimetria_crime
 from app.legal_engine.penal_types_catalog import get_penal_type_for_date, verificar_tipo_existente_na_data
 
 D = datetime.date
@@ -95,3 +96,17 @@ def test_majorante_do_24a_p4_so_admitida_a_partir_de_10_04_2026():
     assert not get_penal_type_for_date("art_24a_lmp", LEI_15383_2026 - UM_DIA).admite_aumento_art24a_p4
     for dia in (LEI_15383_2026, LEI_15383_2026 + UM_DIA):
         assert get_penal_type_for_date("art_24a_lmp", dia).admite_aumento_art24a_p4
+
+
+@pytest.mark.parametrize("deslocamento", [-1, 0, 1])
+def test_majorante_do_147a_requer_vigencia_e_reconhecimento_expresso(deslocamento):
+    """Lei 14.132/2021, em vigor desde 01/04/2021 (publicação oficial no Planalto)."""
+    dia = LEI_14132_2021 + deslocamento * UM_DIA
+    entrada = CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=dia)
+    expressa = entrada.model_copy(update={"aplicar_aumento_art147a_p1_ii": True})
+    if deslocamento < 0:
+        with pytest.raises(DadosInsuficientesError):
+            calcular_dosimetria_crime(expressa)
+        return
+    assert calcular_dosimetria_crime(entrada).pena_definitiva.to_total_days() == 180
+    assert calcular_dosimetria_crime(expressa).pena_definitiva.to_total_days() == 270

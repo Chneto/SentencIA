@@ -1212,7 +1212,7 @@ class TestF20_F24_DosimetriaTrifasica:
         config=DosimetriaConfig(),
         concurso=ConcursoCrimesConfig(tipo_concurso="nenhum"),
         pedido_expresso_dano_moral_mp=True,
-        valor_dano_moral_sugerido=3000.0,
+        valor_dano_moral_decidido=3000.0,
     )
     assert res.regime_inicial.lower() == "aberto"
 
@@ -1231,7 +1231,7 @@ class TestF20_F24_DosimetriaTrifasica:
         config=DosimetriaConfig(),
         concurso=ConcursoCrimesConfig(tipo_concurso="nenhum"),
         pedido_expresso_dano_moral_mp=False,
-        valor_dano_moral_sugerido=0.0,
+        valor_dano_moral_decidido=0.0,
     )
     assert res_sem_dano.indenizacao_dano_moral_tema983 == 0.0
 

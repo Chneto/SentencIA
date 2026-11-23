@@ -4,8 +4,6 @@
 Métodos: (1) smoke/varredura: toda rota GET sem parâmetro responde sem erro 5xx num caso vazio e com o caso demo;
 (2) particionamento de equivalência: cada classe de entrada INVÁLIDA precisa ser recusada com 422 (nunca aceita em
 silêncio, nunca 500); a classe VÁLIDA "corpo ausente" da simulação usa o padrão e responde 200.
-Brechas ainda abertas ficam como ``xfail(strict=True)`` apontando a tarefa que as corrige: quando a correção entrar,
-o teste passa a falhar como XPASS e obriga a promover o caso a exigência (revisão cruzada do CODEX na TASK-072).
 Ambiente isolado (pasta de dados temporária e token desativado pelo conftest).
 """
 
@@ -19,19 +17,7 @@ from app.main import app
 ROTAS_EXTERNAS = ("ollama", "gemini", "assistente", "abrir-pasta", "atualizacao", "update")
 
 
-class AceitacaoIndevida(AssertionError):
-    """A rota aceitou (HTTP 200) uma entrada que o contrato manda recusar. É a ÚNICA falha esperada nos xfail."""
-
-
-# xfail restrito ao tipo conhecido (revisão cruzada do CODEX): um 500 ou outra exceção falha normalmente, e o 422
-# esperado após a TASK-061 vira XPASS (strict) e obriga a promover o caso.
-PENDENTE_061 = pytest.mark.xfail(raises=AceitacaoIndevida, strict=True,
-                                 reason="TASK-061: validação estrita das entradas (P1-09)")
-
-
 def _exigir_422(r, payload):
-    if r.status_code == 200:
-        raise AceitacaoIndevida(f"aceitou {payload!r}")
     assert r.status_code == 422, (payload, r.status_code, r.text[:300])
     assert r.json().get("detail"), "422 sem detalhe do campo"
 
@@ -80,8 +66,8 @@ SIMULACAO_INVALIDA = [
     # Booleano reconhecido pelo modelo com texto sem sentido (classe isolada).
     pytest.param({"reincidente": "talvez"}, id="booleano_sem_sentido"),
     # Brechas reais (classes isoladas, código penal existente no demo):
-    pytest.param({"crimes_config": [{"codigo": "art_147_cp", "veredicto": 7}]}, id="veredicto_numerico", marks=PENDENTE_061),
-    pytest.param({"campo_inexistente": 1}, id="campo_desconhecido", marks=PENDENTE_061),
+    pytest.param({"crimes_config": [{"codigo": "art_147_cp", "veredicto": 7}]}, id="veredicto_numerico"),
+    pytest.param({"campo_inexistente": 1}, id="campo_desconhecido"),
 ]
 
 
@@ -105,7 +91,7 @@ OVERRIDE_INVALIDO = [
     pytest.param({"metadados": []}, id="metadados_lista"),
     pytest.param(None, id="corpo_nulo"),
     pytest.param([], id="corpo_lista"),
-    pytest.param({"data_fato": "31/02/2025"}, id="fora_do_envelope", marks=PENDENTE_061),
+    pytest.param({"data_fato": "31/02/2025"}, id="fora_do_envelope"),
 ]
 
 
@@ -113,3 +99,39 @@ OVERRIDE_INVALIDO = [
 def test_override_de_metadados_recusa_entradas_invalidas_com_422(cliente, payload):
     cliente.post("/api/cases/load-demo")
     _exigir_422(cliente.post("/api/cases/metadata-override", json=payload), payload)
+
+
+@pytest.mark.parametrize("rota", [
+    "/api/dosimetria/simulate",
+    "/api/sentence/generate",
+    "/api/sentence/generate-sectional",
+])
+@pytest.mark.parametrize(("campo", "valor"), [
+    ("tentativa_fracao", "2/1"),
+    ("reincidente", "não"),
+    ("veredicto", 7),
+    ("dias_multa", True),
+    ("valor_unitario_multa", "1/60"),
+])
+def test_decisao_invalida_indica_o_caminho_no_envelope(cliente, rota, campo, valor):
+    crime = {"codigo": "art_147_cp", campo: valor}
+    payload = {"custom_dosimetria_override": {"crimes_config": [crime]}}
+    r = cliente.post(rota, json=payload)
+    _exigir_422(r, payload)
+    assert ["body", "custom_dosimetria_override", "crimes_config", 0, campo] in [
+        detalhe["loc"] for detalhe in r.json()["detail"]
+    ]
+
+
+def test_tentativa_de_cumular_multa_alternativa_indica_o_campo(cliente):
+    """A multa do art. 147 do CP é alternativa à detenção.
+    https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm#art147
+    """
+    cliente.post("/api/cases/load-demo")
+    payload = {"crimes_config": [{
+        "codigo": "art_147_cp", "veredicto": "condenar", "enquadramento_ameaca": "caput",
+        "dias_multa": 20, "valor_unitario_multa": "1/15",
+    }]}
+    r = cliente.post("/api/dosimetria/simulate", json=payload)
+    _exigir_422(r, payload)
+    assert r.json()["campos"][0].endswith(".dias_multa")

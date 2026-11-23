@@ -86,6 +86,7 @@ def _dosimetria_sintetica() -> dict:
                 "crime_spec": {"code": "art_147_cp", "especie_pena": "detencao"},
                 "pena_definitiva": {"anos": 0, "meses": 2, "dias": 0},
                 "dias_multa": 10,
+                "valor_unitario_multa": "1/30",
             },
         ],
         "penas_por_especie": {
@@ -102,7 +103,7 @@ def _dosimetria_sintetica() -> dict:
 _DISPOSITIVO_CORRETO = (
     "Ante o exposto, JULGO PROCEDENTE a denúncia para CONDENAR o acusado às penas definitivas de "
     "2 (dois) anos, 4 (quatro) meses e 15 (quinze) dias de reclusão e 2 (dois) meses de detenção, "
-    "além de 10 (dez) dias-multa. A soma das penas privativas de liberdade é de 2 anos, 6 meses e 15 dias."
+    "além de 10 (dez) dias-multa, no valor unitário de 1/30 do salário mínimo vigente ao tempo do fato. A soma das penas privativas de liberdade é de 2 anos, 6 meses e 15 dias."
 )
 
 
@@ -365,8 +366,10 @@ def test_cache_do_indice_invalidado_quando_gabinete_cadastra_precedente(tmp_path
     (lambda t: t.replace("2 (dois) anos, 4 (quatro) meses e 15 (quinze) dias", "1 (um) ano"), "pena total da espécie"),
     (lambda t: t.replace(" e 2 (dois) meses de detenção", ""), "detenção não consta"),
     (lambda t: t.replace("reclusão", "detenção"), "pena total da espécie"),
-    (lambda t: t.replace(", além de 10 (dez) dias-multa", ""), "10 dias-multa não consta"),
+    (lambda t: t.replace(", além de 10 (dez) dias-multa, no valor unitário de 1/30 do salário mínimo vigente ao tempo do fato", ""), "10 dias-multa não consta"),
     (lambda t: t.replace("10 (dez) dias-multa", "5 (cinco) dias-multa"), "não corresponde à calculada"),
+    (lambda t: t.replace("1/30", "1/15"), "valor unitário divergente"),
+    (lambda t: t.replace("ao tempo do fato", "na data da sentença"), "valor unitário divergente"),
     (lambda t: t.replace("2 (dois) meses de detenção", "2 (dois) meses de detenção e 2 meses de detenção"), "repetida"),
     (lambda t: t.replace("2 anos, 6 meses e 15 dias", "2 anos"), "Soma explícita"),
     (lambda t: t.split(" A soma das penas")[0], "A soma das penas privativas de liberdade"),
@@ -374,11 +377,10 @@ def test_cache_do_indice_invalidado_quando_gabinete_cadastra_precedente(tmp_path
 def test_dispositivo_exige_totais_e_multa_sem_omissoes_ou_repeticoes(alterar, mensagem):
     dados = _dosimetria_sintetica()
     dados["crimes_calculados"][0]["pena_definitiva"]["anos"] = 1
-    dados["crimes_calculados"][1]["dias_multa"] = 5
     dados["crimes_calculados"].append({
         "crime_spec": {"especie_pena": "reclusao"},
         "pena_definitiva": {"anos": 1},
-        "dias_multa": 5,
+        "dias_multa": 0,
     })
     laudo = auditar_sentenca(f"III – DISPOSITIVO\n\n{alterar(_DISPOSITIVO_CORRETO)}", [], [], dosimetria_dados=dados)
     assert not laudo.aprovada_sem_alucinacao
@@ -399,7 +401,7 @@ def test_dispositivo_misto_confere_veredictos_fundamento_regimes_e_reparacao():
         "III – DISPOSITIVO\n\n"
         "CONDENAR pelo art. 129, § 13, do Código Penal e pelo art. 147, caput, do CP.\n\n"
         "ABSOLVER quanto ao art. 150, caput, do CP, com fulcro no art. 386, inciso VII, do CPP.\n\n"
-        "Fixo 2 anos, 4 meses e 15 dias de reclusão e 2 meses de detenção, além de 10 dias-multa. "
+        "Fixo 2 anos, 4 meses e 15 dias de reclusão e 2 meses de detenção, além de 10 dias-multa, no valor unitário de 1/30 do salário mínimo vigente ao tempo do fato. "
         "Regime inicial fechado quanto à pena de reclusão e regime inicial semiaberto quanto à pena de detenção. "
         "A soma das penas privativas de liberdade é de 2 anos, 6 meses e 15 dias.\n\n"
         "Fixo reparação mínima em R$ 1.250,50."
@@ -423,7 +425,7 @@ def test_dispositivo_misto_confere_veredictos_fundamento_regimes_e_reparacao():
 def test_dispositivo_sem_condenacao_rejeita_multa_e_reparacao_indevidas():
     dados = {"sem_condenacao": True}
     dispositivo = (
-        "III – DISPOSITIVO\n\nABSOLVER o acusado. Fixo 10 dias-multa. "
+        "III – DISPOSITIVO\n\nABSOLVER o acusado. Fixo 10 dias-multa, no valor unitário de 1/30 do salário mínimo vigente ao tempo do fato. "
         "Regime inicial aberto. Fixo reparação mínima em R$ 200,00."
     )
     erros = auditar_sentenca(dispositivo, [], [], dosimetria_dados=dados).penas_divergentes

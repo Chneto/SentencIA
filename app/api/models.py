@@ -8,82 +8,157 @@ valor de dano moral). Antes, os modelos traziam ``culpabilidade_lesao=True``,
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+import re
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, StrictBool, model_validator
 
-#: Campos "planos" de dosimetria aceitos tanto na simulação quanto na geração.
-CAMPOS_OVERRIDE_DOSIMETRIA = (
-    "criterio_primeira_fase",
-    "culpabilidade_lesao",
-    "motivos_lesao",
-    "circunstancias_lesao",
-    "consequencias_lesao",
-    "confissao_art24a",
-    "reincidente",
-    "agravante_art61f",
-    "valor_dano_moral",
-    "crimes_config",
-    "tipo_concurso",
-    "concurso_fracao",
-    "data_sentenca",
-    "reu_menor_21_na_data_fato",
-    "reu_maior_70_na_sentenca",
-    "dias_prisao_cautelar",
-    "decisao_cautelar",
-)
+from app.generation.date_formatter import parse_qualquer_data
+from app.generation.juizo_sobre_provas import DecisaoCautelarSentenca, ElementoProvado
+from app.legal_engine.dosimetria_calculator import VETORES_ART_59, ValorUnitarioMulta
+from app.legal_engine.penal_types_catalog import list_all_penal_types
+
+_CODIGOS_PENAIS = frozenset(tipo["code"] for tipo in list_all_penal_types())
 
 
-class ParametrosDosimetria(BaseModel):
-    """Parâmetros de dosimetria/decisão informados pelo juízo (todos opcionais).
+def _booleano_de_decisao(valor: object) -> object:
+    if isinstance(valor, str) and valor.strip().lower() in ("true", "false"):
+        return valor.strip().lower() == "true"
+    return valor
 
-    ``crimes_config``: lista de ``{id_imputacao, codigo, veredicto (condenar|absolver|desclassificar|extinguir),
-    crime_desclassificado, fundamento_absolvicao_art386, fundamento_extincao_art107, fundamentacao,
-    elementos_provados,
-    vetores_art59, confissao, reincidente, agravante_art61f, tentativa_fracao, fracao_aumento,
-    dias_multa, aplicar_aumento_art147a_p1_ii, enquadramento_ameaca (caput|paragrafo_1),
-    majorante_art24a_p4 {hipotese, fonte_id, trecho, fracao}}``.
 
-    ``custom_dosimetria_override`` (dict) é aceito como alternativa; os campos planos informados
-    (não ``None``) prevalecem sobre as mesmas chaves do dict.
-    """
+def _fracao_propria(valor: str) -> str:
+    partes = re.fullmatch(r"([0-9]{1,9})\s*/\s*([0-9]{1,9})", valor.strip())
+    if partes is None or not 0 < int(partes[1]) < int(partes[2]):
+        raise ValueError("informe uma fração positiva menor que 1 (por exemplo, 1/3)")
+    return f"{int(partes[1])}/{int(partes[2])}"
 
-    model_config = ConfigDict(extra="ignore")
 
-    criterio_primeira_fase: Optional[str] = None
-    culpabilidade_lesao: Optional[bool] = None
-    motivos_lesao: Optional[bool] = None
-    circunstancias_lesao: Optional[bool] = None
-    consequencias_lesao: Optional[bool] = None
-    confissao_art24a: Optional[bool] = None
-    reincidente: Optional[bool] = None
-    agravante_art61f: Optional[bool] = None
-    valor_dano_moral: Optional[float] = Field(default=None, ge=0)
-    crimes_config: Optional[List[Dict[str, Any]]] = None
+def _data_valida(valor: str) -> str:
+    if parse_qualquer_data(valor) is None:
+        raise ValueError("informe uma data válida")
+    return valor
+
+
+def _codigo_penal(valor: str) -> str:
+    codigo = valor.strip()
+    if codigo not in _CODIGOS_PENAIS:
+        raise ValueError("informe um código do catálogo penal")
+    return codigo
+
+
+def _veredicto_omitido(valor: object) -> object:
+    return None if isinstance(valor, str) and not valor.strip() else valor
+
+
+BooleanoDecisao = Annotated[StrictBool, BeforeValidator(_booleano_de_decisao)]
+FracaoPropria = Annotated[str, AfterValidator(_fracao_propria)]
+DataValida = Annotated[str, AfterValidator(_data_valida)]
+CodigoPenal = Annotated[str, AfterValidator(_codigo_penal)]
+
+
+class VetorArt59Request(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    desfavoravel: BooleanoDecisao = False
+    possui_transito_em_julgado_anterior: BooleanoDecisao = True
+    fundamentacao: str = ""
+
+
+def _chaves_vetores_validas(vetores: dict[str, VetorArt59Request]) -> dict[str, VetorArt59Request]:
+    desconhecidos = vetores.keys() - set(VETORES_ART_59)
+    if desconhecidos:
+        raise ValueError("vetor desconhecido: " + ", ".join(sorted(desconhecidos)))
+    return vetores
+
+
+class Majorante24ARequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hipotese: Literal["area_exclusao", "dispositivo_monitoracao"]
+    fonte_id: str = ""
+    trecho: str = ""
+    fracao: FracaoPropria | None = None
+
+
+class CrimeDosimetriaRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    codigo: CodigoPenal | None = Field(default=None, validation_alias=AliasChoices("codigo", "crime_code"))
+    id_imputacao: str | None = None
+    data_fato: DataValida | None = None
+    veredicto: Annotated[
+        Literal["condenar", "absolver", "desclassificar", "extinguir"] | None,
+        BeforeValidator(_veredicto_omitido),
+    ] = None
+    crime_desclassificado: CodigoPenal | None = None
+    fundamento_absolvicao_art386: str | None = None
+    fundamento_extincao_art107: str | None = None
+    fundamentacao: str | None = None
+    fundamentacao_absolvicao: str | None = None
+    fundamentacao_extincao: str | None = None
+    elementos_provados: list[ElementoProvado] | None = None
+    vetores_art59: Annotated[dict[str, VetorArt59Request], AfterValidator(_chaves_vetores_validas)] | None = None
+    confissao: BooleanoDecisao | None = None
+    reincidente: BooleanoDecisao | None = None
+    agravante_art61f: BooleanoDecisao | None = None
+    menoridade_relativa_ou_senilidade: BooleanoDecisao | None = None
+    violencia_ou_grave_ameaca: BooleanoDecisao | None = None
+    tentativa_fracao: FracaoPropria | None = None
+    fracao_aumento: FracaoPropria | None = None
+    dias_multa: int | None = Field(default=None, strict=True, ge=0, le=360)
+    valor_unitario_multa: ValorUnitarioMulta | None = None
+    enquadramento_ameaca: Literal["caput", "paragrafo_1"] | None = None
+    aplicar_aumento_art147a_p1_ii: BooleanoDecisao | None = None
+    aplicar_aumento_art141_p3: BooleanoDecisao | None = None
+    majorante_art24a_p4: Majorante24ARequest | None = None
+
+    @model_validator(mode="after")
+    def validar_identificacao(self) -> CrimeDosimetriaRequest:
+        if not (self.codigo or "").strip() and not (self.id_imputacao or "").strip():
+            raise ValueError("informe codigo ou id_imputacao")
+        return self
+
+
+class DosimetriaOverride(BaseModel):
+    """Campos de decisão compartilhados por todos os caminhos de dosimetria."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    criterio_primeira_fase: Optional[Literal["um_oitavo_intervalo", "um_sexto_minima"]] = None
+    culpabilidade_lesao: Optional[BooleanoDecisao] = None
+    motivos_lesao: Optional[BooleanoDecisao] = None
+    circunstancias_lesao: Optional[BooleanoDecisao] = None
+    consequencias_lesao: Optional[BooleanoDecisao] = None
+    confissao_art24a: Optional[BooleanoDecisao] = None
+    reincidente: Optional[BooleanoDecisao] = None
+    agravante_art61f: Optional[BooleanoDecisao] = None
+    valor_dano_moral: Optional[float] = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
+    crimes_config: Optional[List[CrimeDosimetriaRequest]] = None
     tipo_concurso: Optional[Literal["nenhum", "material", "formal", "continuado"]] = None
-    concurso_fracao: Optional[str] = None
+    concurso_fracao: Optional[FracaoPropria] = None
     data_sentenca: Optional[str] = None
-    reu_menor_21_na_data_fato: Optional[bool] = None
-    reu_maior_70_na_sentenca: Optional[bool] = None
-    dias_prisao_cautelar: Optional[int] = Field(default=None, ge=0)
-    decisao_cautelar: Optional[Dict[str, Any]] = None
-    custom_dosimetria_override: Optional[Dict[str, Any]] = None
+    reu_menor_21_na_data_fato: Optional[BooleanoDecisao] = None
+    reu_maior_70_na_sentenca: Optional[BooleanoDecisao] = None
+    dias_prisao_cautelar: Optional[int] = Field(default=None, strict=True, ge=0)
+    decisao_cautelar: Optional[DecisaoCautelarSentenca] = None
+
+
+class ParametrosDosimetria(DosimetriaOverride):
+    custom_dosimetria_override: Optional[DosimetriaOverride] = None
 
     def to_override(self) -> Dict[str, Any]:
-        """Dict de override para os motores, sem as chaves não informadas."""
-        override: Dict[str, Any] = dict(self.custom_dosimetria_override or {})
-        for campo in CAMPOS_OVERRIDE_DOSIMETRIA:
-            valor = getattr(self, campo)
-            if valor is None:
-                continue
-            if isinstance(valor, str) and not valor.strip():
-                continue
-            override[campo] = valor
+        """Os campos planos explícitos prevalecem sobre os do envelope alternativo."""
+        override = self.custom_dosimetria_override.model_dump(exclude_none=True) if self.custom_dosimetria_override else {}
+        override.update(self.model_dump(include=set(DosimetriaOverride.model_fields), exclude_none=True))
         return override
 
 
 class DosimetriaSimulationRequest(ParametrosDosimetria):
     """Payload de ``POST /api/dosimetria/simulate`` (simulação: pode presumir condenação, sinalizado)."""
+
+    # Clientes podem reutilizar o payload da geração; a simulação sempre usa o motor local.
+    use_ollama: BooleanoDecisao | None = None
 
 
 class GenerateSentenceRequest(ParametrosDosimetria):
@@ -142,7 +217,7 @@ class ResetCaseRequest(BaseModel):
 class BuildGeminiScriptRequest(BaseModel):
     pseudonimizar: bool = True
     densidade: Literal["compacto", "integral"] = "compacto"
-    custom_dosimetria_override: Optional[Dict[str, Any]] = None
+    custom_dosimetria_override: Optional[DosimetriaOverride] = None
 
 
 class GenerateGeminiSentenceRequest(BaseModel):
@@ -154,7 +229,7 @@ class GenerateGeminiSentenceRequest(BaseModel):
     model: str = ""
     pseudonimizar: bool = True
     densidade: Literal["compacto", "integral"] = "compacto"
-    custom_dosimetria_override: Optional[Dict[str, Any]] = None
+    custom_dosimetria_override: Optional[DosimetriaOverride] = None
     consentimento_envio_externo: StrictBool = False
     auto_blindar_auditoria: bool = False
 
@@ -162,7 +237,7 @@ class GenerateGeminiSentenceRequest(BaseModel):
 class ImportExternalSentenceRequest(BaseModel):
     texto_sentenca: str
     auto_blindar_auditoria: bool = False
-    custom_dosimetria_override: Optional[Dict[str, Any]] = None
+    custom_dosimetria_override: Optional[DosimetriaOverride] = None
     mapa_reversao: Optional[Dict[str, str]] = None
     mapa_hash: Optional[str] = None
 
@@ -170,7 +245,7 @@ class ImportExternalSentenceRequest(BaseModel):
 class UpdateAndAuditSentenceRequest(BaseModel):
     texto_completo: str
     revisao_esperada: Optional[str] = None
-    custom_dosimetria_override: Optional[Dict[str, Any]] = None
+    custom_dosimetria_override: Optional[DosimetriaOverride] = None
     # Formatação da folha (HTML do editor, sanitizado no servidor) e margens da página.
     texto_html: Optional[str] = None
     formatacao: Optional[Dict[str, Any]] = None
@@ -225,8 +300,10 @@ class MetadataOverrideRequest(BaseModel):
     override daquele campo. ``substituir=True`` descarta os overrides anteriores.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     metadados: Dict[str, Any] = Field(default_factory=dict)
-    substituir: bool = False
+    substituir: BooleanoDecisao = False
 
 
 class GeminiSecretRequest(BaseModel):

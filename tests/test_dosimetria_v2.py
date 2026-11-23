@@ -135,7 +135,7 @@ def test_prescricao_em_abstrato_pela_pena_maxima_no_lapso_fato_recebimento():
 
 def test_prescricao_em_abstrato_considera_majorante_aplicada_147a():
     """Máximo do art. 147-A (2 anos) majorado de 1/2 = 3 anos -> 8 anos em abstrato (não 4)."""
-    dos = calcular_dosimetria_global([CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=D(2023, 1, 1))])
+    dos = calcular_dosimetria_global([CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=D(2023, 1, 1), aplicar_aumento_art147a_p1_ii=True)])
     presc = calcular_prescricao_por_crime(dos, D(2023, 1, 1), D(2023, 3, 1), D(2023, 9, 1))
     assert presc.por_crime[0].pena_maxima_abstrata == PenaAnosMesesDias(anos=3)
     assert presc.por_crime[0].prazo_abstrato_anos == 8
@@ -380,21 +380,28 @@ def test_dano_moral_pedido_sem_valor_zero_e_alerta_de_arbitramento_pendente():
     assert dos.indenizacao_dano_moral_tema983 == 0.0
     assert dos.dano_moral_pedido_mp is True
     assert dos.dano_moral_arbitramento_pendente is True
-    assert any("pedido sem valor — arbitramento pendente" in a for a in dos.alertas_globais)
+    assert any("arbitramento pendente" in a for a in dos.alertas_globais)
     assert not any("R$ 0.00" in a or "R$ 0,00" in a for a in dos.alertas_globais)
 
     dos_none = calcular_dosimetria_global(crimes, pedido_expresso_dano_moral_mp=True, valor_dano_moral_sugerido=None)
     assert dos_none.indenizacao_dano_moral_tema983 == 0.0
     assert dos_none.dano_moral_arbitramento_pendente is True
 
+    zero = calcular_dosimetria_global(
+        crimes, pedido_expresso_dano_moral_mp=True, valor_dano_moral_decidido=0.0,
+        valor_dano_moral_pedido=2500.0, valor_dano_moral_sugerido=2500.0,
+    )
+    assert zero.indenizacao_dano_moral_tema983 == zero.valor_dano_moral_decidido == 0
+    assert zero.dano_moral_arbitramento_pendente is False
+
 
 def test_dano_moral_com_valor_e_sem_pedido():
     crimes = [CrimeDosimetriaInput(crime_code="art_129_p13_cp", data_fato=D(2025, 1, 1))]
-    com_valor = calcular_dosimetria_global(crimes, pedido_expresso_dano_moral_mp=True, valor_dano_moral_sugerido=2500.0)
+    com_valor = calcular_dosimetria_global(crimes, pedido_expresso_dano_moral_mp=True, valor_dano_moral_decidido=2500.0)
     assert com_valor.indenizacao_dano_moral_tema983 == 2500.0
     assert com_valor.dano_moral_arbitramento_pendente is False
 
-    sem_pedido = calcular_dosimetria_global(crimes, pedido_expresso_dano_moral_mp=False, valor_dano_moral_sugerido=2500.0)
+    sem_pedido = calcular_dosimetria_global(crimes, pedido_expresso_dano_moral_mp=False, valor_dano_moral_decidido=2500.0)
     assert sem_pedido.indenizacao_dano_moral_tema983 == 0.0
     assert sem_pedido.dano_moral_arbitramento_pendente is False
     assert any("pedido expresso" in a for a in sem_pedido.alertas_globais)
@@ -409,16 +416,26 @@ def test_dano_moral_com_valor_e_sem_pedido():
 # ==============================================================================
 def test_multa_cumulativa_nao_parametrizada_gera_sugestao_com_alerta():
     res = calcular_dosimetria_crime(CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 1)))
-    assert res.dias_multa == 10  # pena no mínimo => mínimo legal
+    assert res.dias_multa == 0
+    assert res.dias_multa_sugeridos == 10  # pena no mínimo => mínimo legal
+    assert res.multa_pendente is True
     assert res.dias_multa_sugeridos_pelo_motor is True
-    assert any("Multa cumulativa" in a and "não parametrizada" in a for a in res.alertas_juridicos)
+    assert any("pendente de decisão" in a for a in res.alertas_juridicos)
 
     exasperada = calcular_dosimetria_crime(
         CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 1), circunstancias_art59=dict(VETORES_NEGATIVOS_ART59))
     )
-    assert exasperada.dias_multa > 10  # proporcional à pena
+    assert exasperada.dias_multa_sugeridos > 10  # proporcional à pena
 
-    informada = calcular_dosimetria_crime(CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 1), dias_multa=30))
+    entrada = CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 1), dias_multa=30)
+    sem_unidade = calcular_dosimetria_crime(entrada)
+    assert sem_unidade.dias_multa_informados == 30
+    assert sem_unidade.dias_multa == 0
+    assert sem_unidade.multa_pendente is True
+
+    informada = calcular_dosimetria_crime(entrada.model_copy(update={"valor_unitario_multa": "1/15"}))
+    assert informada.valor_unitario_multa == "1/15"
+    assert informada.multa_pendente is False
     assert informada.dias_multa == 30
     assert informada.dias_multa_sugeridos_pelo_motor is False
     assert not any("Multa cumulativa" in a for a in informada.alertas_juridicos)
@@ -430,9 +447,14 @@ def test_multa_cumulativa_nao_parametrizada_gera_sugestao_com_alerta():
 
 def test_aumento_art147a_parametro_explicito_com_padrao_documentado():
     padrao = calcular_dosimetria_crime(CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=D(2023, 1, 1)))
-    assert padrao.aumento_art147a_aplicado is True
-    assert padrao.pena_definitiva.to_total_days() == 180 + 90
-    assert any("147-A, § 1º, II" in a and "por padrão" in a for a in padrao.alertas_juridicos)
+    assert padrao.aumento_art147a_aplicado is False
+    assert padrao.pena_definitiva.to_total_days() == 180
+
+    expresso = calcular_dosimetria_crime(
+        CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=D(2023, 1, 1), aplicar_aumento_art147a_p1_ii=True)
+    )
+    assert expresso.aumento_art147a_aplicado is True
+    assert expresso.pena_definitiva.to_total_days() == 180 + 90
 
     sem = calcular_dosimetria_crime(
         CrimeDosimetriaInput(crime_code="art_147a_cp", data_fato=D(2023, 1, 1), aplicar_aumento_art147a_p1_ii=False)

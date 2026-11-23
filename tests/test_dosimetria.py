@@ -135,7 +135,7 @@ def test_concurso_material_sumula_588_stj_e_prescricao():
         config=config,
         concurso=ConcursoCrimesConfig(tipo_concurso="material"),
         pedido_expresso_dano_moral_mp=True,
-        valor_dano_moral_sugerido=3000.0,
+        valor_dano_moral_decidido=3000.0,
     )
     assert global_res.substituicao_art44_cabivel is False
     assert "Súmula 588/STJ" in global_res.motivo_vedacao_substituicao

@@ -285,9 +285,34 @@ def test_dano_moral_pedido_sem_valor_nao_diz_ausencia_de_pedido():
     bundle = _cenario(3)
     sent = gerar_sentenca_estruturada(bundle, _veredictos(bundle), use_ollama_if_available=False)
     assert sent.dosimetria_dados["dano_moral_arbitramento_pendente"] is True
-    assert "[COMPLETAR PELO JUÍZO: valor da reparação mínima]" in sent.secao_dispositivo
+    assert "[COMPLETAR PELO JUÍZO: decisão sobre a reparação mínima pedida pelo Ministério Público]" in sent.secao_dispositivo
     assert "ausência de pedido" not in sent.secao_dispositivo
     assert "ausência de pedido" not in sent.secao_dosimetria
+
+
+@pytest.mark.parametrize("decidido", [None, 0, 1250])
+def test_pedido_quantificado_nao_se_confunde_com_decisao(decidido):
+    """CPP, art. 387, IV, e Tema 983/STJ.
+    https://www.planalto.gov.br/ccivil_03/decreto-lei/del3689compilado.htm#art387
+    https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?cod_tema_inicial=983&cod_tema_final=983
+    """
+    bundle = _cenario(3)
+    bundle["metadados_override"] = {
+        "pedido_dano_moral_expresso_mp": True,
+        "valor_dano_moral_pedido_mp": 2500.0,
+    }
+    ov = {**_veredictos(bundle), "valor_dano_moral": decidido}
+    sent = gerar_sentenca_estruturada(bundle, ov, use_ollama_if_available=False)
+    assert sent.dosimetria_dados["valor_dano_moral_pedido"] == 2500
+    assert sent.dosimetria_dados["valor_dano_moral_sugerido"] == 2500
+    assert sent.dosimetria_dados["valor_dano_moral_decidido"] == decidido
+    assert sent.dosimetria_dados["dano_moral_arbitramento_pendente"] == (decidido is None)
+    assert "2.500" not in sent.secao_dispositivo
+    if decidido == 0:
+        assert "DEIXO DE FIXAR" in sent.secao_dispositivo
+        assert "ausência de pedido" not in sent.secao_dispositivo
+    if decidido == 1250:
+        assert "1.250" in sent.secao_dispositivo
 
 
 def test_dosimetria_cita_prescricao_por_crime():

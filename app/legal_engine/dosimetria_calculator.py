@@ -8,14 +8,16 @@ Convenções de unidades
   são somados à data de início (``somar_meses``), nunca ``365 * anos``. O dia do começo
   inclui-se no cômputo; por isso o prazo se consuma na data "aniversário" do marco inicial.
 
-Tudo o que é sugestão do motor (fração de concurso, dias-multa não parametrizados,
-majorante do art. 147-A, § 1º, II) é sinalizado em alerta para revisão do juízo.
+A memória separa sugestões do motor de dados arbitrados pelo juízo.
 """
 
 import calendar
 import datetime
-from typing import Dict, List, Literal, Tuple
-from pydantic import BaseModel, Field
+import re
+from fractions import Fraction
+from typing import Annotated, Dict, List, Literal, Tuple
+
+from pydantic import AfterValidator, BaseModel, Field
 
 from app.core.errors import DadosInsuficientesError
 from app.legal_engine.penal_types_catalog import (
@@ -311,6 +313,23 @@ class MajoranteArt24aP4(BaseModel):
     fracao: Tuple[int, int]
 
 
+def _validar_valor_unitario_multa(valor: str) -> str:
+    """Multiplicador exato do salário mínimo ao tempo do fato (art. 49, § 1º, CP)."""
+    texto = valor.strip().replace(",", ".")
+    if not re.fullmatch(r"[0-9]{1,9}(?:/[0-9]{1,9}|\.[0-9]{1,9})?", texto):
+        raise ValueError("informe um multiplicador do salário mínimo, como 1/30 ou 1,5")
+    try:
+        fator = Fraction(texto)
+    except ZeroDivisionError:
+        raise ValueError("o denominador do valor unitário deve ser positivo") from None
+    if not Fraction(1, 30) <= fator <= 5:
+        raise ValueError("o valor unitário deve estar entre 1/30 e 5 salários mínimos")
+    return str(fator)
+
+
+ValorUnitarioMulta = Annotated[str, AfterValidator(_validar_valor_unitario_multa)]
+
+
 class CrimeDosimetriaInput(BaseModel):
     crime_code: str
     data_fato: datetime.date
@@ -328,17 +347,18 @@ class CrimeDosimetriaInput(BaseModel):
     fracao_diminuicao_terceira_fase: Tuple[int, int] | None = None
     # 0 = não parametrizado pelo juízo (para tipos com multa cumulativa o motor sugere um
     # quantum proporcional e emite alerta).
-    dias_multa: int = 0
+    dias_multa: int | None = Field(default=None, strict=True, ge=0, le=360)
+    valor_unitario_multa: ValorUnitarioMulta | None = None
     desclassificado_de: str = ""
     ameaca_qualificada: bool = False
     majorante_art24a_p4: MajoranteArt24aP4 | None = None
     # Majorante do art. 147-A, § 1º, II, do CP (+1/2: crime contra mulher por razões da
     # condição de sexo feminino). PADRÃO DOCUMENTADO: True, pois no JVDFM a perseguição é
     # praticada contra mulher em contexto de violência doméstica (art. 121-A, § 1º, I, do CP);
-    # quando aplicada por padrão gera alerta para conferência da correlação com a denúncia.
+    # exige reconhecimento expresso do juízo.
     # Passe False quando a majorante não tiver sido descrita na peça acusatória.
     # Ignorada se ``fracao_aumento_terceira_fase`` for informada (a fração do juízo prevalece).
-    aplicar_aumento_art147a_p1_ii: bool = True
+    aplicar_aumento_art147a_p1_ii: bool = False
     # Majorante do art. 141, § 3º, do CP (pena em dobro: crime contra a honra contra a mulher por razões
     # da condição do sexo feminino), incluída pela Lei nº 14.994/2024. Só se aplica a fatos a partir de
     # 10/10/2024 nos arts. 138, 139, 140 e 140, § 2º. PADRÃO False (depende de a majorante constar da
@@ -380,6 +400,10 @@ class CrimeDosimetriaOutput(BaseModel):
     aumento_art147a_aplicado: bool = False
     aumento_art141_p3_aplicado: bool = False
     majorante_art24a_p4: MajoranteArt24aP4 | None = None
+    dias_multa_informados: int | None = None
+    valor_unitario_multa: str | None = None
+    dias_multa_sugeridos: int | None = None
+    multa_pendente: bool = False
     dias_multa_sugeridos_pelo_motor: bool = False
     # True/False = modalidade decidida (ou inerente ao tipo); None = tipo com modalidades com e sem
     # violência/grave ameaça e o juízo ainda não decidiu.
@@ -435,6 +459,9 @@ class DosimetriaGlobalOutput(BaseModel):
     sursis_negado_por_circunstancias_judiciais: bool = False
     circunstancias_desfavoraveis_art77_ii: List[str] = Field(default_factory=list)
     dano_moral_pedido_mp: bool = False
+    valor_dano_moral_pedido: float | None = None
+    valor_dano_moral_sugerido: float | None = None
+    valor_dano_moral_decidido: float | None = None
     dano_moral_arbitramento_pendente: bool = False
     # Detração (art. 387, § 2º, do CPP): o regime é fixado sobre a pena remanescente; guarda-se o
     # regime que resultaria SEM a detração e a pena considerada para o regime.
@@ -692,18 +719,18 @@ def calcular_dosimetria_crime(
             )
     elif entrada.crime_code == "art_147a_cp":
         if entrada.aplicar_aumento_art147a_p1_ii:
-            # Majorante do § 1º, II, do art. 147-A CP (+1/2) — padrão documentado em CrimeDosimetriaInput.
+            # Majorante do § 1º, II, do art. 147-A CP (+1/2).
             pena_def_days = pena_def_days + (pena_def_days // 2)
             fracao_aumento_aplicada = (1, 2)
             aumento_147a_aplicado = True
             alertas.append(
-                "Causa de aumento do art. 147-A, § 1º, II, do CP aplicada (+1/2) por padrão do sistema (crime de perseguição contra mulher "
+                "Causa de aumento do art. 147-A, § 1º, II, do CP aplicada (+1/2) por decisão expressa do juízo (crime de perseguição contra mulher "
                 "por razões da condição de sexo feminino). Confirmar que a majorante está descrita na denúncia (princípio da correlação); "
                 "se não estiver, desative o parâmetro 'aplicar_aumento_art147a_p1_ii'."
             )
         else:
             alertas.append(
-                "Causa de aumento do art. 147-A, § 1º, II, do CP NÃO aplicada por decisão do juízo (parâmetro desativado)."
+                "Causa de aumento do art. 147-A, § 1º, II, do CP NÃO aplicada: sem reconhecimento expresso pelo juízo."
             )
 
     if entrada.fracao_diminuicao_terceira_fase:
@@ -712,20 +739,29 @@ def calcular_dosimetria_crime(
         fracao_diminuicao_aplicada = (n_dim, d_dim)
 
     pena_definitiva = PenaAnosMesesDias.from_total_days(pena_def_days)
-    dias_multa_final = max(0, int(entrada.dias_multa))
-    multa_sugerida = False
-    if dias_multa_final == 0 and getattr(spec, "tem_multa_cumulativa", False):
-        # Proporcionalidade com as duas primeiras fases; as frações da 3ª fase incidem na mesma razão.
-        base_multa = sugerir_dias_multa(pena_inter_days, min_days, max_days)
-        razao_3fase = (pena_def_days / pena_inter_days) if pena_inter_days > 0 else 1.0
-        dias_multa_final = int(min(360, max(10, round(base_multa * razao_3fase))))
-        multa_sugerida = True
-        alertas.append(
-            f"Multa cumulativa do {spec.artigo_formatado} não parametrizada pelo juízo: o sistema sugeriu {dias_multa_final} dias-multa, "
-            "em proporção à pena privativa de liberdade aplicada (arts. 49 e 68 do CP; mínimo legal de 10 dias-multa), "
-            "com o valor unitário no mínimo legal de 1/30 do salário mínimo vigente ao tempo do fato (art. 49, § 1º, do CP). "
-            "Revise e informe o quantum e o valor do dia-multa."
+    dias_informados = entrada.dias_multa or None
+    if dias_informados is not None and dias_informados < 10:
+        raise DadosInsuficientesError(["dias_multa"], "Informe de 10 a 360 dias-multa (art. 49 do CP).")
+    unidade = entrada.valor_unitario_multa
+    if not spec.tem_multa_cumulativa and (dias_informados is not None or unidade is not None):
+        campo = "dias_multa" if dias_informados is not None else "valor_unitario_multa"
+        imputacao = entrada.id_imputacao or entrada.crime_code
+        raise DadosInsuficientesError(
+            [f"crimes_config.{imputacao}.{campo}"],
+            "Este cálculo de pena privativa de liberdade só admite multa quando a lei a comina cumulativamente.",
         )
+    multa_pendente = spec.tem_multa_cumulativa and (dias_informados is None or unidade is None)
+    dias_multa_final = dias_informados if not multa_pendente and dias_informados is not None else 0
+    dias_sugeridos = None
+    if multa_pendente and dias_informados is None:
+        base_multa = sugerir_dias_multa(pena_inter_days, min_days, max_days)
+        razao_3fase = pena_def_days / pena_inter_days if pena_inter_days > 0 else 1.0
+        dias_sugeridos = int(min(360, max(10, round(base_multa * razao_3fase))))
+    if multa_pendente:
+        alerta_multa = f"Multa de {spec.artigo_formatado} pendente de decisão do juízo sobre quantidade e valor unitário."
+        if dias_sugeridos is not None:
+            alerta_multa += f" Sugestão de cálculo: {dias_sugeridos} dias-multa."
+        alertas.append(alerta_multa)
     multa_txt = f" e {dias_multa_final} dias-multa" if dias_multa_final > 0 else ""
     memoria.append(
         f"3ª Fase (Causas de Aumento/Diminuição): Pena Definitiva fixada em {pena_definitiva.format_extenso()} de {formatar_especie_pena(spec.especie_pena)}{multa_txt}."
@@ -773,7 +809,11 @@ def calcular_dosimetria_crime(
         aumento_art147a_aplicado=aumento_147a_aplicado,
         aumento_art141_p3_aplicado=aumento_141_aplicado,
         majorante_art24a_p4=majorante_24a,
-        dias_multa_sugeridos_pelo_motor=multa_sugerida,
+        dias_multa_informados=dias_informados,
+        valor_unitario_multa=unidade,
+        dias_multa_sugeridos=dias_sugeridos,
+        multa_pendente=multa_pendente,
+        dias_multa_sugeridos_pelo_motor=dias_sugeridos is not None,
         violencia_ou_grave_ameaca_efetiva=violencia_efetiva,
     )
 
@@ -841,20 +881,26 @@ def calcular_dosimetria_global(
     config: DosimetriaConfig | None = None,
     concurso: ConcursoCrimesConfig | None = None,
     pedido_expresso_dano_moral_mp: bool = False,
-    valor_dano_moral_sugerido: float | None = None,
+    valor_dano_moral_decidido: float | None = None,
     dias_prisao_cautelar: int = 0,
     crimes_nao_condenados: List[Dict[str, str]] | None = None,
+    *,
+    valor_dano_moral_pedido: float | None = None,
+    valor_dano_moral_sugerido: float | None = None,
 ) -> DosimetriaGlobalOutput:
     """Unifica as penas, fixa regime, substituição, sursis e reparação mínima (art. 387, IV, CPP).
 
-    Dano moral (Tema 983/STJ): só há fixação com pedido expresso do MP/ofendida E valor
-    informado (pelo pedido ou pelo juízo). Pedido sem valor => indenização 0 com
-    ``dano_moral_arbitramento_pendente=True`` e alerta — nunca se presume valor.
+    Com pedido expresso, somente o valor decidido pode integrar a condenação.
+    Zero registra a decisão de deixar de fixar reparação nesta sentença.
     """
     cfg = config or DosimetriaConfig()
     conc = concurso or ConcursoCrimesConfig(tipo_concurso="material" if len(crimes) > 1 else "nenhum")
     nao_condenados = list(crimes_nao_condenados or [])
-    valor_dano = float(valor_dano_moral_sugerido or 0.0)
+    valor_dano = valor_dano_moral_decidido
+    dados_dano = {
+        "valor_dano_moral_pedido": valor_dano_moral_pedido,
+        "valor_dano_moral_sugerido": valor_dano_moral_sugerido,
+    }
 
     if not crimes:
         zero_p = PenaAnosMesesDias(anos=0, meses=0, dias=0)
@@ -881,6 +927,7 @@ def calcular_dosimetria_global(
             crimes_nao_condenados=nao_condenados,
             fundamentacao_regime="Prejudicada a fixação de regime ante a ausência de condenação criminal.",
             dano_moral_pedido_mp=bool(pedido_expresso_dano_moral_mp),
+            **dados_dano,
         )
 
     calculados = [calcular_dosimetria_crime(c, cfg) for c in crimes]
@@ -950,7 +997,9 @@ def calcular_dosimetria_global(
     penas_por_especie = {
         k: PenaAnosMesesDias.from_total_days(v) for k, v in penas_especie_days.items()
     }
-    if tipo_concurso_aplicado == "continuado" and fracao_aplicada:
+    if any(c.multa_pendente for c in calculados):
+        total_dias_multa = 0
+    elif tipo_concurso_aplicado == "continuado" and fracao_aplicada:
         # Crime continuado: o art. 72 do CP não se aplica (STJ); a multa segue o art. 71 — a do crime mais
         # grave (maior quantum) exasperada pela mesma fração da pena privativa de liberdade.
         maior_multa = max((c.dias_multa for c in calculados), default=0)
@@ -1130,18 +1179,19 @@ def calcular_dosimetria_global(
     indenizacao = 0.0
     arbitramento_pendente = False
     if pedido_expresso_dano_moral_mp:
-        if valor_dano > 0:
+        if valor_dano is not None:
             indenizacao = valor_dano
             alertas_globais.append(
                 f"Tema Repetitivo 983/STJ aplicado: fixado valor mínimo indenizatório a título de danos morais in re ipsa em R$ {indenizacao:,.2f}."
+                if valor_dano > 0 else "O juízo decidiu deixar de fixar valor mínimo para a reparação de danos morais."
             )
         else:
             arbitramento_pendente = True
             alertas_globais.append(
-                "Dano moral (Tema Repetitivo 983/STJ): HOUVE pedido expresso de reparação mínima, mas sem indicação de valor, e o juízo não informou o montante — "
-                "pedido sem valor — arbitramento pendente. Informe o valor a ser fixado; o dispositivo NÃO pode afirmar ausência de pedido."
+                "Dano moral (Tema Repetitivo 983/STJ): HOUVE pedido expresso de reparação mínima e o juízo não decidiu o arbitramento — "
+                "arbitramento pendente. Informe o valor a ser fixado; o dispositivo NÃO pode afirmar ausência de pedido."
             )
-    elif valor_dano > 0:
+    elif valor_dano is not None and valor_dano > 0:
         alertas_globais.append(
             "Valor de dano moral informado desconsiderado: não consta pedido expresso de reparação mínima na denúncia "
             "(art. 387, IV, do CPP e Tema Repetitivo 983/STJ exigem pedido expresso). Se houver pedido nos autos, corrija os metadados."
@@ -1176,6 +1226,8 @@ def calcular_dosimetria_global(
         circunstancias_desfavoraveis_art77_ii=vetores_art77_negativos,
         dano_moral_pedido_mp=bool(pedido_expresso_dano_moral_mp),
         dano_moral_arbitramento_pendente=arbitramento_pendente,
+        valor_dano_moral_decidido=valor_dano if pedido_expresso_dano_moral_mp else None,
+        **dados_dano,
         regime_sem_detracao=regime_sem_detracao,
         pena_considerada_regime=pena_considerada_regime,
         concurso_material_beneficio=concurso_beneficio,

@@ -657,6 +657,12 @@ _PADRAO_PENA_COM_ESPECIE = re.compile(
 )
 _PADRAO_COMPONENTE = re.compile(r"(\d+)\s*(?:\([^)]*\)\s*)?(anos?|m[eê]s(?:es)?|dias?)", flags=re.IGNORECASE)
 _PADRAO_DIAS_MULTA = re.compile(r"(\d+)\s*(?:\([^)]*\)\s*)?dias?\s*[-– ]\s*multa\b", flags=re.IGNORECASE)
+_PADRAO_UNIDADE_MULTA = re.compile(
+    r"valor\s+unit[áa]rio\s+(?:de\s+)?([0-9]{1,9}(?:/[0-9]{1,9})?)"
+    r"\s+do\s+sal[áa]rio\s+m[íi]nimo\s+vigente\s+ao\s+tempo\s+do\s+fato\b",
+    re.IGNORECASE,
+)
+
 
 
 def _dias_de_trecho_pena(trecho: str) -> int:
@@ -887,9 +893,8 @@ def _divergencias_reparacao(dispositivo: str, comandos: ComandosDispositivo) -> 
         for paragrafo in paragrafos if _PADRAO_REPARACAO.search(paragrafo)
         for valor in _PADRAO_VALOR.findall(paragrafo)
     ]
-    if comandos.reparacao_pendente and not re.search(
-        r"\[\s*COMPLETAR\s+PELO\s+JU[ÍI]ZO:\s*valor\s+da\s+repara[çc][ãa]o\s+m[íi]nima\s*\]",
-        dispositivo, flags=re.IGNORECASE,
+    if comandos.reparacao_pendente and not any(
+        "reparação mínima" in marcador.lower() for marcador in _detectar_marcadores_pendentes(dispositivo)
     ):
         return ["A reparação mínima aguarda arbitramento e a pendência não consta do dispositivo."] + [
             f"Valor de reparação {valor} indicado sem arbitramento." for valor in citados
@@ -950,23 +955,28 @@ def verificar_comandos_dispositivo(dispositivo: str, comandos: ComandosDispositi
         divergencias.append(f"A soma das penas privativas de liberdade ({total.format_extenso()}) não consta do dispositivo.")
 
     multas = list(_PADRAO_DIAS_MULTA.finditer(dispositivo))
-    esperada = comandos.total_dias_multa
     for obrigacao in _PADRAO_MULTA_SEM_QUANTUM.finditer(dispositivo):
         trecho = re.split(r"[.;\n]", dispositivo[obrigacao.end():], maxsplit=1)[0]
         if not _PADRAO_DIAS_MULTA.search(trecho):
             divergencias.append(f"Comando de multa sem quantidade conferível no dispositivo: '{obrigacao[0]}'.")
-    conferidas_multa = 0
-    for multa in multas:
+    esperadas = Counter((multa.dias, multa.valor_unitario) for multa in comandos.multas)
+    for indice, multa in enumerate(multas):
         trecho = " ".join(multa[0].split())
         divergencias.extend(_quantias_contraditorias(trecho))
-        if not esperada or int(multa[1]) != esperada:
-            divergencias.append(f"Multa citada no dispositivo '{trecho}' não corresponde à calculada ({esperada} dias-multa).")
+        fim = multas[indice + 1].start() if indice + 1 < len(multas) else len(dispositivo)
+        complemento = re.split(r"[;\n]", dispositivo[multa.end():fim], maxsplit=1)[0]
+        unidade = _PADRAO_UNIDADE_MULTA.search(complemento)
+        chave = (int(multa[1]), unidade[1] if unidade else "")
+        if esperadas[chave]:
+            esperadas[chave] -= 1
         else:
-            conferidas_multa += 1
-            if conferidas_multa > 1:
-                divergencias.append(f"Multa total repetida no dispositivo: '{trecho}'.")
-    if esperada and not conferidas_multa:
-        divergencias.append(f"A multa calculada de {esperada} dias-multa não consta do dispositivo.")
+            divergencias.append(f"Multa citada no dispositivo '{trecho}' não corresponde à calculada ou tem valor unitário divergente.")
+    for dias, unidade in esperadas.elements():
+        divergencias.append(f"A multa calculada de {dias} dias-multa não consta com o valor unitário de {unidade}.")
+    if comandos.multa_pendente and not any(
+        "valor unitário da multa" in marcador.lower() for marcador in _detectar_marcadores_pendentes(dispositivo)
+    ):
+        divergencias.append("A decisão sobre a quantidade e o valor unitário da multa permanece pendente.")
 
     divergencias.extend(_divergencias_imputacoes(dispositivo, comandos))
     divergencias.extend(_divergencias_regime(dispositivo, comandos))

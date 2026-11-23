@@ -396,8 +396,8 @@ class TestSectionalContrato:
     def test_override_aninhado_continua_valendo(self):
         from app.api.models import GenerateSectionalRequest
 
-        p = GenerateSectionalRequest(custom_dosimetria_override={"crimes_config": [{"codigo": "a"}]}, reincidente=True)
-        assert p.to_override() == {"crimes_config": [{"codigo": "a"}], "reincidente": True}
+        p = GenerateSectionalRequest(custom_dosimetria_override={"crimes_config": [{"codigo": "art_147_cp"}]}, reincidente=True)
+        assert p.to_override() == {"crimes_config": [{"codigo": "art_147_cp"}], "reincidente": True}
 
 
 # ------------------------------------------------------------------------------

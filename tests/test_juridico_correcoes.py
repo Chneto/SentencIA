@@ -212,7 +212,7 @@ def test_concurso_formal_convertido_em_cumulo_benefico_preserva_o_tipo_reconheci
 # 20. Multa no crime continuado (art. 71, não art. 72)
 # ==============================================================================
 def test_crime_continuado_exaspera_a_multa_em_vez_de_somar():
-    crimes = [CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 10), dias_multa=10) for _ in range(3)]
+    crimes = [CrimeDosimetriaInput(crime_code="art_24a_lmp", data_fato=D(2025, 1, 10), dias_multa=10, valor_unitario_multa="1/30") for _ in range(3)]
     dos = calcular_dosimetria_global(crimes, concurso=ConcursoCrimesConfig(tipo_concurso="continuado"))
     assert dos.tipo_concurso == "continuado" and dos.fracao_concurso == (1, 5)
     assert dos.total_dias_multa == 12  # 10 + 1/5
@@ -244,7 +244,7 @@ def test_capitulacao_so_cita_art61_f_quando_a_agravante_foi_aplicada(codigo):
 # ==============================================================================
 def test_agravante_61f_so_e_bloqueada_se_a_majorante_do_147a_for_aplicada():
     base = dict(crime_code="art_147a_cp", data_fato=D(2024, 3, 1), agravantes_art61_f_violencia_domestica=True)
-    com_majorante = calcular_dosimetria_crime(CrimeDosimetriaInput(**base))
+    com_majorante = calcular_dosimetria_crime(CrimeDosimetriaInput(**base, aplicar_aumento_art147a_p1_ii=True))
     assert com_majorante.bis_in_idem_art61f_bloqueado is True and com_majorante.aumento_art147a_aplicado is True
 
     sem_majorante = calcular_dosimetria_crime(CrimeDosimetriaInput(**base, aplicar_aumento_art147a_p1_ii=False))
@@ -476,7 +476,9 @@ def test_art338a_inexistente_antes_da_publicacao(dia):
         assert resultado.crime_spec.code == "art_338a_cp"
         assert resultado.crime_spec.max_pena == PenaAnosMesesDias(anos=5)
         assert resultado.pena_definitiva == PenaAnosMesesDias(anos=2)
-        assert resultado.dias_multa > 0
+        assert resultado.dias_multa == 0
+        assert resultado.dias_multa_sugeridos > 0
+        assert resultado.multa_pendente is True
 
 
 @pytest.mark.parametrize("dia", [9, 10, 11])
