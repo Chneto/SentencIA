@@ -204,7 +204,7 @@ e o **[Histórico de mudanças](CHANGELOG.md)**.
 - Os autos, caches, transcrições, exportações e logs ficam em `data/`. O pacote de distribuição
   **não contém** nenhum desses arquivos, nem as suas preferências, segredos ou modelos do gabinete.
 - Evite pastas sincronizadas (OneDrive, iCloud Drive, Google Drive) para o programa e os autos. Para
-  manter os dados em outro lugar, defina `JVDFM_DATA_DIR` (veja abaixo).
+  manter os dados em outro lugar, defina `SENTENCIA_DATA_DIR` (veja abaixo).
 
 ---
 
@@ -215,7 +215,7 @@ e o **[Histórico de mudanças](CHANGELOG.md)**.
 | A janela do instalador mostra **ERRO** | Leia a mensagem; o registro completo está em `data/logs/bootstrap.log`. Confira a internet e rode o iniciador de novo (ele continua de onde parou). |
 | "O servidor não respondeu a tempo" | Veja `data/logs/servidor.log` e `data/logs/launcher.log`. Rode o iniciador com `-Reinstalar` / `--reinstalar`. |
 | A página diz que a sessão expirou (erro 401) | O servidor foi reiniciado: recarregue a página (F5 / Cmd+R). |
-| Porta 8000 ocupada | Nada a fazer: o iniciador escolhe a próxima porta livre. Para fixar outra: variável `JVDFM_PORT`. |
+| Porta 8000 ocupada | Nada a fazer: o iniciador escolhe a próxima porta livre. Para fixar outra: variável `SENTENCIA_PORT`. |
 | Mídias com status **FALHOU** | A transcrição local não está instalada ou não encontrou fala. Rode o iniciador com `-Reinstalar`; veja o erro exibido na lista de mídias. |
 | Páginas digitalizadas sem texto (`ocr_pendente`) | O OCR do sistema não está disponível. No Windows, instale o idioma Português com "Reconhecimento óptico de caracteres" em Configurações → Hora e idioma. |
 | A IA local não é usada | Verifique se o Ollama está aberto e se o modelo configurado foi baixado (`ollama list`). O status aparece no painel do sistema. |
@@ -230,17 +230,19 @@ Registros (`data/logs/`): `bootstrap.log` (instalador), `launcher.log` (iniciado
 
 | Variável | Efeito |
 |---|---|
-| `JVDFM_PORT` | Porta preferida do servidor (padrão 8000). |
-| `JVDFM_DATA_DIR` | Pasta de dados fora do programa (ex.: `~/Library/Application Support/SentencaJVDFM` no macOS). |
-| `JVDFM_OCR=desligado` | Desativa o OCR das páginas digitalizadas. |
-| `JVDFM_SECRETS_BACKEND=arquivo` | Força o cofre em arquivo em vez do Credential Manager/Keychain. |
-| `JVDFM_ALLOWED_HOSTS` | Hosts adicionais aceitos pelo servidor (separados por vírgula). |
+| `SENTENCIA_PORT` | Porta preferida do servidor (padrão 8000). |
+| `SENTENCIA_DATA_DIR` | Pasta de dados fora do programa (ex.: `~/Library/Application Support/SentencIA` no macOS). |
+| `SENTENCIA_OCR=desligado` | Desativa o OCR das páginas digitalizadas. |
+| `SENTENCIA_SECRETS_BACKEND=arquivo` | Força o cofre em arquivo em vez do Credential Manager/Keychain. |
+| `SENTENCIA_ALLOWED_HOSTS` | Hosts adicionais aceitos pelo servidor (separados por vírgula). |
+
+*(Nomes legados com prefixo `JVDFM_*` continuam aceitos temporariamente com aviso no log.)*
 
 ### Desinstalar
 
 Apague a pasta do programa (guarde antes o que quiser de `data/`). Opcionalmente: `uv python uninstall
 3.12`, `uv cache clean` e a remoção do `uv` (`~/.local/bin/uv`). A chave do Gemini fica no cofre do
-sistema com o nome de serviço `SentencaJVDFM`.
+sistema com o nome de serviço `SentencIA` (credenciais antigas em `SentencaJVDFM` são migradas automaticamente).
 
 ### Vindo da versão 1.0.0
 
@@ -256,7 +258,7 @@ Gemini que estiver nele é movida para o cofre na primeira abertura).
 uv sync --all-extras          # ambiente completo (no Windows o extra ocr-macos é ignorado)
 uv run playwright install chromium  # uma única vez, para os testes E2E de layout/UI
 uv run pytest -q              # suíte de testes
-uv run python -m app.main     # servidor em 127.0.0.1:${JVDFM_PORT:-8000}
+uv run python -m app.main     # servidor em 127.0.0.1:${SENTENCIA_PORT:-8000}
 uv run python launcher.py     # iniciador (porta livre + navegador)
 ```
 
@@ -264,7 +266,7 @@ uv run python launcher.py     # iniciador (porta livre + navegador)
   layout/interface aparecem como *skipped* na saída do `pytest`, indicando o motivo e o comando de
   instalação; os demais testes unitários e de API continuam executando normalmente.
 - Testes que exigem os **autos reais** (sigilosos) usam o marcador `dados_reais` e só rodam com
-  `JVDFM_REAL_CASES_DIR` apontando para a pasta dos PDFs/MP4: `uv run pytest -m dados_reais`.
+  `SENTENCIA_REAL_CASES_DIR` apontando para a pasta dos PDFs/MP4: `uv run pytest -m dados_reais`.
 - Pacote de distribuição: `uv run python scripts/build_release.py --dry-run` lista o que entraria;
   sem `--dry-run` gera `dist/SentencIA-v2.1.0.zip` e `dist/SHA256SUMS.txt` (permissões Unix
   preservadas para o macOS; testes, autos, preferências, segredos, modelos e capturas de tela ficam de

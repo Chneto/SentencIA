@@ -97,7 +97,7 @@ from app.generation.sectional_pipeline import (
     SecaoTipo,
 )
 
-logger = logging.getLogger("sentenca_jvdfm.duplo_crivo")
+logger = logging.getLogger("sentencia.duplo_crivo")
 
 
 # ==============================================================================

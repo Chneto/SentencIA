@@ -3,7 +3,7 @@
 ;
 ; Observacoes:
 ; - PrivilegesRequired=lowest: instala em {localappdata}\Programs\SentencIA sem pedir UAC/admin.
-; - Dados do gabinete ficam fora da pasta do programa: {localappdata}\SentencIA\data (JVDFM_DATA_DIR).
+; - Dados do gabinete ficam fora da pasta do programa: {localappdata}\SentencIA\data (SENTENCIA_DATA_DIR).
 ; - Na desinstalacao, os dados sao MANTIDOS por padrao (o usuario so apaga se confirmar explicitamente).
 
 #ifndef MyAppVersion
@@ -63,8 +63,8 @@ Name: "{group}\Desinstalar SentencIA"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\SentencIA"; Filename: "{app}\Iniciar SentencIA.bat"; WorkingDir: "{app}"; IconFilename: "{app}\app\static\assets\app_icon.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""$d='{localappdata}\SentencIA\data'; [IO.File]::WriteAllText('{app}\.pasta_dados', $d + [char]10, (New-Object Text.UTF8Encoding($false))); $env:JVDFM_DATA_DIR=$d; & '{app}\instalador\bootstrap.ps1' -SemIniciar -SemPerguntas"""; WorkingDir: "{app}"; StatusMsg: "Configurando Python 3.12 e bibliotecas locais do SentencIA..."; Flags: runhidden waituntilterminated; Tasks: not nuvem
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""$d='{localappdata}\SentencIA\data'; [IO.File]::WriteAllText('{app}\.pasta_dados', $d + [char]10, (New-Object Text.UTF8Encoding($false))); $env:JVDFM_DATA_DIR=$d; & '{app}\instalador\bootstrap.ps1' -SemIniciar -SemPerguntas -Nuvem"""; WorkingDir: "{app}"; StatusMsg: "Configurando Python 3.12, bibliotecas locais e suporte Gemini..."; Flags: runhidden waituntilterminated; Tasks: nuvem
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""$d='{localappdata}\SentencIA\data'; [IO.File]::WriteAllText('{app}\.pasta_dados', $d + [char]10, (New-Object Text.UTF8Encoding($false))); $env:SENTENCIA_DATA_DIR=$d; & '{app}\instalador\bootstrap.ps1' -SemIniciar -SemPerguntas"""; WorkingDir: "{app}"; StatusMsg: "Configurando Python 3.12 e bibliotecas locais do SentencIA..."; Flags: runhidden waituntilterminated; Tasks: not nuvem
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""$d='{localappdata}\SentencIA\data'; [IO.File]::WriteAllText('{app}\.pasta_dados', $d + [char]10, (New-Object Text.UTF8Encoding($false))); $env:SENTENCIA_DATA_DIR=$d; & '{app}\instalador\bootstrap.ps1' -SemIniciar -SemPerguntas -Nuvem"""; WorkingDir: "{app}"; StatusMsg: "Configurando Python 3.12, bibliotecas locais e suporte Gemini..."; Flags: runhidden waituntilterminated; Tasks: nuvem
 Filename: "{app}\Iniciar SentencIA.bat"; Description: "Abrir o SentencIA agora"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

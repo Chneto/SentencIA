@@ -4,5 +4,5 @@
 # Privacidade e Segurança > "Abrir Mesmo Assim"). Detalhes no README.md.
 set -euo pipefail
 cd "$(dirname "$0")"
-export JVDFM_DATA_DIR="${JVDFM_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
+export SENTENCIA_DATA_DIR="${SENTENCIA_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
 exec /bin/bash "./instalador/bootstrap.sh" "$@"

@@ -126,8 +126,8 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Dict[str, Path]:
     monkeypatch.setattr(main_module, "EXPORTS_DIR", dirs["exports_dir"])
     monkeypatch.setattr(session_state, "CASES_DIR", dirs["cases_dir"])
     monkeypatch.setattr(session_state, "EXPORTS_DIR", dirs["exports_dir"])
-    monkeypatch.setenv("JVDFM_SECRETS_BACKEND", "arquivo")
-    monkeypatch.delenv("JVDFM_DISABLE_TOKEN", raising=False)
+    monkeypatch.setenv("SENTENCIA_SECRETS_BACKEND", "arquivo")
+    monkeypatch.delenv("SENTENCIA_DISABLE_TOKEN", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
 
@@ -210,15 +210,15 @@ class TestSegurancaToken:
     def test_index_injeta_meta_com_token(self, client_sem_token: TestClient):
         resp = client_sem_token.get("/")
         assert resp.status_code == 200
-        assert f'<meta name="jvdfm-token" content="{get_session_token()}">' in resp.text
+        assert f'<meta name="sentencia-token" content="{get_session_token()}">' in resp.text
         assert resp.headers["cache-control"].startswith("no-store")
 
     def test_injetar_token_substitui_placeholder(self):
-        html = '<html><head><meta name="jvdfm-token" content=""><title>x</title></head></html>'
+        html = '<html><head><meta name="sentencia-token" content=""><title>x</title></head></html>'
         saida = security.injetar_token_html(html, "abc")
-        assert saida.count('name="jvdfm-token"') == 1
+        assert saida.count('name="sentencia-token"') == 1
         assert 'content="abc"' in saida
-        assert security.injetar_token_html("<p>sem head</p>", "abc").startswith('<meta name="jvdfm-token" content="abc">')
+        assert security.injetar_token_html("<p>sem head</p>", "abc").startswith('<meta name="sentencia-token" content="abc">')
 
     def test_token_em_query_so_para_get_de_download_e_progresso(self, client_sem_token: TestClient):
         q = {TOKEN_QUERY_PARAM: get_session_token()}
@@ -227,7 +227,7 @@ class TestSegurancaToken:
         assert client_sem_token.post("/api/cases/load-demo", params=q).status_code == 401
 
     def test_desativacao_por_env_somente_sob_pytest(self, client_sem_token: TestClient, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("JVDFM_DISABLE_TOKEN", "1")
+        monkeypatch.setenv("SENTENCIA_DISABLE_TOKEN", "1")
         assert security.exigencia_token_desativada() is True
         assert client_sem_token.get("/api/cases/active").status_code == 200
         monkeypatch.delitem(sys.modules, "pytest")
@@ -292,7 +292,7 @@ class TestSegurancaHostOrigemCors:
         assert security.get_port("9123") == 9123
         assert security.get_port("abc") == 8000
         assert security.get_port("70000") == 8000
-        monkeypatch.setenv("JVDFM_PORT", "8765")
+        monkeypatch.setenv("SENTENCIA_PORT", "8765")
         assert security.get_port() == 8765
 
     def test_logging_rotativo_em_arquivo(self, tmp_path: Path):
@@ -669,7 +669,7 @@ class TestExportacao:
         for formato in ("docx", "pdf", "html"):
             resp = client.get(f"/api/export/{formato}")
             assert resp.status_code == 200, resp.text
-            assert resp.headers["x-jvdfm-marca-dagua"] == "0"
+            assert resp.headers["X-SentencIA-Marca-Dagua"] == "0"
         nomes = sorted(p.name for p in sandbox["exports_dir"].iterdir())
         assert all(n.startswith("Sentença - Condenatória - Proc. ") and "RASCUNHO" not in n for n in nomes)
         assert len(nomes) == 3
@@ -692,7 +692,7 @@ class TestExportacao:
 
         rascunho = client.get("/api/export/docx", params={"rascunho": "true"})
         assert rascunho.status_code == 200
-        assert rascunho.headers["x-jvdfm-marca-dagua"] == "1"
+        assert rascunho.headers["X-SentencIA-Marca-Dagua"] == "1"
         arquivos = [p.name for p in sandbox["exports_dir"].iterdir()]
         assert len(arquivos) == 1
         assert arquivos[0].startswith("Sentença - ") and "Proc. 0801245-78.2025.8.20.5001" in arquivos[0]
@@ -921,7 +921,7 @@ class TestPastaDeExportacaoEPainelDeRevisao:
         client.post("/api/sentence/generate", json={"use_ollama": False})
         resp = client.get("/api/export/docx")
         assert resp.status_code == 200, resp.text
-        copia = Path(unquote(resp.headers["x-jvdfm-copia-em"]))
+        copia = Path(unquote(resp.headers["x-sentencia-copia-em"]))
         assert copia.exists() and copia.parent.name.startswith("Proc. ") and copia.parent.parent == saida.resolve()
         # nova exportação idêntica não duplica; o download segue funcionando
         assert client.get("/api/export/docx").status_code == 200
@@ -929,7 +929,7 @@ class TestPastaDeExportacaoEPainelDeRevisao:
 
         r = client.post("/api/settings", json={"pasta_exportacao": ""})
         assert r.status_code == 200
-        assert "x-jvdfm-copia-em" not in client.get("/api/export/docx").headers
+        assert "x-sentencia-copia-em" not in client.get("/api/export/docx").headers
 
     def test_copiar_exportacao_docx_ignora_timestamp_mas_preserva_edicao(self, tmp_path: Path):
         import zipfile

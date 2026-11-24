@@ -2,13 +2,13 @@
 """Configuração global da suíte (v2.0.0).
 
 - Marcador ``dados_reais``: testes que exigem os autos reais (PDF/MP4 sigilosos, segredo de justiça).
-  Eles só rodam quando a variável de ambiente ``JVDFM_REAL_CASES_DIR`` aponta para uma pasta
+  Eles só rodam quando a variável de ambiente ``SENTENCIA_REAL_CASES_DIR`` aponta para uma pasta
   existente com esses arquivos; caso contrário são PULADOS (nunca "passam" em silêncio).
-  Exemplo (PowerShell): ``$env:JVDFM_REAL_CASES_DIR = "D:\\autos-sigilosos"; uv run pytest -m dados_reais``.
+  Exemplo (PowerShell): ``$env:SENTENCIA_REAL_CASES_DIR = "D:\\autos-sigilosos"; uv run pytest -m dados_reais``.
 - Helpers para localizar os autos reais: :func:`real_cases_dir`, :func:`localizar_autos_reais` e a
   fixture ``autos_reais_dir``.
-- Ambiente isolado para todos os testes: ``JVDFM_DISABLE_TOKEN=1`` (só tem efeito sob pytest; os
-  testes de segurança removem a variável por conta própria) e ``JVDFM_SECRETS_BACKEND=arquivo``
+- Ambiente isolado para todos os testes: ``SENTENCIA_DISABLE_TOKEN=1`` (só tem efeito sob pytest; os
+  testes de segurança removem a variável por conta própria) e ``SENTENCIA_SECRETS_BACKEND=arquivo``
   (a suíte nunca lê nem grava no cofre do sistema operacional — Keychain/Credential Manager).
 """
 
@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REAL_DATA_DIR = (REPO_ROOT / "data").resolve()
 _SESSION_TMP_DATA_DIR: Optional[Path] = None
 
-REAL_CASES_ENV = "JVDFM_REAL_CASES_DIR"
+REAL_CASES_ENV = "SENTENCIA_REAL_CASES_DIR"
 MARCADOR_DADOS_REAIS = "dados_reais"
 _DESCRICAO_MARCADOR = (
     f"{MARCADOR_DADOS_REAIS}: exige os autos reais (PDF/MP4 sigilosos) na pasta indicada por "
@@ -36,7 +36,7 @@ _DESCRICAO_MARCADOR = (
 
 
 def real_cases_dir() -> Optional[Path]:
-    """Pasta dos autos reais (``JVDFM_REAL_CASES_DIR``) ou ``None`` se não definida/inexistente."""
+    """Pasta dos autos reais (``SENTENCIA_REAL_CASES_DIR``) ou ``None`` se não definida/inexistente."""
     bruto = os.environ.get(REAL_CASES_ENV, "").strip()
     if not bruto:
         return None
@@ -76,14 +76,14 @@ def verificar_data_dir_isolado(data_dir: Path, repo_root: Path = REPO_ROOT) -> N
     if alvo == real or real in alvo.parents:
         raise AssertionError(
             f"Isolamento violado: testes NÃO podem usar a pasta de dados real ({real}); "
-            f"recebido JVDFM_DATA_DIR={alvo}."
+            f"recebido SENTENCIA_DATA_DIR={alvo}."
         )
 
 
 def _garantir_env_data_dir_isolado() -> Path:
-    """Garante ``JVDFM_DATA_DIR`` isolado antes que qualquer módulo ``app.*`` seja importado."""
+    """Garante ``SENTENCIA_DATA_DIR`` isolado antes que qualquer módulo ``app.*`` seja importado."""
     global _SESSION_TMP_DATA_DIR
-    atual = os.environ.get("JVDFM_DATA_DIR", "").strip()
+    atual = os.environ.get("SENTENCIA_DATA_DIR", "").strip()
     if atual:
         try:
             verificar_data_dir_isolado(Path(atual))
@@ -98,7 +98,7 @@ def _garantir_env_data_dir_isolado() -> Path:
         timbre_dst = pasta / "templates_gabinete" / "timbre_tjrn.docx"
         timbre_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(timbre_src, timbre_dst)
-    os.environ["JVDFM_DATA_DIR"] = str(pasta)
+    os.environ["SENTENCIA_DATA_DIR"] = str(pasta)
     return pasta
 
 
@@ -149,8 +149,8 @@ def _salvaguarda_data_dir_isolado() -> None:
 
 @pytest.fixture(autouse=True)
 def _ambiente_isolado_de_teste(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("JVDFM_DISABLE_TOKEN", "1")
-    monkeypatch.setenv("JVDFM_SECRETS_BACKEND", "arquivo")
+    monkeypatch.setenv("SENTENCIA_DISABLE_TOKEN", "1")
+    monkeypatch.setenv("SENTENCIA_SECRETS_BACKEND", "arquivo")
 
 
 @pytest.fixture(autouse=True)

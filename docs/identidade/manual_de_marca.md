@@ -24,8 +24,9 @@ dourada (tecnologia).
 | **Promessas que a marca pode fazer** | auditoria anti-alucinação em quatro camadas · fundamentação rastreável às peças dos autos · execução local por padrão |
 | **O que a marca nunca diz** | que decide, que substitui o magistrado ou que "garante" a sentença |
 
-> Nos nomes de arquivo, pastas e comandos usa-se **SentencIA** (ou `sentencia`, minúsculo, em
-> identificadores técnicos). "JVDFM" continua sendo apenas a sigla do juizado.
+> Nos nomes de arquivo, pastas, comandos, variáveis de ambiente (`SENTENCIA_*`), cabeçalhos
+> (`X-SentencIA-*`), chaves de armazenamento e serviço do cofre usa-se **SentencIA** (ou `sentencia`,
+> minúsculo, em identificadores técnicos). "JVDFM" permanece apenas como sigla do juizado nos textos jurídicos.
 
 ## Cores
 

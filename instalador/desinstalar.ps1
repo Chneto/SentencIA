@@ -55,7 +55,7 @@ if ($ApagarDados) {
 $pyVenv = Join-Path $Destino '.venv\Scripts\python.exe'
 $launcher = Join-Path $Destino 'launcher.py'
 if ((Test-Path -LiteralPath $pyVenv) -and (Test-Path -LiteralPath $launcher)) {
-    $env:JVDFM_DATA_DIR = $Dados
+    $env:SENTENCIA_DATA_DIR = $Dados
     try { & $pyVenv $launcher --parar 2>$null | Out-Null } catch { }
 }
 

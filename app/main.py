@@ -2,7 +2,7 @@
 """API local do SentencIA (FastAPI).
 
 Segurança (ver ``app/api/security.py``): servidor só em 127.0.0.1; token de sessão injetado no
-``index.html`` e exigido em ``/api/*`` (header ``X-JVDFM-Token``), checagem de Host/Origin, CORS
+``index.html`` e exigido em ``/api/*`` (header ``X-SentencIA-Token``), checagem de Host/Origin, CORS
 restrito a loopback. ``GET /api/health`` é público e mínimo; o status detalhado fica em
 ``GET /api/status``.
 
@@ -2724,7 +2724,7 @@ def _exportar(formato: str, rascunho: bool, revisao_esperada: Optional[str] = No
     # Captura os bytes do mesmo instantâneo antes da publicação. O download não lê de novo
     # um caminho compartilhado que outra exportação pode substituir.
     tmp_file = out_file.with_name(f".{uuid.uuid4().hex}.tmp{out_file.suffix}")
-    headers = {"X-JVDFM-Marca-Dagua": "1" if marca else "0"}
+    headers = {"X-SentencIA-Marca-Dagua": "1" if marca else "0"}
     try:
         if formato == "docx":
             exportar_docx(sentenca, tmp_file, marca_dagua=marca)
@@ -2741,10 +2741,10 @@ def _exportar(formato: str, rascunho: bool, revisao_esperada: Optional[str] = No
             if (cfg.pasta_exportacao or "").strip():
                 try:
                     copia = copiar_exportacao(out_file, cfg.pasta_exportacao, sentenca.numero_processo, cfg.subpasta_por_processo)
-                    headers["X-JVDFM-Copia-Em"] = quote(str(copia), safe="")
+                    headers["X-SentencIA-Copia-Em"] = quote(str(copia), safe="")
                 except OSError as exc:
                     logger.warning("Cópia para a pasta de exportação do usuário falhou: %s", exc)
-                    headers["X-JVDFM-Copia-Erro"] = quote(exc.strerror or type(exc).__name__, safe="")
+                    headers["X-SentencIA-Copia-Erro"] = quote(exc.strerror or type(exc).__name__, safe="")
     except OSError as exc:
         raise HTTPException(
             status_code=409,
@@ -3309,7 +3309,7 @@ def pagina_guia_usuario() -> HTMLResponse:
 
 
 def run() -> None:
-    """Inicia o servidor em 127.0.0.1 na porta ``JVDFM_PORT`` (padrão 8000)."""
+    """Inicia o servidor em 127.0.0.1 na porta ``SENTENCIA_PORT`` (padrão 8000)."""
     import uvicorn
 
     configurar_logging()

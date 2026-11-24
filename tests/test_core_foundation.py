@@ -39,7 +39,7 @@ def sandbox_data(tmp_path, monkeypatch):
     data_dir.mkdir()
     monkeypatch.setattr(core_config, "DATA_DIR", data_dir)
     monkeypatch.setattr(core_config, "SETTINGS_FILE", data_dir / "user_settings.json")
-    monkeypatch.setenv("JVDFM_SECRETS_BACKEND", "arquivo")
+    monkeypatch.setenv("SENTENCIA_SECRETS_BACKEND", "arquivo")
     return data_dir
 
 
@@ -403,16 +403,16 @@ def test_settings_corrompido_e_preservado(sandbox_data):
     assert preservados[0].read_text(encoding="utf-8") == "{ isto não é json"
 
 
-def test_jvdfm_data_dir_resolucao(tmp_path):
+def test_SENTENCIA_data_dir_resolucao(tmp_path):
     destino = tmp_path / "dados relocados"
     assert core_config._resolver_data_dir(str(destino)) == destino.resolve()
     assert core_config._resolver_data_dir("") == core_config.BASE_DIR / "data"
     assert core_config._resolver_data_dir("   ") == core_config.BASE_DIR / "data"
 
 
-def test_jvdfm_data_dir_relocaliza_no_import(tmp_path):
-    destino = tmp_path / "SentencaJVDFM"
-    env = {**os.environ, "JVDFM_DATA_DIR": str(destino)}
+def test_SENTENCIA_data_dir_relocaliza_no_import(tmp_path):
+    destino = tmp_path / "SentencIA"
+    env = {**os.environ, "SENTENCIA_DATA_DIR": str(destino)}
     codigo = (
         "import app.core.config as c, json; "
         "print(json.dumps([str(c.DATA_DIR), str(c.SETTINGS_FILE), str(c.CASES_DIR), str(c.LOGS_DIR)]))"
@@ -446,7 +446,7 @@ def test_flags_de_plataforma_coerentes():
 
 
 def test_find_binary_sem_excecao(monkeypatch):
-    assert pu.find_binary("binario-inexistente-jvdfm-xyz") is None
+    assert pu.find_binary("binario-inexistente-sentencia-xyz") is None
     assert pu.find_binary("") is None
     assert pu.find_binary(None) is None  # type: ignore[arg-type]
 
@@ -459,7 +459,7 @@ def test_find_binary_sem_excecao(monkeypatch):
 
 
 def test_find_binary_encontra_em_diretorio_conhecido(tmp_path, monkeypatch):
-    nome = "ferramenta-jvdfm"
+    nome = "ferramenta-sentencia"
     arquivo = tmp_path / (f"{nome}.exe" if pu.IS_WINDOWS else nome)
     arquivo.write_text("#!/bin/sh\n", encoding="utf-8")
     if not pu.IS_WINDOWS:

@@ -13,7 +13,7 @@ set -euo pipefail
 
 PASTA_APP_DIR="${SENTENCIA_DESTINO:-$HOME/Applications/SentencIA}"
 CAMINHO_APP_BUNDLE="${SENTENCIA_APP_BUNDLE:-$HOME/Applications/SentencIA.app}"
-PASTA_DADOS="${JVDFM_DATA_DIR:-}"
+PASTA_DADOS="${SENTENCIA_DATA_DIR:-}"
 CONFIRMAR_AUTO=0
 MODO_DADOS="perguntar"
 
@@ -81,7 +81,7 @@ fi
 
 if [ -x "$PASTA_APP_DIR/.venv/bin/python" ] && [ -f "$PASTA_APP_DIR/launcher.py" ]; then
     printf '  Encerrando o servidor do SentencIA (se estiver aberto)...\n'
-    JVDFM_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
+    SENTENCIA_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
 fi
 
 if [ -e "$CAMINHO_APP_BUNDLE" ]; then

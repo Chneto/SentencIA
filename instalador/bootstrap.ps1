@@ -40,7 +40,7 @@ $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 $env:UV_LINK_MODE = 'copy'          # evita avisos de hardlink entre unidades / OneDrive
 $env:UV_NO_PROGRESS = '1'
-$env:JVDFM_LAUNCHER_CONSOLE = '1'   # o launcher.py escreve aqui (e no log) em vez de abrir caixas de diálogo
+$env:SENTENCIA_LAUNCHER_CONSOLE = '1'   # o launcher.py escreve aqui (e no log) em vez de abrir caixas de diálogo
 
 $VersaoApp = '2.1.0'
 $VersaoPython = '3.12'
@@ -55,8 +55,8 @@ Set-Location -LiteralPath $Raiz
 
 $PastaDadosProjeto = Join-Path $Raiz 'data'
 $ArquivoPastaDados = Join-Path $Raiz '.pasta_dados'
-if ($env:JVDFM_DATA_DIR) {
-    $PastaDados = [Environment]::ExpandEnvironmentVariables($env:JVDFM_DATA_DIR)
+if ($env:SENTENCIA_DATA_DIR) {
+    $PastaDados = [Environment]::ExpandEnvironmentVariables($env:SENTENCIA_DATA_DIR)
 } elseif (Test-Path -LiteralPath $ArquivoPastaDados) {
     $linhaDados = (Get-Content -LiteralPath $ArquivoPastaDados -Encoding UTF8 | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith('#') } | Select-Object -First 1)
     if ($linhaDados) { $PastaDados = [Environment]::ExpandEnvironmentVariables($linhaDados.Trim()) } else { $PastaDados = $PastaDadosProjeto }

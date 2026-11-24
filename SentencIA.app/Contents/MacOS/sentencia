@@ -27,5 +27,5 @@ if [ ! -x "$ALVO" ]; then
     chmod u+x "$ALVO" 2>/dev/null || true
 fi
 
-export JVDFM_DATA_DIR="${JVDFM_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
+export SENTENCIA_DATA_DIR="${SENTENCIA_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
 exec /usr/bin/open -a Terminal "$ALVO"

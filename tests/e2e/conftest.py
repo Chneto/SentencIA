@@ -173,7 +173,7 @@ def load_mock_transcriptions() -> Dict[str, Any]:
 
 @pytest.fixture
 def api_client() -> Generator[TestClient, None, None]:
-  """TestClient da aplicação FastAPI enviando o token de sessão REAL (header X-JVDFM-Token)."""
+  """TestClient da aplicação FastAPI enviando o token de sessão REAL (header X-SentencIA-Token)."""
   with TestClient(app, headers={TOKEN_HEADER: get_session_token()}) as client:
     yield client
 
@@ -631,7 +631,7 @@ def _limpar_diretorio_temporario(
 
 
 class _LocalAppServer:
-  """Sobe ``app.main:app`` em porta livre com ``JVDFM_DATA_DIR`` isolado (nunca toca ``data/``)."""
+  """Sobe ``app.main:app`` em porta livre com ``SENTENCIA_DATA_DIR`` isolado (nunca toca ``data/``)."""
 
   def __init__(self) -> None:
     self._tmp = tempfile.TemporaryDirectory(
@@ -647,7 +647,7 @@ class _LocalAppServer:
     if not settings_e2e.exists():
       settings_e2e.write_text(json.dumps({"assistente_concluido": True}), encoding="utf-8")
     env = os.environ.copy()
-    env["JVDFM_DATA_DIR"] = self._tmp.name
+    env["SENTENCIA_DATA_DIR"] = self._tmp.name
     env["PYTHONUTF8"] = "1"
     popen_kwargs: Dict[str, Any] = {
         "cwd": str(_ROOT_DIR),

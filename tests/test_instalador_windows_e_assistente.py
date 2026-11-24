@@ -38,10 +38,10 @@ def test_scripts_ps1_bom_crlf_e_sintaxe(rel: str):
     ps = _powershell_exe()
     if ps is None:
         pytest.skip("Windows PowerShell indisponível")
-    env = dict(os.environ, JVDFM_PS1_ALVO=str(RAIZ / rel))
+    env = dict(os.environ, SENTENCIA_PS1_ALVO=str(RAIZ / rel))
     cmd = (
         "$t=$null; $e=$null; [void][System.Management.Automation.Language.Parser]::ParseFile("
-        "$env:JVDFM_PS1_ALVO, [ref]$t, [ref]$e); $e.Count"
+        "$env:SENTENCIA_PS1_ALVO, [ref]$t, [ref]$e); $e.Count"
     )
     r = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", cmd], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
@@ -111,9 +111,9 @@ def test_caminho_a_instala_atualiza_preserva_dados_e_desinstala(tmp_path: Path):
         zf.writestr(
             "SentencIA-v2.1.0/instalador/bootstrap.ps1",
             "param([switch]$SemIniciar, [switch]$SemPerguntas, [switch]$Nuvem)\n"
-            "if (-not $env:JVDFM_DATA_DIR) { throw 'JVDFM_DATA_DIR ausente' }\n"
-            "New-Item -ItemType Directory -Path $env:JVDFM_DATA_DIR -Force | Out-Null\n"
-            "Set-Content -Path (Join-Path $env:JVDFM_DATA_DIR '.bootstrap_ok') -Value 'ok'\n",
+            "if (-not $env:SENTENCIA_DATA_DIR) { throw 'SENTENCIA_DATA_DIR ausente' }\n"
+            "New-Item -ItemType Directory -Path $env:SENTENCIA_DATA_DIR -Force | Out-Null\n"
+            "Set-Content -Path (Join-Path $env:SENTENCIA_DATA_DIR '.bootstrap_ok') -Value 'ok'\n",
         )
         zf.write(RAIZ / "instalador/desinstalar.ps1", "SentencIA-v2.1.0/instalador/desinstalar.ps1")
 
@@ -140,7 +140,7 @@ def test_caminho_a_instala_atualiza_preserva_dados_e_desinstala(tmp_path: Path):
     assert (destino / ".pasta_dados").is_file(), "instalar.ps1 deve persistir .pasta_dados"
     assert Path((destino / ".pasta_dados").read_text(encoding="utf-8").strip()).resolve() == dados.resolve()
 
-    # Segunda abertura SEM JVDFM_DATA_DIR resolve para a mesma pasta via .pasta_dados
+    # Segunda abertura SEM SENTENCIA_DATA_DIR resolve para a mesma pasta via .pasta_dados
     assert core_config._resolver_data_dir("", base_dir=destino, ambiente={}) == dados.resolve()
 
     # 2) Usuário grava dados -> reinstalar/atualizar PRESERVA os dados
@@ -238,8 +238,8 @@ def test_assistente_sugestao_modelo_e_rotas_api(monkeypatch: pytest.MonkeyPatch)
     assert "Guia do Usuário" in r_guia.text
 
 
-def test_pasta_dados_persistida_e_precedencia_jvdfm_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Ajuste v2 (bloqueante): .pasta_dados persiste fora do programa; JVDFM_DATA_DIR tem precedência."""
+def test_pasta_dados_persistida_e_precedencia_SENTENCIA_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Ajuste v2 (bloqueante): .pasta_dados persiste fora do programa; SENTENCIA_DATA_DIR tem precedência."""
     import launcher
     from scripts import build_release
 
@@ -249,15 +249,15 @@ def test_pasta_dados_persistida_e_precedencia_jvdfm_data_dir(tmp_path: Path, mon
     prog.mkdir(parents=True, exist_ok=True)
     (prog / ".pasta_dados").write_text(f"{dados_cfg.resolve()}\n", encoding="utf-8")
 
-    # (a) Sem JVDFM_DATA_DIR -> _resolver_data_dir e launcher.data_dir usam .pasta_dados
+    # (a) Sem SENTENCIA_DATA_DIR -> _resolver_data_dir e launcher.data_dir usam .pasta_dados
     assert core_config._resolver_data_dir("", base_dir=prog, ambiente={}) == dados_cfg.resolve()
-    monkeypatch.delenv("JVDFM_DATA_DIR", raising=False)
+    monkeypatch.delenv("SENTENCIA_DATA_DIR", raising=False)
     monkeypatch.setattr(launcher, "PROJECT_DIR", prog)
     assert launcher.data_dir().resolve() == dados_cfg.resolve()
 
-    # (c) JVDFM_DATA_DIR continua com precedência sobre .pasta_dados
+    # (c) SENTENCIA_DATA_DIR continua com precedência sobre .pasta_dados
     assert core_config._resolver_data_dir(str(dados_env), base_dir=prog, ambiente={}) == dados_env.resolve()
-    monkeypatch.setenv("JVDFM_DATA_DIR", str(dados_env))
+    monkeypatch.setenv("SENTENCIA_DATA_DIR", str(dados_env))
     assert launcher.data_dir().resolve() == dados_env.resolve()
 
     # .pasta_dados nunca entra no pacote de distribuição

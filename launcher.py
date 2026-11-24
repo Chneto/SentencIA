@@ -5,8 +5,8 @@ O que faz, nesta ordem:
 
 1. Se já houver um servidor desta versão respondendo (registrado em ``<dados>/.servidor.json``),
    apenas abre o navegador nele.
-2. Escolhe uma porta livre em 127.0.0.1 (``JVDFM_PORT``/``--porta`` ou 8000; se ocupada, a próxima
-   livre) e a repassa ao servidor pela variável ``JVDFM_PORT``.
+2. Escolhe uma porta livre em 127.0.0.1 (``SENTENCIA_PORT``/``--porta`` ou 8000; se ocupada, a próxima
+   livre) e a repassa ao servidor pela variável ``SENTENCIA_PORT``.
 3. Inicia o Ollama em segundo plano, se estiver instalado e parado (opcional).
 4. Sobe o uvicorn com o MESMO interpretador do ambiente virtual do projeto (``.venv``), desacoplado
    deste processo (o servidor continua rodando depois que esta janela fecha).
@@ -14,7 +14,7 @@ O que faz, nesta ordem:
    quando existir (``platform_utils.find_chrome``), senão o navegador padrão.
 
 Logs: ``<dados>/logs/launcher.log`` (este iniciador) e ``<dados>/logs/servidor.log`` (saída e erros
-do uvicorn — nada é descartado). ``<dados>`` é ``JVDFM_DATA_DIR`` ou a pasta ``data/`` do projeto.
+do uvicorn — nada é descartado). ``<dados>`` é ``SENTENCIA_DATA_DIR`` ou a pasta ``data/`` do projeto.
 
 Uso: ``python launcher.py [--porta N] [--sem-navegador] [--parar] [--status]``.
 """
@@ -66,15 +66,24 @@ IS_MACOS = sys.platform == "darwin"
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-logger = logging.getLogger("jvdfm.launcher")
+logger = logging.getLogger("sentencia.launcher")
 
 
 # ----------------------------------------------------------------------------------------------
 # Pastas e log
 # ----------------------------------------------------------------------------------------------
+def _ler_env_launcher(sufixo: str) -> str:
+    try:
+        from app.core.env import ler_env
+
+        return (ler_env(sufixo, "") or "").strip()
+    except Exception:
+        return (os.environ.get(f"SENTENCIA_{sufixo}") or os.environ.get(f"JVDFM_{sufixo}") or "").strip()
+
+
 def data_dir() -> Path:
-    """Mesma regra de ``app.core.config``: ``JVDFM_DATA_DIR`` -> ``<projeto>/.pasta_dados`` -> ``<projeto>/data``."""
-    bruto = (os.environ.get("JVDFM_DATA_DIR") or "").strip()
+    """Mesma regra de ``app.core.config``: ``SENTENCIA_DATA_DIR`` (ou ``JVDFM_DATA_DIR``) -> ``<projeto>/.pasta_dados`` -> ``<projeto>/data``."""
+    bruto = _ler_env_launcher("DATA_DIR")
     if bruto:
         return Path(os.path.expandvars(bruto)).expanduser()
     marcador = PROJECT_DIR / ".pasta_dados"
@@ -102,9 +111,9 @@ def arquivo_estado() -> Path:
 
 
 def _modo_console() -> bool:
-    """Verdadeiro quando chamado pelo instalador (``JVDFM_LAUNCHER_CONSOLE=1``): mensagens vão para a
+    """Verdadeiro quando chamado pelo instalador (``SENTENCIA_LAUNCHER_CONSOLE=1``): mensagens vão para a
     saída padrão (que o instalador mostra e registra) em vez de caixas de diálogo."""
-    return (os.environ.get("JVDFM_LAUNCHER_CONSOLE") or "").strip() == "1"
+    return _ler_env_launcher("LAUNCHER_CONSOLE") == "1"
 
 
 def configurar_log() -> Path:
@@ -253,7 +262,7 @@ def porta_preferida(argumento: Optional[int]) -> int:
     if argumento:
         return argumento
     try:
-        valor = int((os.environ.get("JVDFM_PORT") or "").strip())
+        valor = int(_ler_env_launcher("PORT"))
         if 1 <= valor <= 65535:
             return valor
     except ValueError:
@@ -411,7 +420,7 @@ def iniciar_servidor(porta: int) -> subprocess.Popen:
     log_servidor = logs_dir() / "servidor.log"
     _girar_log_servidor(log_servidor)
     env = dict(os.environ)
-    env["JVDFM_PORT"] = str(porta)
+    env["SENTENCIA_PORT"] = str(porta)
     env.setdefault("PYTHONUTF8", "1")
     env.setdefault("PYTHONIOENCODING", "utf-8")
     cmd = [python, "-m", "uvicorn", "app.main:app", "--host", HOST, "--port", str(porta), "--log-level", "info"]
@@ -541,7 +550,7 @@ def limpar_demo_cli(*, confirmar_auto: bool = False) -> int:
 # ----------------------------------------------------------------------------------------------
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description="Inicia o SentencIA e abre o navegador.")
-    parser.add_argument("--porta", type=int, default=None, help="porta preferida (padrão: JVDFM_PORT ou 8000)")
+    parser.add_argument("--porta", type=int, default=None, help="porta preferida (padrão: SENTENCIA_PORT ou 8000)")
     parser.add_argument("--sem-navegador", action="store_true", help="não abrir o navegador")
     parser.add_argument("--sem-ollama", action="store_true", help="não tentar iniciar o Ollama")
     parser.add_argument("--parar", action="store_true", help="encerrar o servidor iniciado por este iniciador")

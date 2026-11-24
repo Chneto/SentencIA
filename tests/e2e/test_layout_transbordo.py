@@ -271,7 +271,7 @@ def _set_theme(page: Any, theme: str, design: str = "original") -> None:
           }
           document.documentElement.setAttribute('data-theme', t);
           document.documentElement.setAttribute('data-design', d);
-          localStorage.setItem('jvdfm_theme', t);
+          localStorage.setItem('sentencia_theme', t);
           localStorage.setItem('sentencia_design', d);
         }""",
         {"t": theme, "d": design},

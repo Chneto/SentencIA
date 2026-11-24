@@ -3,7 +3,7 @@ import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.1.0
 import { $, showToast, sleep } from "./dom.js?v=2.1.0";
 
 function lerTokenSessao() {
-  const el = document.querySelector('meta[name="jvdfm-token"]');
+  const el = document.querySelector('meta[name="sentencia-token"]');
   return (el && el.getAttribute("content")) || "";
 }
 

@@ -5,8 +5,8 @@ navegador do usuário pode tentar requisições para ``http://127.0.0.1:<porta>`
 *DNS rebinding* para ler respostas. Defesas:
 
 1. **Token de sessão** (``secrets.token_urlsafe``) gerado a cada inicialização e injetado no
-   ``index.html`` servido em ``/`` como ``<meta name="jvdfm-token" content="...">``. Toda rota
-   ``/api/*`` exige o header ``X-JVDFM-Token`` (exceto ``GET /api/health``, que é mínimo). Páginas
+   ``index.html`` servido em ``/`` como ``<meta name="sentencia-token" content="...">``. Toda rota
+   ``/api/*`` exige o header ``X-SentencIA-Token`` (aceitando ``X-JVDFM-Token`` como legado; exceto ``GET /api/health``, que é mínimo). Páginas
    de outras origens não conseguem ler o ``index.html`` (sem CORS para elas), logo não obtêm o token.
 2. **Host permitido** (127.0.0.1, localhost, [::1] e ``testserver`` do TestClient): bloqueia DNS
    rebinding, pois o navegador envia o domínio do atacante no header ``Host``.
@@ -14,7 +14,7 @@ navegador do usuário pode tentar requisições para ``http://127.0.0.1:<porta>`
 4. **Sem CORS**: o frontend e same-origin; ``Origin`` (quando presente) deve igualar o Host e
    ``Sec-Fetch-Site`` cross-site/same-site e recusado tambem em ``/`` e ``/static``.
 
-Testes: ``JVDFM_DISABLE_TOKEN=1`` desativa a exigência do token SOMENTE quando o processo roda sob
+Testes: ``SENTENCIA_DISABLE_TOKEN=1`` (ou ``JVDFM_DISABLE_TOKEN=1`` legado) desativa a exigência do token SOMENTE quando o processo roda sob
 pytest (``"pytest" in sys.modules``); fora dele a variável é ignorada. Prefira enviar o token real
 (``get_session_token()``) nos testes.
 """
@@ -64,11 +64,13 @@ def ler_versao_app(raiz: Optional[Path] = None) -> str:
 
 VERSAO_APP = ler_versao_app()
 
-TOKEN_HEADER = "X-JVDFM-Token"
-TOKEN_META_NAME = "jvdfm-token"
+TOKEN_HEADER = "X-SentencIA-Token"
+TOKEN_HEADER_LEGADO = "X-JVDFM-Token"
+TOKEN_META_NAME = "sentencia-token"
 #: Parâmetro de query aceito SOMENTE em GET de download/stream (``<a href>``/``EventSource`` não
 #: conseguem enviar headers customizados).
-TOKEN_QUERY_PARAM = "jvdfm_token"
+TOKEN_QUERY_PARAM = "sentencia_token"
+TOKEN_QUERY_PARAM_LEGADO = "jvdfm_token"
 PREFIXOS_TOKEN_EM_QUERY = ("/api/export/", "/api/cases/upload-progress", "/api/jobs/")
 
 PORTA_PADRAO = 8000
@@ -83,7 +85,7 @@ ROTAS_PUBLICAS = frozenset({("GET", "/api/health"), ("HEAD", "/api/health")})
 
 _SESSION_TOKEN: str = secrets.token_urlsafe(32)
 
-_LOG_HANDLER_MARCA = "_jvdfm_app_log"
+_LOG_HANDLER_MARCA = "_sentencia_app_log"
 
 
 # ----------------------------------------------------------------------------------------------
@@ -100,8 +102,10 @@ def token_headers() -> dict:
 
 
 def exigencia_token_desativada() -> bool:
-    """``JVDFM_DISABLE_TOKEN=1`` só tem efeito dentro do pytest."""
-    return os.environ.get("JVDFM_DISABLE_TOKEN", "").strip() == "1" and "pytest" in sys.modules
+    """``SENTENCIA_DISABLE_TOKEN=1`` (ou ``JVDFM_DISABLE_TOKEN=1`` legado) só tem efeito dentro do pytest."""
+    from app.core.env import ler_env
+
+    return (ler_env("DISABLE_TOKEN", "") or "").strip() == "1" and "pytest" in sys.modules
 
 
 def _comparar(fornecido: Optional[str]) -> bool:
@@ -111,16 +115,18 @@ def _comparar(fornecido: Optional[str]) -> bool:
 
 
 def token_valido(request: Request) -> bool:
-    if _comparar(request.headers.get(TOKEN_HEADER)):
+    if _comparar(request.headers.get(TOKEN_HEADER)) or _comparar(request.headers.get(TOKEN_HEADER_LEGADO)):
         return True
     path = request.url.path
     if request.method in ("GET", "HEAD") and path.startswith(PREFIXOS_TOKEN_EM_QUERY):
-        return _comparar(request.query_params.get(TOKEN_QUERY_PARAM))
+        return _comparar(request.query_params.get(TOKEN_QUERY_PARAM)) or _comparar(
+            request.query_params.get(TOKEN_QUERY_PARAM_LEGADO)
+        )
     return False
 
 
 def injetar_token_html(html: str, token: Optional[str] = None) -> str:
-    """Insere (ou substitui) ``<meta name="jvdfm-token" content="...">`` no ``<head>``."""
+    """Insere (ou substitui) ``<meta name="sentencia-token" content="...">`` no ``<head>``."""
     token = token or _SESSION_TOKEN
     meta = f'<meta name="{TOKEN_META_NAME}" content="{token}">'
     padrao_existente = re.compile(r'<meta\s+name=["\']' + re.escape(TOKEN_META_NAME) + r'["\'][^>]*>', re.IGNORECASE)
@@ -136,7 +142,9 @@ def injetar_token_html(html: str, token: Optional[str] = None) -> str:
 # Host / Origin
 # ----------------------------------------------------------------------------------------------
 def _hosts_extras() -> set[str]:
-    bruto = os.environ.get("JVDFM_ALLOWED_HOSTS", "")
+    from app.core.env import ler_env
+
+    bruto = ler_env("ALLOWED_HOSTS", "") or ""
     return {h.strip().lower() for h in bruto.split(",") if h.strip()}
 
 
@@ -202,8 +210,10 @@ def requisicao_cross_site(request: Request) -> bool:
 # Porta
 # ----------------------------------------------------------------------------------------------
 def get_port(valor: Optional[str] = None) -> int:
-    """Porta do servidor: ``JVDFM_PORT`` (1–65535) ou 8000."""
-    bruto = os.environ.get("JVDFM_PORT", "") if valor is None else valor
+    """Porta do servidor: ``SENTENCIA_PORT`` (ou ``JVDFM_PORT`` legado, 1–65535) ou 8000."""
+    from app.core.env import ler_env
+
+    bruto = (ler_env("PORT", "") or "") if valor is None else valor
     try:
         porta = int(str(bruto).strip())
     except (TypeError, ValueError):
@@ -268,9 +278,11 @@ def configurar_logging(
     """Log rotativo em ``<logs_dir>/app.log`` (idempotente).
 
     Sob pytest não grava arquivo (evita poluir ``data/logs``), salvo ``forcar=True`` ou
-    ``JVDFM_LOG_EM_TESTES=1``. Retorna o caminho do log configurado (ou ``None``).
+    ``SENTENCIA_LOG_EM_TESTES=1``. Retorna o caminho do log configurado (ou ``None``).
     """
-    if "pytest" in sys.modules and not forcar and os.environ.get("JVDFM_LOG_EM_TESTES") != "1":
+    from app.core.env import ler_env
+
+    if "pytest" in sys.modules and not forcar and (ler_env("LOG_EM_TESTES", "") or "") != "1":
         return None
     if logs_dir is None:
         from app.core import config as core_config

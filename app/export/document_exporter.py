@@ -39,7 +39,7 @@ from app.generation.sentence_generator import SentencaGerada
 #: Texto padrão da marca d'água de minuta não aprovada pelo auditor.
 MARCA_DAGUA_NAO_AUDITADA = "MINUTA NÃO AUDITADA"
 
-#: Pasta de modelos distribuída com o programa (usada quando ``JVDFM_DATA_DIR`` reloca ``data/``).
+#: Pasta de modelos distribuída com o programa (usada quando ``SENTENCIA_DATA_DIR`` reloca ``data/``).
 _TEMPLATES_EMBUTIDOS = Path(__file__).resolve().parents[2] / "data" / "templates_gabinete"
 
 

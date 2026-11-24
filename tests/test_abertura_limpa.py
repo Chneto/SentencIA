@@ -157,7 +157,7 @@ def test_limpar_demo_cli_nao_remove_nada_real(tmp_path: Path, monkeypatch: pytes
         limpar_artefatos_demo(data_dir, simular=False, confirmar=False)
 
     # Via CLI launcher.py --limpar-demo --sim
-    monkeypatch.setenv("JVDFM_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("SENTENCIA_DATA_DIR", str(data_dir))
     rc = launcher.main(["--limpar-demo", "--sim"])
     assert rc == 0
     out = capsys.readouterr().out

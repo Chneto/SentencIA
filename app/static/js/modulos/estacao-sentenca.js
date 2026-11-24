@@ -299,13 +299,13 @@ async function exportarArquivo(formato, rascunho = false) {
     const blob = await resp.blob();
     const nome = nomeDoContentDisposition(resp.headers.get("Content-Disposition")) || `Sentença${rascunho ? " (RASCUNHO)" : ""}.${formato}`;
     baixarBlob(blob, nome);
-    if (resp.headers.get("X-JVDFM-Marca-Dagua") === "1") {
+    if (resp.headers.get("X-SentencIA-Marca-Dagua") === "1") {
       showToast(`Exportado como RASCUNHO (${nome}) com a marca "MINUTA NÃO AUDITADA".`, "warn");
     } else {
       showToast(`Arquivo ${nome} exportado.`, "success");
     }
-    const copiaEm = resp.headers.get("X-JVDFM-Copia-Em");
-    const copiaErro = resp.headers.get("X-JVDFM-Copia-Erro");
+    const copiaEm = resp.headers.get("X-SentencIA-Copia-Em");
+    const copiaErro = resp.headers.get("X-SentencIA-Copia-Erro");
     if (copiaEm) showToast(`Cópia salva em: ${decodeURIComponent(copiaEm)}`, "success", 8000);
     else if (copiaErro) showToast(`Não consegui copiar para a sua pasta de exportação (${decodeURIComponent(copiaErro)}). O download foi feito normalmente.`, "warn", 9000);
   } catch (err) {

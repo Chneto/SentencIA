@@ -57,7 +57,7 @@ def test_instalar_mac_cumpre_contrato_task_034():
     assert "$HOME/Applications/SentencIA" in txt
     assert "$HOME/Applications/SentencIA.app" in txt
     assert "$HOME/Library/Application Support/SentencIA" in txt
-    assert "JVDFM_DATA_DIR" in txt
+    assert "SENTENCIA_DATA_DIR" in txt
     # Conferência de SHA-256
     assert "shasum -a 256" in txt
     assert "SHA256SUMS.txt" in txt
@@ -82,12 +82,12 @@ def test_desinstalar_mac_padrao_mantem_dados():
     assert "--apagar-dados" in txt
 
 
-def test_lancadores_mac_passam_jvdfm_data_dir():
+def test_lancadores_mac_passam_SENTENCIA_data_dir():
     cmd = (RAIZ / "Iniciar SentencIA.command").read_text(encoding="utf-8")
     app_bin = (RAIZ / "SentencIA.app/Contents/MacOS/sentencia").read_text(encoding="utf-8")
     esperado = "$HOME/Library/Application Support/SentencIA"
-    assert "JVDFM_DATA_DIR" in cmd and esperado in cmd
-    assert "JVDFM_DATA_DIR" in app_bin and esperado in app_bin
+    assert "SENTENCIA_DATA_DIR" in cmd and esperado in cmd
+    assert "SENTENCIA_DATA_DIR" in app_bin and esperado in app_bin
 
 
 def test_desinstalar_mac_execucao_mantem_dados_por_padrao(tmp_path: Path):

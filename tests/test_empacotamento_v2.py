@@ -35,9 +35,9 @@ def _carregar_modulo(nome: str, caminho: Path):
     return modulo
 
 
-build_release = _carregar_modulo("jvdfm_build_release", RAIZ / "scripts" / "build_release.py")
-launcher = _carregar_modulo("jvdfm_launcher", RAIZ / "launcher.py")
-conftest_raiz = _carregar_modulo("jvdfm_conftest_raiz", RAIZ / "tests" / "conftest.py")
+build_release = _carregar_modulo("sentencia_build_release", RAIZ / "scripts" / "build_release.py")
+launcher = _carregar_modulo("sentencia_launcher", RAIZ / "launcher.py")
+conftest_raiz = _carregar_modulo("sentencia_conftest_raiz", RAIZ / "tests" / "conftest.py")
 
 
 # ----------------------------------------------------------------------------------------------
@@ -136,10 +136,10 @@ def test_bootstrap_ps1_sem_erros_de_sintaxe():
     ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
     if not ps.exists():
         pytest.skip("Windows PowerShell indisponível")
-    env = dict(os.environ, JVDFM_PS1_ALVO=str(RAIZ / "instalador" / "bootstrap.ps1"))
+    env = dict(os.environ, SENTENCIA_PS1_ALVO=str(RAIZ / "instalador" / "bootstrap.ps1"))
     comando = (
         "$t=$null; $e=$null; [void][System.Management.Automation.Language.Parser]::ParseFile("
-        "$env:JVDFM_PS1_ALVO, [ref]$t, [ref]$e); $e.Count"
+        "$env:SENTENCIA_PS1_ALVO, [ref]$t, [ref]$e); $e.Count"
     )
     r = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", comando], env=env,
                        capture_output=True, text=True, timeout=120)
@@ -318,20 +318,20 @@ def test_build_release_dry_run_do_repositorio_nao_tem_proibidos():
 # launcher.py
 # ----------------------------------------------------------------------------------------------
 def test_launcher_data_dir_respeita_variavel(monkeypatch, tmp_path):
-    monkeypatch.setenv("JVDFM_DATA_DIR", str(tmp_path / "dados"))
+    monkeypatch.setenv("SENTENCIA_DATA_DIR", str(tmp_path / "dados"))
     assert launcher.data_dir() == tmp_path / "dados"
     assert launcher.logs_dir() == tmp_path / "dados" / "logs"
-    monkeypatch.delenv("JVDFM_DATA_DIR")
+    monkeypatch.delenv("SENTENCIA_DATA_DIR")
     assert launcher.data_dir() == RAIZ / "data"
 
 
 def test_launcher_porta_preferida(monkeypatch):
-    monkeypatch.delenv("JVDFM_PORT", raising=False)
+    monkeypatch.delenv("SENTENCIA_PORT", raising=False)
     assert launcher.porta_preferida(None) == 8000
-    monkeypatch.setenv("JVDFM_PORT", "8123")
+    monkeypatch.setenv("SENTENCIA_PORT", "8123")
     assert launcher.porta_preferida(None) == 8123
     assert launcher.porta_preferida(9001) == 9001
-    monkeypatch.setenv("JVDFM_PORT", "abc")
+    monkeypatch.setenv("SENTENCIA_PORT", "abc")
     assert launcher.porta_preferida(None) == 8000
 
 
@@ -388,9 +388,9 @@ def test_launcher_usa_python_do_venv():
 
 
 def test_launcher_modo_console(monkeypatch):
-    monkeypatch.setenv("JVDFM_LAUNCHER_CONSOLE", "1")
+    monkeypatch.setenv("SENTENCIA_LAUNCHER_CONSOLE", "1")
     assert launcher._tem_console() is True
-    monkeypatch.setenv("JVDFM_LAUNCHER_CONSOLE", "0")
+    monkeypatch.setenv("SENTENCIA_LAUNCHER_CONSOLE", "0")
     assert launcher._modo_console() is False
 
 
@@ -402,11 +402,11 @@ def test_marcador_dados_reais_registrado(pytestconfig):
 
 
 def test_localizar_autos_reais_pula_sem_variavel(monkeypatch, tmp_path):
-    monkeypatch.delenv("JVDFM_REAL_CASES_DIR", raising=False)
+    monkeypatch.delenv("SENTENCIA_REAL_CASES_DIR", raising=False)
     assert conftest_raiz.real_cases_dir() is None
     with pytest.raises(pytest.skip.Exception):
         conftest_raiz.localizar_autos_reais("autos.pdf")
-    monkeypatch.setenv("JVDFM_REAL_CASES_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTENCIA_REAL_CASES_DIR", str(tmp_path))
     (tmp_path / "autos.pdf").write_bytes(b"%PDF")
     assert conftest_raiz.real_cases_dir() == tmp_path
     assert conftest_raiz.localizar_autos_reais("faltando.pdf", "autos.pdf") == tmp_path / "autos.pdf"
@@ -415,7 +415,7 @@ def test_localizar_autos_reais_pula_sem_variavel(monkeypatch, tmp_path):
 
 
 def test_ambiente_de_teste_isolado_do_cofre():
-    assert os.environ.get("JVDFM_SECRETS_BACKEND") == "arquivo"
+    assert os.environ.get("SENTENCIA_SECRETS_BACKEND") == "arquivo"
 
 
 # ----------------------------------------------------------------------------------------------
@@ -423,7 +423,7 @@ def test_ambiente_de_teste_isolado_do_cofre():
 # ----------------------------------------------------------------------------------------------
 @pytest.mark.skipif(sys.platform != "win32", reason="atalho .lnk só no Windows")
 def test_criar_atalho_windows_em_pasta_com_acentos(tmp_path):
-    atalho = _carregar_modulo("jvdfm_criar_atalho", RAIZ / "scripts" / "criar_atalho_desktop.py")
+    atalho = _carregar_modulo("sentencia_criar_atalho", RAIZ / "scripts" / "criar_atalho_desktop.py")
     destino = tmp_path / "Área de Trabalho"
     destino.mkdir()
     criados = atalho.criar_atalho_windows(destino)

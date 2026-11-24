@@ -42,7 +42,6 @@ ARQUIVOS_RAIZ_PERMITIDOS: Set[str] = {
     "Iniciar SentencIA.command",
     "Iniciar SentencIA.vbs",
     "Iniciar_SentencIA.vbs",
-    "Iniciar_Sentenca_JVDFM.vbs",
     "LICENSE",
     "README.md",
     "launcher.py",

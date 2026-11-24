@@ -318,9 +318,9 @@ def test_edge_cases_dates_and_currencies():
 
 @pytest.mark.dados_reais
 def test_real_case_sentence_abnt_and_dates_conformity():
-    """Garante que nos autos externos fornecidos via ``JVDFM_REAL_CASES_DIR`` as datas são brasileiras e as citações seguem a ABNT.
+    """Garante que nos autos externos fornecidos via ``SENTENCIA_REAL_CASES_DIR`` as datas são brasileiras e as citações seguem a ABNT.
 
-    Depende dos autos reais sigilosos: só roda com ``JVDFM_REAL_CASES_DIR`` (ver ``tests/conftest.py``).
+    Depende dos autos reais sigilosos: só roda com ``SENTENCIA_REAL_CASES_DIR`` (ver ``tests/conftest.py``).
     """
     from fastapi.testclient import TestClient
     from app.api.security import token_headers
@@ -332,7 +332,7 @@ def test_real_case_sentence_abnt_and_dates_conformity():
     pdfs = sorted(pasta_autos.glob("*.pdf"))
     mp4s = sorted(pasta_autos.glob("*.mp4"))
     if not pdfs or len(mp4s) < 2:
-        pytest.skip("autos reais (PDF e ao menos 2 MP4) ausentes em JVDFM_REAL_CASES_DIR")
+        pytest.skip("autos reais (PDF e ao menos 2 MP4) ausentes em SENTENCIA_REAL_CASES_DIR")
     pdf_path = pdfs[0]
     mp4_1, mp4_2 = mp4s[0], mp4s[1]
 

@@ -196,7 +196,7 @@ def main():
     pasta.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=pasta, prefix="afericao-") as temp:
         raiz = Path(temp)
-        os.environ["JVDFM_DATA_DIR"] = str(raiz / "dados_sinteticos")
+        os.environ["SENTENCIA_DATA_DIR"] = str(raiz / "dados_sinteticos")
         os.environ["TEMP"] = os.environ["TMP"] = str(raiz)
         base = raiz / "audio_transcriber_base.py"
         base.write_bytes(subprocess.check_output(

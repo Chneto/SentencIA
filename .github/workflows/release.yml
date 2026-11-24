@@ -126,7 +126,7 @@ jobs:
             Expand-Archive -Path $zipFile.FullName -DestinationPath $destRoot -Force
             $sub = Get-ChildItem -Path $destRoot -Directory | Select-Object -First 1
             $appDir = if ($sub) { $sub.FullName } else { $destRoot }
-            $env:JVDFM_DATA_DIR = $destData
+            $env:SENTENCIA_DATA_DIR = $destData
             & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $appDir "instalador/bootstrap.ps1") -SemPerguntas -SemIniciar
           }
 
@@ -135,8 +135,8 @@ jobs:
             throw "Ambiente .venv não foi criado em $pyExe"
           }
 
-          $env:JVDFM_DATA_DIR = $destData
-          $env:JVDFM_PORT = "8765"
+          $env:SENTENCIA_DATA_DIR = $destData
+          $env:SENTENCIA_PORT = "8765"
           & $pyExe (Join-Path $appDir "launcher.py") --sem-navegador --porta 8765
           try {
             $resp = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/health" -TimeoutSec 10
@@ -199,8 +199,8 @@ jobs:
 
           "$DEST_APP/.venv/bin/python" -c "import ocrmac; print('ocrmac OK')"
 
-          export JVDFM_DATA_DIR="$DEST_DATA"
-          export JVDFM_PORT="8765"
+          export SENTENCIA_DATA_DIR="$DEST_DATA"
+          export SENTENCIA_PORT="8765"
           "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --sem-navegador --porta 8765
           curl -fsSL http://127.0.0.1:8765/api/health | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'
           "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --parar --porta 8765

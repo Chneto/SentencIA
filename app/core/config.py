@@ -1,7 +1,7 @@
 """Configuração do sistema: diretórios de dados e preferências do usuário (``user_settings.json``).
 
-- ``JVDFM_DATA_DIR`` (variável de ambiente) permite relocar a pasta ``data/`` — útil para instalar
-  fora do OneDrive ou, no macOS, em ``~/Library/Application Support/SentencaJVDFM``.
+- ``SENTENCIA_DATA_DIR`` (variável de ambiente; aceita legado ``JVDFM_DATA_DIR``) permite relocar a pasta ``data/`` — útil para instalar
+  fora do OneDrive ou, no macOS, em ``~/Library/Application Support/SentencIA``.
 - A chave da API Gemini NÃO é mais persistida no JSON: fica no cofre do sistema
   (``app.core.secrets``). Arquivos antigos que ainda a contenham são migrados na primeira carga.
 - ``save_settings`` grava de forma atômica (arquivo temporário + ``os.replace``).
@@ -67,17 +67,36 @@ ARQUIVO_PASTA_DADOS = ".pasta_dados"
 
 
 def pasta_dados_local_segura(*, plataforma: str | None = None, ambiente: Dict[str, str] | None = None, home: Path | None = None) -> Path:
-    """Pasta de dados fora de qualquer sincronizacao: ``%LOCALAPPDATA%\\SentencaJVDFM`` (Windows),
-    ``~/Library/Application Support/SentencaJVDFM`` (macOS) ou ``~/.local/share/SentencaJVDFM``."""
+    """Pasta de dados fora de qualquer sincronizacao: ``%LOCALAPPDATA%\\SentencIA`` (Windows),
+    ``~/Library/Application Support/SentencIA`` (macOS) ou ``~/.local/share/SentencIA``.
+
+    Se apenas a pasta legada ``SentencaJVDFM`` existir, tenta renomeá-la para ``SentencIA``; se a
+    renomeação falhar (ex.: arquivo em uso), continua usando a pasta legada e registra aviso.
+    """
     plat = plataforma or sys.platform
     env = os.environ if ambiente is None else ambiente
     casa = home or Path.home()
     if plat == "win32":
         base = (env.get("LOCALAPPDATA") or "").strip()
-        return (Path(base) if base else casa / "AppData" / "Local") / "SentencaJVDFM"
-    if plat == "darwin":
-        return casa / "Library" / "Application Support" / "SentencaJVDFM"
-    return Path((env.get("XDG_DATA_HOME") or "").strip() or casa / ".local" / "share") / "SentencaJVDFM"
+        raiz = Path(base) if base else casa / "AppData" / "Local"
+    elif plat == "darwin":
+        raiz = casa / "Library" / "Application Support"
+    else:
+        raiz = Path((env.get("XDG_DATA_HOME") or "").strip() or casa / ".local" / "share")
+    nova = raiz / "SentencIA"
+    antiga = raiz / "SentencaJVDFM"
+    if not nova.exists() and antiga.is_dir():
+        try:
+            antiga.rename(nova)
+            logger.info("Pasta de dados migrada de %s para %s.", antiga, nova)
+        except OSError as exc:
+            logger.warning(
+                "Não foi possível renomear pasta de dados legada (%s); mantendo %s.",
+                type(exc).__name__,
+                antiga,
+            )
+            return antiga
+    return nova
 
 
 def ler_pasta_dados_configurada(base_dir: Path) -> Path | None:
@@ -122,14 +141,16 @@ def _resolver_data_dir(
 ) -> Path:
     """Resolve a pasta de dados.
 
-    1. ``JVDFM_DATA_DIR`` (se definida e nao vazia);
+    1. ``SENTENCIA_DATA_DIR`` (ou ``JVDFM_DATA_DIR`` legado, se definida e não vazia);
     2. ``<base_dir>/.pasta_dados`` (gravado pelo instalador, quando existir e contiver caminho absoluto);
     3. ``<projeto>/data``, EXCETO se o projeto estiver numa pasta sincronizada (OneDrive/iCloud...):
-       nesse caso, pasta local (``%LOCALAPPDATA%/SentencaJVDFM`` / ``~/Library/Application Support/...``),
+       nesse caso, pasta local (``%LOCALAPPDATA%/SentencIA`` / ``~/Library/Application Support/...``),
        a menos que ``<projeto>/data`` ja guarde dados (instalacao existente: nao os abandona; avisa).
     """
+    from app.core.env import ler_env
+
     env = os.environ if ambiente is None else ambiente
-    bruto = env.get("JVDFM_DATA_DIR") if valor_env is None else valor_env
+    bruto = ler_env("DATA_DIR", env=env) if valor_env is None else valor_env
     if bruto and bruto.strip():
         return Path(os.path.expandvars(bruto.strip())).expanduser().resolve()
     base = base_dir or BASE_DIR
@@ -141,7 +162,7 @@ def _resolver_data_dir(
         if _dados_legados_em_uso(padrao):
             logger.warning(
                 "A pasta de dados %s esta numa pasta sincronizada com a nuvem (OneDrive/iCloud): autos e "
-                "transcricoes sao enviados ao provedor. Defina JVDFM_DATA_DIR para uma pasta local.",
+                "transcricoes sao enviados ao provedor. Defina SENTENCIA_DATA_DIR para uma pasta local.",
                 padrao,
             )
             return padrao

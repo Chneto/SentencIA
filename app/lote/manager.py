@@ -46,7 +46,7 @@ def _agora_iso() -> str:
 
 
 def diretorio_lotes() -> Path:
-    """Resolve ``data/lote`` respeitando ``JVDFM_DATA_DIR`` / ``app.core.config.DATA_DIR``."""
+    """Resolve ``data/lote`` respeitando ``SENTENCIA_DATA_DIR`` / ``app.core.config.DATA_DIR``."""
     base = Path(app_config.DATA_DIR)
     destino = base / "lote"
     destino.mkdir(parents=True, exist_ok=True)

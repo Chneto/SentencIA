@@ -153,7 +153,7 @@ Para proteger os processos e permitir atualizações limpas, **os dados do usuá
 | Item | Windows | macOS |
 | :--- | :--- | :--- |
 | **Pasta do programa** | `%LOCALAPPDATA%\Programs\SentencIA` | `~/Applications/SentencIA` e `~/Applications/SentencIA.app` |
-| **Pasta de dados (`JVDFM_DATA_DIR`)** | `%LOCALAPPDATA%\SentencIA\data` | `~/Library/Application Support/SentencIA` |
+| **Pasta de dados (`SENTENCIA_DATA_DIR`)** | `%LOCALAPPDATA%\SentencIA\data` | `~/Library/Application Support/SentencIA` |
 | **Autos ativos e arquivo morto** | `<pasta de dados>\cases\` e `cases\_arquivados\` | `<pasta de dados>/cases/` e `cases/_arquivados/` |
 | **Precedentes e estilo do gabinete** | `<pasta de dados>\knowledge_base\custom_precedentes.json` e `templates_gabinete\` | `<pasta de dados>/knowledge_base/custom_precedentes.json` e `templates_gabinete/` |
 | **Configurações e logs** | `<pasta de dados>\user_settings.json` e `logs\` | `<pasta de dados>/user_settings.json` e `logs/` |
@@ -198,5 +198,5 @@ O SentencIA foi projetado sob o princípio de **privacidade por padrão (segredo
 | Chave da API Gemini | **NUNCA** vai para arquivos de configuração | Cofre nativo do sistema operacional (Credential Manager / Keychain) |
 | Geração opcional via API Gemini em nuvem | **Somente com dupla autorização explícita** | Exige ativar *"Permitir envio externo"* nas Configurações **e** marcar o consentimento na operação; aplica **pseudonimização reversível** (`[OFENDIDA]`, `[ACUSADO]`, `[CPF_01]`, `[PROCESSO]`) por padrão antes do envio |
 
-- O servidor local escuta exclusivamente em `127.0.0.1`, exige um **token de sessão aleatório** a cada inicialização (`X-JVDFM-Token`) e bloqueia requisições de outras origens ou hosts (`DNS rebinding protection`).
+- O servidor local escuta exclusivamente em `127.0.0.1`, exige um **token de sessão aleatório** a cada inicialização (`X-SentencIA-Token`) e bloqueia requisições de outras origens ou hosts (`DNS rebinding protection`).
 - Toda minuta gerada é um **documento de trabalho para revisão e decisão exclusiva do magistrado**.

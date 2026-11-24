@@ -1,9 +1,9 @@
 // SentencIA — Módulo ES: estado.js (TASK-015)
 
 const APP_VERSION = "2.1.0";
-const TOKEN_HEADER = "X-JVDFM-Token";
+const TOKEN_HEADER = "X-SentencIA-Token";
 const LEGACY_GEMINI_KEY_STORAGE = "jvdfm_gemini_api_key";
-const THEME_STORAGE = "jvdfm_theme";
+const THEME_STORAGE = "sentencia_theme";
 const THEME_MODE_STORAGE = "sentencia_theme_mode";
 const DESIGN_STORAGE = "sentencia_design";
 const DESIGNS_ATIVOS = new Set(["original", "classico", "moderno", "cockpit"]);

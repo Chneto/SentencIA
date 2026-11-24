@@ -17,9 +17,9 @@ VERSAO_PYTHON="3.12"
 UV_VERSAO_MINIMA="0.8.0"   # lê o uv.lock (revision 3) e o [tool.uv] do pyproject.toml
 
 # Apple Silicon rodando sob Rosetta: reexecuta nativamente (arm64) para instalar o Python nativo.
-if [ "$(uname -s)" = "Darwin" ] && [ "${JVDFM_SEM_REEXEC:-0}" != "1" ]; then
+if [ "$(uname -s)" = "Darwin" ] && [ "${SENTENCIA_SEM_REEXEC:-0}" != "1" ]; then
     if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = "1" ]; then
-        export JVDFM_SEM_REEXEC=1
+        export SENTENCIA_SEM_REEXEC=1
         exec arch -arm64 /bin/bash "${BASH_SOURCE[0]}" "$@"
     fi
 fi
@@ -49,8 +49,8 @@ done
 if [ ! -t 0 ]; then SEM_PERGUNTAS=1; fi
 
 PASTA_DADOS_PROJETO="$RAIZ/data"
-if [ -n "${JVDFM_DATA_DIR:-}" ]; then
-    PASTA_DADOS="$JVDFM_DATA_DIR"
+if [ -n "${SENTENCIA_DATA_DIR:-}" ]; then
+    PASTA_DADOS="$SENTENCIA_DATA_DIR"
 elif [ -f "$RAIZ/.pasta_dados" ]; then
     _linha_dados="$(awk 'NF && $0 !~ /^[[:space:]]*#/ { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit }' "$RAIZ/.pasta_dados" 2>/dev/null || true)"
     PASTA_DADOS="${_linha_dados:-$PASTA_DADOS_PROJETO}"
@@ -66,7 +66,7 @@ export PYTHONUTF8=1
 export PYTHONIOENCODING=utf-8
 export UV_LINK_MODE=copy
 export UV_NO_PROGRESS=1
-export JVDFM_LAUNCHER_CONSOLE=1   # o launcher.py escreve aqui (e no log) em vez de abrir diálogos
+export SENTENCIA_LAUNCHER_CONSOLE=1   # o launcher.py escreve aqui (e no log) em vez de abrir diálogos
 
 if [ -t 1 ]; then
     COR_ETAPA=$'\033[1;36m'; COR_OK=$'\033[32m'; COR_AVISO=$'\033[33m'; COR_ERRO=$'\033[1;31m'; COR_CINZA=$'\033[90m'; COR_FIM=$'\033[0m'

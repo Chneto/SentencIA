@@ -96,7 +96,9 @@ def _detectar_motor_ocr() -> Optional[str]:
 
 
 def _motor_ocr() -> Optional[str]:
-    if os.environ.get("JVDFM_OCR", "").strip().lower() in {"0", "off", "desligado", "nao", "não"}:
+    from app.core.env import ler_env
+
+    if (ler_env("OCR", "") or "").strip().lower() in {"0", "off", "desligado", "nao", "não"}:
         return None
     return _detectar_motor_ocr()
 
@@ -140,7 +142,7 @@ def _obter_pool_ocr() -> concurrent.futures.ThreadPoolExecutor:
     with _OCR_POOL_LOCK:
         if _OCR_POOL is None:
             workers = max(1, min(4, os.cpu_count() or 2))
-            _OCR_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="jvdfm-ocr")
+            _OCR_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="sentencia-ocr")
         return _OCR_POOL
 
 

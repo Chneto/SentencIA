@@ -60,7 +60,7 @@ def validar_pasta_exportacao(texto: str, bloqueadas: Iterable[Path]) -> Tuple[Pa
             raise ValueError("Essa pasta está dentro dos dados/código do programa; escolha outra, fora da pasta do sistema.")
     try:
         pasta.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=pasta, prefix=".jvdfm_teste_", delete=True):
+        with tempfile.NamedTemporaryFile(dir=pasta, prefix=".sentencia_teste_", delete=True):
             pass
     except OSError as exc:
         raise ValueError(f"Não consigo gravar nessa pasta ({exc.strerror or type(exc).__name__}).") from exc
@@ -110,7 +110,7 @@ def copiar_exportacao(origem: Path, pasta: str, numero_processo: str, por_proces
             return destino  # já está lá, idêntico (mesmo se exportado em outro segundo)
         destino = destino_dir / f"{origem.stem} ({n}){origem.suffix}"
         n += 1
-    fd, tmp = tempfile.mkstemp(prefix=".jvdfm_", suffix=origem.suffix, dir=destino_dir)
+    fd, tmp = tempfile.mkstemp(prefix=".sentencia_", suffix=origem.suffix, dir=destino_dir)
     os.close(fd)
     try:
         shutil.copyfile(origem, tmp)

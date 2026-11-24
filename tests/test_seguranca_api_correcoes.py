@@ -334,7 +334,7 @@ class TestPastaDeDados:
         destino = core_config._resolver_data_dir(
             "", base_dir=base, plataforma="win32", ambiente={"LOCALAPPDATA": str(local)}, home=tmp_path / "home"
         )
-        assert destino == local / "SentencaJVDFM"
+        assert destino == local / "SentencIA"
 
     def test_instalacao_existente_nao_e_abandonada(self, tmp_path: Path):
         base = tmp_path / "OneDrive" / "Sistema"
@@ -357,7 +357,7 @@ class TestPastaDeDados:
         projeto.mkdir(parents=True)
         assert core_config.pasta_sincronizada(projeto / "data", home=casa, ambiente={})
         destino = core_config._resolver_data_dir("", base_dir=projeto, plataforma="darwin", ambiente={}, home=casa)
-        assert destino == casa / "Library" / "Application Support" / "SentencaJVDFM"
+        assert destino == casa / "Library" / "Application Support" / "SentencIA"
 
     def test_cofre_em_arquivo_recusa_pasta_sincronizada(self, sandbox, monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         sincronizada = tmp_path / "OneDrive" / "data"

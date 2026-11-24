@@ -43,10 +43,10 @@ def _aguardar_health(url: str, timeout: float = 25.0) -> None:
 def _subir_servidor_isolado(data_dir: Path) -> tuple[subprocess.Popen, str]:
     porta = _porta_livre()
     env = os.environ.copy()
-    env["JVDFM_DATA_DIR"] = str(data_dir)
-    env["JVDFM_PORT"] = str(porta)
-    env["JVDFM_SECRETS_BACKEND"] = "arquivo"
-    env.pop("JVDFM_DISABLE_TOKEN", None)
+    env["SENTENCIA_DATA_DIR"] = str(data_dir)
+    env["SENTENCIA_PORT"] = str(porta)
+    env["SENTENCIA_SECRETS_BACKEND"] = "arquivo"
+    env.pop("SENTENCIA_DISABLE_TOKEN", None)
     cmd = [
         sys.executable,
         "-m",

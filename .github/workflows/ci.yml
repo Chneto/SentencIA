@@ -83,14 +83,14 @@ jobs:
       - name: Executar testes de lógica e integração/E2E
         shell: bash
         env:
-          JVDFM_SECRETS_BACKEND: arquivo
+          SENTENCIA_SECRETS_BACKEND: arquivo
         run: |
           uv run --frozen --extra nuvem pytest -q -m "not aceitacao_juridica"
 
       - name: Executar testes de aceitação jurídica (fontes oficiais)
         shell: bash
         env:
-          JVDFM_SECRETS_BACKEND: arquivo
+          SENTENCIA_SECRETS_BACKEND: arquivo
         run: |
           uv run --frozen --extra nuvem pytest -q -m aceitacao_juridica
 
@@ -163,8 +163,8 @@ jobs:
 
           "$DEST_APP/.venv/bin/python" -c "import ocrmac; print('ocrmac importado com sucesso')"
 
-          export JVDFM_DATA_DIR="$DEST_DATA"
-          export JVDFM_PORT="8765"
+          export SENTENCIA_DATA_DIR="$DEST_DATA"
+          export SENTENCIA_PORT="8765"
           "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --sem-navegador --porta 8765
           curl -fsSL http://127.0.0.1:8765/api/health | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'
           "$DEST_APP/.venv/bin/python" "$DEST_APP/launcher.py" --parar --porta 8765

@@ -4,7 +4,8 @@ Backend preferencial: ``keyring`` (Windows Credential Manager / macOS Keychain),
 (extra ``seguranca``) e com backend funcional. Fallback: ``<DATA_DIR>/secrets/secrets.json`` com
 permissão ``0o600`` em POSIX, gravado de forma atômica.
 
-``JVDFM_SECRETS_BACKEND=arquivo`` (ou ``file``) força o backend de arquivo (usado nos testes).
+``SENTENCIA_SECRETS_BACKEND=arquivo`` (ou ``file``, aceitando também o legado
+``JVDFM_SECRETS_BACKEND``) força o backend de arquivo (usado nos testes).
 Os valores dos segredos nunca são registrados em log.
 """
 
@@ -27,8 +28,9 @@ __all__ = ["get_secret", "set_secret", "delete_secret", "has_secret", "backend_a
 class SegredoInseguroError(RuntimeError):
     """O cofre do sistema esta indisponivel e a pasta de dados e sincronizada com a nuvem."""
 
-SERVICE_NAME = "SentencaJVDFM"
-_ENV_BACKEND = "JVDFM_SECRETS_BACKEND"
+SERVICE_NAME = "SentencIA"
+SERVICE_NAME_LEGADO = "SentencaJVDFM"
+_ENV_BACKEND = "SENTENCIA_SECRETS_BACKEND"
 _LOCK = threading.RLock()
 
 
@@ -37,7 +39,9 @@ _LOCK = threading.RLock()
 # ----------------------------------------------------------------------------------------------
 def _keyring() -> Optional[Any]:
     """Retorna o módulo ``keyring`` se utilizável; ``None`` para usar o arquivo."""
-    if os.environ.get(_ENV_BACKEND, "").strip().lower() in {"arquivo", "file"}:
+    from app.core.env import ler_env
+
+    if (ler_env("SECRETS_BACKEND", "") or "").strip().lower() in {"arquivo", "file"}:
         return None
     try:
         import keyring  # type: ignore[import-not-found]
@@ -111,7 +115,7 @@ def _gravar_arquivo(dados: Dict[str, str]) -> None:
             raise SegredoInseguroError(
                 "O cofre do sistema (keyring) esta indisponivel e a pasta de dados fica numa pasta "
                 "sincronizada com a nuvem (OneDrive/iCloud): a chave nao sera gravada em arquivo. "
-                "Instale o extra de seguranca (keyring) ou defina JVDFM_DATA_DIR para uma pasta local."
+                "Instale o extra de seguranca (keyring) ou defina SENTENCIA_DATA_DIR para uma pasta local."
             )
     novo_dir = not caminho.parent.exists()
     caminho.parent.mkdir(parents=True, exist_ok=True)
@@ -168,6 +172,34 @@ def get_secret(nome: str) -> str:
                 valor = kr.get_password(SERVICE_NAME, nome)
                 if valor:
                     return valor
+                valor_legado = kr.get_password(SERVICE_NAME_LEGADO, nome)
+                if valor_legado:
+                    try:
+                        kr.set_password(SERVICE_NAME, nome, valor_legado)
+                    except Exception as err:
+                        logger.warning(
+                            "Falha ao migrar segredo do cofre legado '%s' para '%s' (%s); mantendo legado.",
+                            SERVICE_NAME_LEGADO,
+                            SERVICE_NAME,
+                            type(err).__name__,
+                        )
+                    else:
+                        try:
+                            kr.delete_password(SERVICE_NAME_LEGADO, nome)
+                        except Exception as err:
+                            logger.warning(
+                                "Segredo copiado para '%s', mas falhou ao remover do legado '%s' (%s).",
+                                SERVICE_NAME,
+                                SERVICE_NAME_LEGADO,
+                                type(err).__name__,
+                            )
+                        else:
+                            logger.info(
+                                "Segredo migrado do cofre legado '%s' para '%s'.",
+                                SERVICE_NAME_LEGADO,
+                                SERVICE_NAME,
+                            )
+                    return valor_legado
             except Exception as err:
                 logger.warning("Falha ao ler segredo do keyring (%s); tentando arquivo.", type(err).__name__)
         return _ler_arquivo().get(nome, "")
@@ -185,6 +217,10 @@ def set_secret(nome: str, valor: str) -> None:
         if kr is not None:
             try:
                 kr.set_password(SERVICE_NAME, nome, valor)
+                try:
+                    kr.delete_password(SERVICE_NAME_LEGADO, nome)
+                except Exception:
+                    pass
                 # Remove eventual cópia antiga no arquivo de fallback.
                 dados = _ler_arquivo()
                 if nome in dados:
@@ -204,10 +240,11 @@ def delete_secret(nome: str) -> None:
     with _LOCK:
         kr = _keyring()
         if kr is not None:
-            try:
-                kr.delete_password(SERVICE_NAME, nome)
-            except Exception:
-                pass
+            for servico in (SERVICE_NAME, SERVICE_NAME_LEGADO):
+                try:
+                    kr.delete_password(servico, nome)
+                except Exception:
+                    pass
         dados = _ler_arquivo()
         if nome in dados:
             dados.pop(nome)

@@ -7,7 +7,7 @@
 # O que este script faz (sem sudo):
 #   1. Baixa o pacote SentencIA-vX.Y.Z.zip e confere o hash SHA-256 oficial;
 #   2. Instala (ou atualiza) o programa em ~/Applications/SentencIA;
-#   3. Configura os dados em ~/Library/Application Support/SentencIA (JVDFM_DATA_DIR);
+#   3. Configura os dados em ~/Library/Application Support/SentencIA (SENTENCIA_DATA_DIR);
 #   4. Executa instalador/bootstrap.sh (uv + Python 3.12 + ocr-macos, seguranca, transcricao, nuvem);
 #   5. Monta ~/Applications/SentencIA.app localmente (sem quarentena do Gatekeeper) com AppIcon.icns;
 #   6. Instala ~/Applications/SentencIA/desinstalar.command (padrão: manter os dados do gabinete).
@@ -28,9 +28,9 @@
 set -Eeuo pipefail
 
 # Apple Silicon rodando sob Rosetta: reexecuta nativamente em arm64.
-if [ "$(uname -s)" = "Darwin" ] && [ "${JVDFM_SEM_REEXEC:-0}" != "1" ]; then
+if [ "$(uname -s)" = "Darwin" ] && [ "${SENTENCIA_SEM_REEXEC:-0}" != "1" ]; then
     if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)" = "1" ]; then
-        export JVDFM_SEM_REEXEC=1
+        export SENTENCIA_SEM_REEXEC=1
         if [ -f "${BASH_SOURCE[0]:-}" ]; then
             exec arch -arm64 /bin/bash "${BASH_SOURCE[0]}" "$@"
         fi
@@ -43,7 +43,7 @@ PACOTE_LOCAL=""
 SHA256_LOCAL=""
 PASTA_APP_DIR="${SENTENCIA_DESTINO:-$HOME/Applications/SentencIA}"
 CAMINHO_APP_BUNDLE="${SENTENCIA_APP_BUNDLE:-$HOME/Applications/SentencIA.app}"
-PASTA_DADOS="${JVDFM_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
+PASTA_DADOS="${SENTENCIA_DATA_DIR:-$HOME/Library/Application Support/SentencIA}"
 SEM_PERGUNTAS=0
 SEM_INICIAR=0
 SEM_NAVEGADOR=0
@@ -272,7 +272,7 @@ instalar_arquivos() {
 
     # Se já havia servidor rodando desta instalação, encerra antes de atualizar.
     if [ -x "$PASTA_APP_DIR/.venv/bin/python" ] && [ -f "$PASTA_APP_DIR/launcher.py" ]; then
-        JVDFM_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
+        SENTENCIA_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
     fi
 
     # Atualiza arquivos do programa preservando .venv, data/ e .pasta_dados para atualização rápida e segura.
@@ -313,7 +313,7 @@ executar_bootstrap() {
     if [ "$COM_NUVEM" = "1" ]; then
         args_bootstrap+=(--nuvem)
     fi
-    JVDFM_DATA_DIR="$PASTA_DADOS" /bin/bash "$PASTA_APP_DIR/instalador/bootstrap.sh" "${args_bootstrap[@]}"
+    SENTENCIA_DATA_DIR="$PASTA_DADOS" /bin/bash "$PASTA_APP_DIR/instalador/bootstrap.sh" "${args_bootstrap[@]}"
     ok "Ambiente Python pronto."
 }
 
@@ -379,7 +379,7 @@ EOF
 # Aplicativo local do SentencIA (montado neste Mac pelo instalador — sem quarentena).
 set -euo pipefail
 
-export JVDFM_DATA_DIR="\${JVDFM_DATA_DIR:-${PASTA_DADOS}}"
+export SENTENCIA_DATA_DIR="\${SENTENCIA_DATA_DIR:-${PASTA_DADOS}}"
 PASTA_PROGRAMA="${PASTA_APP_DIR}"
 PYTHON_VENV="\$PASTA_PROGRAMA/.venv/bin/python"
 
@@ -414,7 +414,7 @@ CAMINHO_APP_BUNDLE="${CAMINHO_APP_BUNDLE}"
 PASTA_DADOS="${PASTA_DADOS}"
 printf 'Desinstalação do SentencIA\n'
 if [ -x "\$PASTA_APP_DIR/.venv/bin/python" ] && [ -f "\$PASTA_APP_DIR/launcher.py" ]; then
-    JVDFM_DATA_DIR="\$PASTA_DADOS" "\$PASTA_APP_DIR/.venv/bin/python" "\$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
+    SENTENCIA_DATA_DIR="\$PASTA_DADOS" "\$PASTA_APP_DIR/.venv/bin/python" "\$PASTA_APP_DIR/launcher.py" --parar >/dev/null 2>&1 || true
 fi
 rm -rf "\$CAMINHO_APP_BUNDLE" "\$PASTA_APP_DIR"
 printf 'Programa removido. Seus dados foram mantidos em: %s\n' "\$PASTA_DADOS"
@@ -448,7 +448,7 @@ main() {
         fi
         info "Iniciando o SentencIA..."
         cd "$PASTA_APP_DIR"
-        JVDFM_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" "${args_launcher[@]}"
+        SENTENCIA_DATA_DIR="$PASTA_DADOS" "$PASTA_APP_DIR/.venv/bin/python" "$PASTA_APP_DIR/launcher.py" "${args_launcher[@]}"
     fi
 }
 

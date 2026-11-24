@@ -243,7 +243,7 @@ class TestPdfIngestor:
             monkeypatch.setitem(sys.modules, "ocrmac", fake_ocrmac)
             monkeypatch.setitem(sys.modules, "ocrmac.ocrmac", fake_ocrmac.ocrmac)
             assert pi._detectar_motor_ocr() == "ocrmac"
-            monkeypatch.setenv("JVDFM_OCR", "desligado")
+            monkeypatch.setenv("SENTENCIA_OCR", "desligado")
             assert pi._motor_ocr() is None
         finally:
             pi._detectar_motor_ocr.cache_clear()

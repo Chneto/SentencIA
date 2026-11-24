@@ -59,17 +59,17 @@ def garantir_icone_ico() -> Optional[Path]:
 _PS_ATALHO = r"""
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-$desktop = $env:JVDFM_ATALHO_DESTINO
+$desktop = $env:SENTENCIA_ATALHO_DESTINO
 if (-not $desktop) { $desktop = [Environment]::GetFolderPath('Desktop') }
 if (-not $desktop) { throw 'Area de Trabalho nao encontrada.' }
-$lnk = Join-Path $desktop ($env:JVDFM_ATALHO_NOME + '.lnk')
+$lnk = Join-Path $desktop ($env:SENTENCIA_ATALHO_NOME + '.lnk')
 $sh = New-Object -ComObject WScript.Shell
 $s = $sh.CreateShortcut($lnk)
 $s.TargetPath = (Join-Path $env:SystemRoot 'System32\wscript.exe')
-$s.Arguments = '"' + $env:JVDFM_ATALHO_VBS + '"'
-$s.WorkingDirectory = $env:JVDFM_ATALHO_PASTA
-if ($env:JVDFM_ATALHO_ICONE) { $s.IconLocation = $env:JVDFM_ATALHO_ICONE + ',0' }
-$s.Description = $env:JVDFM_ATALHO_DESCRICAO
+$s.Arguments = '"' + $env:SENTENCIA_ATALHO_VBS + '"'
+$s.WorkingDirectory = $env:SENTENCIA_ATALHO_PASTA
+if ($env:SENTENCIA_ATALHO_ICONE) { $s.IconLocation = $env:SENTENCIA_ATALHO_ICONE + ',0' }
+$s.Description = $env:SENTENCIA_ATALHO_DESCRICAO
 $s.Save()
 Write-Output $lnk
 """
@@ -85,12 +85,12 @@ def criar_atalho_windows(destino: Optional[Path] = None) -> List[Path]:
     # Caminhos vão por variável de ambiente: espaços, acentos e apóstrofos não quebram o script.
     env.update(
         {
-            "JVDFM_ATALHO_NOME": NOME_ATALHO,
-            "JVDFM_ATALHO_VBS": str(vbs),
-            "JVDFM_ATALHO_PASTA": str(PROJECT_DIR),
-            "JVDFM_ATALHO_ICONE": str(ico) if ico else "",
-            "JVDFM_ATALHO_DESCRICAO": DESCRICAO,
-            "JVDFM_ATALHO_DESTINO": str(destino) if destino else "",
+            "SENTENCIA_ATALHO_NOME": NOME_ATALHO,
+            "SENTENCIA_ATALHO_VBS": str(vbs),
+            "SENTENCIA_ATALHO_PASTA": str(PROJECT_DIR),
+            "SENTENCIA_ATALHO_ICONE": str(ico) if ico else "",
+            "SENTENCIA_ATALHO_DESCRICAO": DESCRICAO,
+            "SENTENCIA_ATALHO_DESTINO": str(destino) if destino else "",
         }
     )
     powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"

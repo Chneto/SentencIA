@@ -28,7 +28,7 @@ Chaves canônicas do estado:
 Regras invioláveis de segurança:
 
 - Remoção/arquivamento de arquivos SÓ dentro de ``CASES_DIR`` (filhos diretos, validados por
-  ``Path.resolve()``) e de ``EXPORTS_DIR`` (apenas ``Sentenca_JVDFM_*``).
+  ``Path.resolve()``) e de ``EXPORTS_DIR`` (exportações ``Sentença - ...`` e legado ``Sentenca_JVDFM_*``).
 - ``data/knowledge_base/*``, ``data/templates_gabinete/*``, ``data/user_settings.json`` e o cofre de
   segredos NUNCA são tocados pelo reset.
 """
@@ -62,7 +62,7 @@ EXPORTS_DIR: Path = core_config.EXPORTS_DIR
 _BOOT_CASES_DIR: Path = Path(CASES_DIR).resolve()
 _BOOT_EXPORTS_DIR: Path = Path(EXPORTS_DIR).resolve()
 
-EXPORT_FILE_PREFIX = "Sentenca_JVDFM_"
+EXPORT_FILE_PREFIX = "Sentenca_JVDFM_"  # prefixo legado reconhecido na limpeza (novos usam "Sentença - ")
 MEDIA_SUFFIXES = {".mp4", ".mp3", ".wav", ".ogg", ".mkv", ".m4a"}
 PDF_SUFFIXES = {".pdf"}
 DOCX_SUFFIXES = {".docx"}
@@ -213,8 +213,8 @@ def _listar_arquivos_raiz(diretorio: Path) -> List[Path]:
 def _delete_case_files(*, only_exports: bool, apagar_exportacoes: bool) -> Dict[str, Any]:
     """Remove arquivos diretos de ``CASES_DIR`` conforme o modo.
 
-    - ``only_exports=True``: remove apenas ``Sentenca_JVDFM_*`` (docx/pdf/html) de ``CASES_DIR``
-      (legado) e de ``EXPORTS_DIR``.
+    - ``only_exports=True``: remove apenas exportações (``Sentença - ...`` e legado
+      ``Sentenca_JVDFM_*``) em docx/pdf/html de ``CASES_DIR`` (legado) e de ``EXPORTS_DIR``.
     - ``only_exports=False``: remove todos os arquivos diretos de ``CASES_DIR`` (exclusão definitiva);
       exportações só quando ``apagar_exportacoes``.
 
@@ -321,8 +321,8 @@ def _nome_zip_livre(root: Path, timestamp: str) -> Path:
 def _archive_case_files(*, apagar_exportacoes: bool) -> Dict[str, Any]:
     """Compacta os arquivos do caso anterior em ``_arquivados/<timestamp>.zip`` e os retira da raiz.
 
-    1. ``Sentenca_JVDFM_*`` (regeneráveis) são apagados quando ``apagar_exportacoes``; senão são
-       arquivados como os demais.
+    1. Exportações (``Sentença - ...`` e legado ``Sentenca_JVDFM_*``, regeneráveis) são apagadas
+       quando ``apagar_exportacoes``; senão são arquivadas como os demais.
     2. Cada arquivo restante da raiz de ``CASES_DIR`` (autos, mídias, caches) tem o sha256 calculado:
        se o mesmo conteúdo já está no arquivo morto (``indice_hashes.json`` + zip existente), ele NÃO é
        gravado de novo (``deduplicados``); senão entra no zip novo.
@@ -778,7 +778,7 @@ def reset_session_state(
     """Executa o reset autoritativo da sessão local.
 
     ``"producao"`` — limpa minuta, auditoria, dosimetria, engine, snapshot e (se
-    ``apagar_exportacoes``) as exportações ``Sentenca_JVDFM_*``, MANTENDO os autos.
+    ``apagar_exportacoes``) as exportações (``Sentença - ...`` e legado ``Sentenca_JVDFM_*``), MANTENDO os autos.
 
     ``"completo"`` — tudo do modo produção e retira da raiz de ``CASES_DIR`` os arquivos do caso:
     por padrão compacta-os em ``_arquivados/<timestamp>.zip`` (deduplicado por sha256); com

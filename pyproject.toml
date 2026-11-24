@@ -62,7 +62,7 @@ constraint-dependencies = [
 pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
-    "dados_reais: exige os autos reais (PDF/MP4 sigilosos) na pasta indicada por JVDFM_REAL_CASES_DIR; pulado quando a variável não está definida",
+    "dados_reais: exige os autos reais (PDF/MP4 sigilosos) na pasta indicada por SENTENCIA_REAL_CASES_DIR; pulado quando a variável não está definida",
     "logica: testes rápidos de lógica interna e configuração (sem navegador ou E2E pesado)",
     "aceitacao_juridica: testes de aceitação jurídica com fonte oficial (Planalto/STF/STJ) e data de vigência",
 ]

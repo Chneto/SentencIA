@@ -148,7 +148,7 @@ class RegistroJobs:
                 if ao_finalizar is not None:
                     ao_finalizar()
 
-        thread = threading.Thread(target=_rodar, name=f"jvdfm-job-{job_id[:8]}", daemon=True)
+        thread = threading.Thread(target=_rodar, name=f"sentencia-job-{job_id[:8]}", daemon=True)
         thread.start()
         return thread
 

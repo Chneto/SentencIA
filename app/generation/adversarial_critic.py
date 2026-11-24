@@ -26,7 +26,7 @@ from app.core.text_utils import remover_acentos
 from app.ingestion.laya_classifier import TeseDefensivaItem, MetadadosProcesso
 from app.transcription.oral_proof_analyzer import MatrizCorroboracaoOral
 
-logger = logging.getLogger("sentenca_jvdfm.adversarial_critic")
+logger = logging.getLogger("sentencia.adversarial_critic")
 
 
 # ==============================================================================

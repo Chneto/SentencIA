@@ -8,7 +8,7 @@
     O que este instalador faz (sem privilegios de administrador):
       1. Baixa SentencIA-vX.Y.Z.zip e SHA256SUMS.txt (ou usa -PacoteLocal) e confere o SHA-256;
       2. Instala ou atualiza o programa em %LOCALAPPDATA%\Programs\SentencIA;
-      3. Mantem os dados do gabinete fora do programa em %LOCALAPPDATA%\SentencIA\data (JVDFM_DATA_DIR);
+      3. Mantem os dados do gabinete fora do programa em %LOCALAPPDATA%\SentencIA\data (SENTENCIA_DATA_DIR);
       4. Executa instalador\bootstrap.ps1 (uv + Python 3.12 + dependencias);
       5. Cria atalhos na Area de Trabalho e no Menu Iniciar;
       6. Registra a desinstalacao em HKCU\...\Uninstall\SentencIA (padrao: manter dados).
@@ -20,7 +20,7 @@ param(
     [string]$PacoteLocal = '',
     [string]$Sha256Local = '',
     [string]$Destino = $(if ($env:SENTENCIA_DESTINO) { $env:SENTENCIA_DESTINO } else { Join-Path $env:LOCALAPPDATA 'Programs\SentencIA' }),
-    [string]$Dados = $(if ($env:JVDFM_DATA_DIR) { $env:JVDFM_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'SentencIA\data' }),
+    [string]$Dados = $(if ($env:SENTENCIA_DATA_DIR) { $env:SENTENCIA_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'SentencIA\data' }),
     [switch]$SemPerguntas,
     [switch]$SemIniciar,
     [switch]$SemNavegador,
@@ -144,7 +144,7 @@ try {
     $pyExistente = Join-Path $Destino '.venv\Scripts\python.exe'
     $launcherExistente = Join-Path $Destino 'launcher.py'
     if ((Test-Path -LiteralPath $pyExistente) -and (Test-Path -LiteralPath $launcherExistente)) {
-        $env:JVDFM_DATA_DIR = $Dados
+        $env:SENTENCIA_DATA_DIR = $Dados
         try { & $pyExistente $launcherExistente --parar 2>$null | Out-Null } catch { }
     }
 
@@ -167,9 +167,9 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $Destino '.pasta_dados'), $dadosAbs + "`n", $utf8NoBom)
     Write-Ok "Arquivos instalados em $Destino (pasta de dados persistida em .pasta_dados)"
 
-    # 4. Rodar bootstrap.ps1 com JVDFM_DATA_DIR apontando para fora da pasta do programa
+    # 4. Rodar bootstrap.ps1 com SENTENCIA_DATA_DIR apontando para fora da pasta do programa
     Write-Etapa 'Configurando Python e bibliotecas (bootstrap)'
-    $env:JVDFM_DATA_DIR = $Dados
+    $env:SENTENCIA_DATA_DIR = $Dados
     $bootstrap = Join-Path $Destino 'instalador\bootstrap.ps1'
     $argsBootstrap = @('-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', $bootstrap, '-SemIniciar')
     if ($SemPerguntas) { $argsBootstrap += '-SemPerguntas' }
@@ -244,7 +244,7 @@ try {
     if (-not $SemIniciar -and (Test-Path -LiteralPath $pyVenv)) {
         $launcherArgs = @((Join-Path $Destino 'launcher.py'))
         if ($SemNavegador) { $launcherArgs += '--sem-navegador' }
-        $env:JVDFM_DATA_DIR = $Dados
+        $env:SENTENCIA_DATA_DIR = $Dados
         & $pyVenv @launcherArgs
     }
 } finally {

@@ -5,7 +5,7 @@ Uso::
 
     uv run --extra nuvem python scripts/gerar_captura_demo.py [--etapa analise|autos|dosimetria|sentenca] [--saida caminho.png]
 
-Sobe o servidor numa pasta de dados TEMPORÁRIA (``JVDFM_DATA_DIR``), carrega o caso de demonstração (dados 100%
+Sobe o servidor numa pasta de dados TEMPORÁRIA (``SENTENCIA_DATA_DIR``), carrega o caso de demonstração (dados 100%
 fictícios), navega até a etapa pedida e salva a captura em 1366×768. Nunca toca na pasta de dados real.
 """
 
@@ -43,7 +43,7 @@ def main(argv=None) -> int:
 
     dados = tempfile.mkdtemp(prefix="sentencia_captura_")
     porta = _porta_livre()
-    env = dict(os.environ, JVDFM_DATA_DIR=dados, PYTHONUTF8="1")
+    env = dict(os.environ, SENTENCIA_DATA_DIR=dados, PYTHONUTF8="1")
     flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if sys.platform == "win32" else 0
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(porta), "--log-level", "error"],
@@ -71,7 +71,7 @@ def main(argv=None) -> int:
                 print("Nenhum navegador disponível: rode 'uv run playwright install chromium'.", file=sys.stderr)
                 return 2
             pagina = nav.new_page(viewport={"width": 1366, "height": 768})
-            pagina.add_init_script(f"localStorage.setItem('jvdfm_theme', '{args.tema}');")
+            pagina.add_init_script(f"localStorage.setItem('sentencia_theme', '{args.tema}');")
             pagina.goto(base, wait_until="networkidle")
             # Pasta de dados nova abre o assistente de primeiro uso: fecha-o antes de carregar a demo.
             pagina.wait_for_timeout(800)

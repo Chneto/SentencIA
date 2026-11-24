@@ -1,7 +1,8 @@
 // Persistência do rascunho de decisões por caso (servidor + fallback sessionStorage) — TASK-068.
 import { apiFetch } from "./api.js?v=2.1.0";
 
-export const CHAVE_DECISOES_SESSAO = "jvdfm.decisoes.v1";
+export const CHAVE_DECISOES_SESSAO = "sentencia.decisoes.v1";
+const CHAVE_DECISOES_LEGADO = "jvdfm.decisoes.v1";
 
 export function salvarRascunhoDecisoes(payload) {
   if (!payload || !payload.caseKey || !Array.isArray(payload.crimeConfigs) || !payload.crimeConfigs.length) return;
@@ -38,7 +39,15 @@ export function lerRascunhoDecisoes(caseKey, caseData = null) {
     };
   }
   try {
-    const bruto = sessionStorage.getItem(CHAVE_DECISOES_SESSAO);
+    let bruto = sessionStorage.getItem(CHAVE_DECISOES_SESSAO);
+    if (!bruto) {
+      const legado = sessionStorage.getItem(CHAVE_DECISOES_LEGADO);
+      if (legado) {
+        sessionStorage.setItem(CHAVE_DECISOES_SESSAO, legado);
+        sessionStorage.removeItem(CHAVE_DECISOES_LEGADO);
+        bruto = legado;
+      }
+    }
     if (!bruto) return null;
     const d = JSON.parse(bruto);
     return d && d.caseKey === caseKey && Array.isArray(d.crimeConfigs) ? d : null;

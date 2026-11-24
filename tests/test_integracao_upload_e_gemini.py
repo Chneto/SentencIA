@@ -368,7 +368,7 @@ def test_split_upload_endpoints_and_gemini_dual_path_with_pseudonymization(tmp_p
     r_docx = client.get(f"/api/export/docx{sufixo}")
     assert r_docx.status_code == 200
     assert len(r_docx.content) > 5000
-    assert r_docx.headers["X-JVDFM-Marca-Dagua"] == ("0" if liberada else "1")
+    assert r_docx.headers["X-SentencIA-Marca-Dagua"] == ("0" if liberada else "1")
 
     r_pdf_exp = client.get(f"/api/export/pdf{sufixo}")
     assert r_pdf_exp.status_code == 200

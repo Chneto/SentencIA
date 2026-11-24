@@ -56,7 +56,7 @@ Este roadmap delineia o planejamento estratégico e a evolução técnica do sis
 ### Fase 2.5: Reset de Produção e Início de Nova Sentença (Concluído)
 Exigência direta do usuário: iniciar uma nova sentença **sem vício ou poluição da sentença anterior**.
 - [x] **Backend autoritativo de reset** (`app/core/session_state.py`):
-  - modo `producao`: limpa minuta, auditoria, dosimetria, telemetria do pipeline e exportações `Sentenca_JVDFM_*`, **preservando os autos** para prolatar novamente o mesmo processo;
+  - modo `producao`: limpa minuta, auditoria, dosimetria, telemetria do pipeline e exportações (`Sentença - *` e legado `Sentenca_JVDFM_*`), **preservando os autos** para prolatar novamente o mesmo processo;
   - modo `completo`: além do acima, **arquiva** (não destrói) autos, mídias, transcrições e caches em `data/cases/_arquivados/<timestamp>/`, zera o bundle ativo e suprime o autoload de demo/autos antigos;
   - `generation_id` monotônico para rastreabilidade; lock de estado; proteção de caminhos (`Path.resolve()` + parent) e preservação incondicional de `knowledge_base`, `templates_gabinete` e `user_settings.json`.
 - [x] **UI Liquid Glass:** botão **“Nova Sentença”** na ribbon do processo, modal acessível com os dois modos (o modo destrutivo exige confirmação explícita por checkbox), atalho no Command Palette (Ctrl+K), limpeza integral do estado do frontend e renderização de estado vazio editorial sem qualquer resíduo do caso anterior.

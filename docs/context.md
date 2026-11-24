@@ -21,7 +21,7 @@ HTTP local e o domínio jurídico. Caminhos são relativos à raiz do programa.
 - **IA local (Ollama):** opcional, em `http://127.0.0.1:11434`; o modelo vem de
   `data/user_settings.json` (`ollama_model`, padrão `gemma4:e2b`). Sem Ollama, o motor
   determinístico redige a minuta.
-- **Servidor web local:** FastAPI + Uvicorn somente em `127.0.0.1`, porta `JVDFM_PORT` (padrão 8000;
+- **Servidor web local:** FastAPI + Uvicorn somente em `127.0.0.1`, porta `SENTENCIA_PORT` (padrão 8000;
   o iniciador escolhe a próxima livre se estiver ocupada).
 - **Iniciadores:**
   - Windows: `Iniciar SentencIA.bat` → `instalador/bootstrap.ps1` → `launcher.py`;
@@ -32,9 +32,9 @@ HTTP local e o domínio jurídico. Caminhos são relativos à raiz do programa.
     Brave em modo aplicativo quando houver). `launcher.pyw` é só um shim.
 - **Registros:** `data/logs/` — `bootstrap.log`, `launcher.log`, `servidor.log`, `app.log` (rotativo),
   `ollama.log`.
-- **Variáveis de ambiente:** `JVDFM_PORT`, `JVDFM_DATA_DIR` (reloca `data/`), `JVDFM_OCR=desligado`,
-  `JVDFM_SECRETS_BACKEND=arquivo`, `JVDFM_ALLOWED_HOSTS`, `JVDFM_REAL_CASES_DIR` (testes com autos
-  reais), `JVDFM_DISABLE_TOKEN=1` (só sob pytest).
+- **Variáveis de ambiente:** `SENTENCIA_PORT`, `SENTENCIA_DATA_DIR` (reloca `data/`), `SENTENCIA_OCR=desligado`,
+  `SENTENCIA_SECRETS_BACKEND=arquivo`, `SENTENCIA_ALLOWED_HOSTS`, `SENTENCIA_REAL_CASES_DIR` (testes com autos
+  reais), `SENTENCIA_DISABLE_TOKEN=1` (só sob pytest). Prefixos legados `JVDFM_*` seguem aceitos com aviso.
 
 ---
 
@@ -82,8 +82,8 @@ O pacote de distribuição (`scripts/build_release.py`) exclui `data/cases`, `da
 
 ### 2.1. Superfície HTTP local (FastAPI em `127.0.0.1:<porta>`)
 
-Todas as rotas `/api/*` exigem o cabeçalho `X-JVDFM-Token` (lido de
-`<meta name="jvdfm-token">` em `GET /`), exceto `GET /api/health`.
+Todas as rotas `/api/*` exigem o cabeçalho `X-SentencIA-Token` (lido de
+`<meta name="sentencia-token">` em `GET /`), exceto `GET /api/health` (aceita `X-JVDFM-Token` como legado).
 
 | Método | Rota | Função |
 |:---:|---|---|
