@@ -3,6 +3,18 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.2.1] — 2026-11-24
+
+Correções da 2.2.0 e itens do Ciclo 8.
+
+- **Decisões acessórias incompletas** (ex.: medidas protetivas "Manter" sem fundamento) deixam de gerar um erro técnico
+  em inglês repetido a cada envio: a tela confere antes de enviar e mostra **um** aviso em português no campo.
+- Erros de validação do servidor aparecem traduzidos, com o nome do campo; o mesmo aviso não se empilha.
+- Decisões e confirmações de papel recusadas durante a troca de caso; papel do depoente só muda com todos os trechos
+  confirmados com o mesmo papel.
+- Trechos enviados à geração incluem todas as fontes citadas e várias passagens da mesma peça.
+- Respostas da API sem cache e política de conteúdo (CSP); verificação automática de qualidade no GitHub (Node 24).
+
 ## [2.2.0] — 2026-11-24
 
 Ciclo 7 completo e identidade técnica unificada como **SentencIA**.

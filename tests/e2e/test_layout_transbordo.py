@@ -12,6 +12,7 @@ Verifica em 5 configurações de viewport × 2 temas (claro e escuro):
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -227,8 +228,8 @@ def _launch_chromium(pw: Any):
     """Inicia o Chromium do Playwright, descobrindo binários já instalados se necessário."""
     try:
         return pw.chromium.launch(headless=True)
-    except Exception:
-        pass
+    except Exception as err:
+        logging.getLogger(__name__).debug("Chromium padrão do Playwright indisponível: %s", err)
 
     local_app = os.environ.get("LOCALAPPDATA", "")
     candidates: List[Path] = []
@@ -244,7 +245,8 @@ def _launch_chromium(pw: Any):
     for channel in ("msedge", "chrome"):
         try:
             return pw.chromium.launch(headless=True, channel=channel)
-        except Exception:
+        except Exception as err:
+            logging.getLogger(__name__).debug("Canal Playwright %s indisponível: %s", channel, err)
             continue
     pytest.skip("Nenhum navegador Chromium/Edge disponível para o Playwright; execute 'uv run playwright install chromium'.")
 

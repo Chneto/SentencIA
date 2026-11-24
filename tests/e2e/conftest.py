@@ -594,7 +594,7 @@ def _encerrar_arvore_processos(proc: subprocess.Popen[bytes]) -> None:
           check=False,
           timeout=10,
       )
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
       pass
 
   try:

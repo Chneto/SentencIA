@@ -350,15 +350,69 @@ def obter_contexto(bundle: dict) -> CaseContext:
         return novo
 
 
+_CHAVES_FONTE_UNICAS = ("fonte_id", "fonte_inicio", "fonte_fim", "doc_id", "media_id")
+_CHAVES_FONTES_LISTA = ("fontes", "fontes_ids")
+_SEPARADOR_JANELAS = "\n[...]\n"
+
+
+def _coletar_fontes_objeto(obj: Any) -> Tuple[List[str], Optional[str]]:
+    """Extrai todas as fontes diretas (sem ignorar fonte_inicio/fonte_fim/fontes) e eventual trecho."""
+    fontes: List[str] = []
+    vistas: set[str] = set()
+
+    def _add(val: Any) -> None:
+        if isinstance(val, str):
+            s = val.strip()
+            if s and s not in vistas:
+                vistas.add(s)
+                fontes.append(s)
+
+    if isinstance(obj, Mapping):
+        for chave in _CHAVES_FONTE_UNICAS:
+            _add(obj.get(chave))
+        for chave_lista in _CHAVES_FONTES_LISTA:
+            bruto = obj.get(chave_lista)
+            if isinstance(bruto, str):
+                _add(bruto)
+            elif isinstance(bruto, (list, tuple, set)):
+                for item in bruto:
+                    if isinstance(item, str):
+                        _add(item)
+                    elif isinstance(item, Mapping):
+                        for k in _CHAVES_FONTE_UNICAS:
+                            _add(item.get(k))
+        trecho = obj.get("trecho") or obj.get("trecho_literal")
+        trecho_str = trecho.strip() if isinstance(trecho, str) and trecho.strip() else None
+        return fontes, trecho_str
+
+    for chave in _CHAVES_FONTE_UNICAS:
+        _add(getattr(obj, chave, None))
+    for chave_lista in _CHAVES_FONTES_LISTA:
+        bruto = getattr(obj, chave_lista, None)
+        if isinstance(bruto, str):
+            _add(bruto)
+        elif isinstance(bruto, (list, tuple, set)):
+            for item in bruto:
+                if isinstance(item, str):
+                    _add(item)
+                elif isinstance(item, Mapping):
+                    for k in _CHAVES_FONTE_UNICAS:
+                        _add(item.get(k))
+                else:
+                    for k in _CHAVES_FONTE_UNICAS:
+                        _add(getattr(item, k, None))
+    trecho = getattr(obj, "trecho", None) or getattr(obj, "trecho_literal", None)
+    trecho_str = trecho.strip() if isinstance(trecho, str) and trecho.strip() else None
+    return fontes, trecho_str
+
+
 def _extrair_vinculos_decisoes(obj: Any, ids_out: set[str], trechos_out: Dict[str, List[str]]) -> None:
     if isinstance(obj, Mapping):
-        fid = obj.get("fonte_id") or obj.get("fonte_inicio") or obj.get("fonte_fim")
-        trecho = obj.get("trecho") or obj.get("trecho_literal")
-        if isinstance(fid, str) and fid.strip():
-            fid_limpo = fid.strip()
-            ids_out.add(fid_limpo)
-            if isinstance(trecho, str) and trecho.strip():
-                trechos_out.setdefault(fid_limpo, []).append(trecho.strip())
+        fontes_diretas, trecho = _coletar_fontes_objeto(obj)
+        for fid in fontes_diretas:
+            ids_out.add(fid)
+            if trecho:
+                trechos_out.setdefault(fid, []).append(trecho)
         for v in obj.values():
             if isinstance(v, (Mapping, list, tuple)):
                 _extrair_vinculos_decisoes(v, ids_out, trechos_out)
@@ -368,26 +422,141 @@ def _extrair_vinculos_decisoes(obj: Any, ids_out: set[str], trechos_out: Dict[st
                 _extrair_vinculos_decisoes(item, ids_out, trechos_out)
 
 
-def _recortar_janela_trecho(conteudo: str, citacoes: Sequence[str], max_chars: int) -> Tuple[str, str]:
-    texto = (conteudo or "").strip()
-    if not texto:
-        return "", "inicio"
-    texto_low = texto.lower()
+def _normalizar_com_mapa(texto: str) -> Tuple[str, List[int]]:
+    """Normaliza espaços/quebras (colapsando em espaço simples, lowercase) mapeando cada char à posição original."""
+    chars: List[str] = []
+    mapa: List[int] = []
+    em_espaco = False
+    for idx, ch in enumerate(texto):
+        if ch.isspace():
+            if chars and not em_espaco:
+                chars.append(" ")
+                mapa.append(idx)
+                em_espaco = True
+        else:
+            em_espaco = False
+            for c_low in ch.lower():
+                chars.append(c_low)
+                mapa.append(idx)
+    if chars and chars[-1] == " ":
+        chars.pop()
+        mapa.pop()
+    return "".join(chars), mapa
+
+
+def _localizar_spans_citacoes(texto: str, citacoes: Sequence[str]) -> List[Tuple[int, int, str]]:
+    """Localiza todas as citações (mesmo quebradas em linhas) devolvendo ``[(ini_orig, fim_orig, cit)]``."""
+    norm_texto, mapa = _normalizar_com_mapa(texto)
+    if not norm_texto:
+        return []
+    spans: List[Tuple[int, int, str]] = []
+    vistos: set[str] = set()
     for cit in citacoes:
         cit_limpa = (cit or "").strip()
         if not cit_limpa:
             continue
-        pos = texto_low.find(cit_limpa.lower())
+        norm_cit, _ = _normalizar_com_mapa(cit_limpa)
+        if not norm_cit or norm_cit in vistos:
+            continue
+        vistos.add(norm_cit)
+        pos = norm_texto.find(norm_cit)
         if pos >= 0:
-            if len(texto) <= max_chars:
-                return texto, "trecho_vinculado"
-            margem = max(0, (max_chars - len(cit_limpa)) // 2)
-            ini = max(0, pos - margem)
-            fim = min(len(texto), ini + max_chars)
-            if fim == len(texto):
-                ini = max(0, fim - max_chars)
-            return texto[ini:fim], "trecho_vinculado"
-    return texto[:max_chars], "inicio"
+            ini_orig = mapa[pos]
+            fim_norm = pos + len(norm_cit) - 1
+            fim_orig = mapa[fim_norm] + 1
+            spans.append((ini_orig, fim_orig, cit_limpa))
+    spans.sort(key=lambda item: (item[0], item[1]))
+    return spans
+
+
+def _mesclar_intervalos(intervalos: Sequence[Tuple[int, int]], folga_fusao: int = 0) -> List[Tuple[int, int]]:
+    if not intervalos:
+        return []
+    ordenados = sorted(intervalos, key=lambda item: (item[0], item[1]))
+    mesclados: List[Tuple[int, int]] = [ordenados[0]]
+    for ini, fim in ordenados[1:]:
+        ant_ini, ant_fim = mesclados[-1]
+        if ini <= ant_fim + folga_fusao:
+            mesclados[-1] = (ant_ini, max(ant_fim, fim))
+        else:
+            mesclados.append((ini, fim))
+    return mesclados
+
+
+def _recortar_janelas_trechos(
+    conteudo: str, citacoes: Sequence[str], max_chars: int
+) -> Tuple[str, str, int, int]:
+    """Recorta uma ou mais janelas cobrindo as citações localizadas dentro de ``max_chars``.
+
+    Retorna ``(trecho, modo_recorte, janelas_incluidas, janelas_omitidas)``.
+    """
+    texto = (conteudo or "").strip()
+    if not texto or max_chars <= 0:
+        return "", "inicio", 0, 0
+
+    spans = _localizar_spans_citacoes(texto, citacoes)
+    if not spans:
+        return texto[:max_chars], "inicio", 0, 0
+
+    if len(texto) <= max_chars:
+        return texto, "trecho_vinculado", len(spans), 0
+
+    intervalos_base = _mesclar_intervalos([(ini, fim) for ini, fim, _ in spans], folga_fusao=16)
+
+    # Seleciona quantas janelas cabem no orçamento preservando os trechos vinculados.
+    selecionados: List[Tuple[int, int]] = []
+    custo_acumulado = 0
+    for idx_i, (ini, fim) in enumerate(intervalos_base):
+        tam_span = fim - ini
+        sep_extra = len(_SEPARADOR_JANELAS) if selecionados else 0
+        if not selecionados:
+            if tam_span > max_chars:
+                selecionados.append((ini, ini + max_chars))
+                custo_acumulado = max_chars
+            else:
+                selecionados.append((ini, fim))
+                custo_acumulado = tam_span
+            continue
+        if custo_acumulado + sep_extra + tam_span <= max_chars:
+            selecionados.append((ini, fim))
+            custo_acumulado += sep_extra + tam_span
+        else:
+            # Não cabe integralmente sem truncar demais: sinaliza omissão por orçamento.
+            break
+
+    janelas_omitidas = max(0, len(intervalos_base) - len(selecionados))
+    if not selecionados:
+        return texto[:max_chars], "inicio", 0, len(intervalos_base)
+
+    # Distribui a folga de orçamento como contexto ao redor de cada janela selecionada.
+    sep_total = len(_SEPARADOR_JANELAS) * (len(selecionados) - 1)
+    soma_spans = sum(fim - ini for ini, fim in selecionados)
+    folga_total = max(0, max_chars - sep_total - soma_spans)
+    folga_por_janela = folga_total // len(selecionados)
+
+    expandidos: List[Tuple[int, int]] = []
+    for ini, fim in selecionados:
+        extra_esq = folga_por_janela // 2
+        extra_dir = folga_por_janela - extra_esq
+        novo_ini = max(0, ini - extra_esq)
+        sobra_esq = extra_esq - (ini - novo_ini)
+        novo_fim = min(len(texto), fim + extra_dir + sobra_esq)
+        sobra_dir = (extra_dir + sobra_esq) - (novo_fim - fim)
+        if sobra_dir > 0:
+            novo_ini = max(0, novo_ini - sobra_dir)
+        expandidos.append((novo_ini, novo_fim))
+
+    janelas_finais = _mesclar_intervalos(expandidos, folga_fusao=len(_SEPARADOR_JANELAS))
+    partes = [texto[ini:fim] for ini, fim in janelas_finais]
+    resultado = _SEPARADOR_JANELAS.join(partes)
+    if len(resultado) > max_chars:
+        resultado = resultado[:max_chars]
+    return resultado, "trecho_vinculado", len(selecionados), janelas_omitidas
+
+
+def _recortar_janela_trecho(conteudo: str, citacoes: Sequence[str], max_chars: int) -> Tuple[str, str]:
+    trecho, modo, _, _ = _recortar_janelas_trechos(conteudo, citacoes, max_chars)
+    return trecho, modo
 
 
 def recorte_trechos_vinculados(
@@ -402,8 +571,9 @@ def recorte_trechos_vinculados(
 ) -> Dict[str, Any]:
     """Recorta apenas os trechos das peças e mídias vinculadas às decisões/pontos do caso.
 
-    Quando houver trecho citado para a peça, recorta uma janela centrada no trecho
-    (``recorte="trecho_vinculado"``); sem trecho citado localizado, usa o início (``recorte="inicio"``).
+    Coleta todas as fontes (``fonte_id``, ``fonte_inicio``, ``fonte_fim``, ``fontes``), localiza
+    múltiplas janelas por peça normalizando quebras de linha/espaços com mapa para posições
+    originais e sinaliza quando o orçamento omitir alguma janela ou fonte.
     """
     vinculados: set[str] = {str(x).strip() for x in (ids_vinculados or []) if str(x).strip()}
     citacoes_por_id: Dict[str, List[str]] = {}
@@ -416,42 +586,44 @@ def recorte_trechos_vinculados(
     if decisoes is not None:
         _extrair_vinculos_decisoes(decisoes, vinculados, citacoes_por_id)
 
-    ids_citados = set(citacoes_por_id)
-    for ponto in getattr(ctx.meta, "pontos_decisivos", None) or []:
-        fid = getattr(ponto, "fonte_id", None) if not isinstance(ponto, Mapping) else ponto.get("fonte_id")
-        tr = getattr(ponto, "trecho", None) if not isinstance(ponto, Mapping) else ponto.get("trecho")
-        if fid:
-            fid_s = str(fid).strip()
+    def _registrar_objeto_meta(obj: Any) -> None:
+        fontes_obj, trecho_obj = _coletar_fontes_objeto(obj)
+        for fid_s in fontes_obj:
             vinculados.add(fid_s)
-            if tr and str(tr).strip():
-                citacoes_por_id.setdefault(fid_s, []).append(str(tr).strip())
+            if trecho_obj:
+                citacoes_por_id.setdefault(fid_s, []).append(trecho_obj)
+
+    for ponto in getattr(ctx.meta, "pontos_decisivos", None) or []:
+        _registrar_objeto_meta(ponto)
     for reg in getattr(ctx.meta, "registros_antecedentes", None) or []:
-        fid = getattr(reg, "fonte_id", None) if not isinstance(reg, Mapping) else reg.get("fonte_id")
-        if fid:
-            vinculados.add(str(fid).strip())
+        _registrar_objeto_meta(reg)
+    for interv in getattr(ctx.meta, "intervalos_custodia", None) or []:
+        _registrar_objeto_meta(interv)
     for imp in getattr(ctx.meta, "imputacoes", None) or []:
         eventos = getattr(imp, "eventos", None) if not isinstance(imp, Mapping) else imp.get("eventos")
         for ev in eventos or []:
-            fid = getattr(ev, "fonte_id", None) if not isinstance(ev, Mapping) else ev.get("fonte_id")
-            tr = getattr(ev, "trecho", None) if not isinstance(ev, Mapping) else ev.get("trecho")
-            if fid:
-                fid_s = str(fid).strip()
-                vinculados.add(fid_s)
-                if tr and str(tr).strip():
-                    citacoes_por_id.setdefault(fid_s, []).append(str(tr).strip())
+            _registrar_objeto_meta(ev)
 
-    trechos_pecas: List[Dict[str, str]] = []
+    ids_citados = set(citacoes_por_id)
+    trechos_pecas: List[Dict[str, Any]] = []
+    fontes_omitidas_por_orcamento: List[str] = []
+    janelas_omitidas_por_orcamento: List[Dict[str, Any]] = []
     total_chars = 0
     for peca in sorted(ctx.pecas, key=lambda p: p.doc_id not in ids_citados):
         if peca.doc_id not in vinculados:
             continue
         if total_chars >= max_total_chars:
-            break
+            fontes_omitidas_por_orcamento.append(peca.doc_id)
+            continue
         restante = min(max_chars_por_peca, max_total_chars - total_chars)
-        trecho, modo_recorte = _recortar_janela_trecho(
+        trecho, modo_recorte, j_inc, j_omit = _recortar_janelas_trechos(
             peca.conteudo or "", citacoes_por_id.get(peca.doc_id, ()), restante
         )
         total_chars += len(trecho)
+        if j_omit > 0:
+            janelas_omitidas_por_orcamento.append(
+                {"fonte_id": peca.doc_id, "janelas_incluidas": j_inc, "janelas_omitidas": j_omit}
+            )
         trechos_pecas.append(
             {
                 "doc_id": peca.doc_id,
@@ -459,23 +631,33 @@ def recorte_trechos_vinculados(
                 "folha": peca.folha,
                 "trecho": trecho,
                 "recorte": modo_recorte,
+                "janelas_incluidas": j_inc,
+                "janelas_omitidas": j_omit,
+                "omitido_por_orcamento": j_omit > 0,
             }
         )
 
-    trechos_orais: List[Dict[str, str]] = []
+    trechos_orais: List[Dict[str, Any]] = []
     for dep in getattr(ctx.matriz_oral, "depoentes", None) or []:
         if dep.media_id not in vinculados and vinculados:
             continue
         if total_chars >= max_total_chars:
-            break
+            fontes_omitidas_por_orcamento.append(dep.media_id)
+            continue
         restante = min(max_chars_por_peca, max_total_chars - total_chars)
         conteudo = dep.discurso_indireto_sentenca or ""
         if oral_literal:
             conteudo = "\n".join(
                 s.get("texto_literal") or s.get("texto") or "" for s in dep.segmentos_literais
             )
-        trecho, modo_recorte = _recortar_janela_trecho(conteudo, citacoes_por_id.get(dep.media_id, ()), restante)
+        trecho, modo_recorte, j_inc, j_omit = _recortar_janelas_trechos(
+            conteudo, citacoes_por_id.get(dep.media_id, ()), restante
+        )
         total_chars += len(trecho)
+        if j_omit > 0:
+            janelas_omitidas_por_orcamento.append(
+                {"fonte_id": dep.media_id, "janelas_incluidas": j_inc, "janelas_omitidas": j_omit}
+            )
         trechos_orais.append(
             {
                 "media_id": dep.media_id,
@@ -483,6 +665,9 @@ def recorte_trechos_vinculados(
                 "papel": dep.papel,
                 "trecho": trecho,
                 "recorte": modo_recorte,
+                "janelas_incluidas": j_inc,
+                "janelas_omitidas": j_omit,
+                "omitido_por_orcamento": j_omit > 0,
             }
         )
 
@@ -492,6 +677,8 @@ def recorte_trechos_vinculados(
         "trechos_pecas": trechos_pecas,
         "trechos_orais": trechos_orais,
         "total_chars": total_chars,
+        "fontes_omitidas_por_orcamento": fontes_omitidas_por_orcamento,
+        "janelas_omitidas_por_orcamento": janelas_omitidas_por_orcamento,
     }
 
 

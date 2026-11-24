@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import sys
 from pathlib import Path
 
@@ -26,9 +28,9 @@ def _motivo_skip_winocr_real() -> str | None:
 
         if not OcrEngine.is_language_supported(Language("pt")):
             return "Idioma OCR 'pt' não disponível no Windows desta máquina."
-    except Exception:
+    except Exception as err:
         # Se a API winrt não responder à sondagem, deixa o teste rodar e validar o motor diretamente.
-        pass
+        logging.getLogger(__name__).debug("Sondagem winrt indisponível: %s", err)
     return None
 
 

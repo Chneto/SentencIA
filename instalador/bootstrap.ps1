@@ -42,7 +42,7 @@ $env:UV_LINK_MODE = 'copy'          # evita avisos de hardlink entre unidades / 
 $env:UV_NO_PROGRESS = '1'
 $env:SENTENCIA_LAUNCHER_CONSOLE = '1'   # o launcher.py escreve aqui (e no log) em vez de abrir caixas de diálogo
 
-$VersaoApp = '2.2.0'   # conferido por tests/test_versao_coerente.py (igual ao pyproject.toml)
+$VersaoApp = '2.2.1'   # conferido por tests/test_versao_coerente.py (igual ao pyproject.toml)
 $VersaoPython = '3.12'
 $UvVersaoMinima = [version]'0.8.0'   # lê o uv.lock (revision 3) e o [tool.uv] do pyproject.toml
 # Windows ARM64: várias dependências do núcleo (pymupdf, ctranslate2...) não têm wheel win_arm64; usa o

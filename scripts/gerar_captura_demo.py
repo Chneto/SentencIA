@@ -65,8 +65,8 @@ def main(argv=None) -> int:
                 try:
                     nav = pw.chromium.launch(headless=True, **opcoes)
                     break
-                except Exception:
-                    continue
+                except Exception as exc:  # canal ausente nesta máquina: tenta o próximo
+                    print(f"Navegador {opcoes or 'chromium'} indisponível ({type(exc).__name__}).", file=sys.stderr)
             if nav is None:
                 print("Nenhum navegador disponível: rode 'uv run playwright install chromium'.", file=sys.stderr)
                 return 2

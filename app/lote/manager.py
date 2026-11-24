@@ -236,8 +236,8 @@ class LoteManager:
             alvo = diretorio_lotes() / lid
             if alvo.exists():
                 shutil.rmtree(alvo, ignore_errors=True)
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Falha ao descartar lote parcial %s: %s", lote_id, err)
 
     def preparar_lote_de_caminhos(
         self,
@@ -430,7 +430,8 @@ class LoteManager:
             try:
                 dados = json.loads(mf.read_text(encoding="utf-8"))
                 itens.append(dados)
-            except Exception:
+            except Exception as err:
+                logger.debug("Ignorando manifesto de lote ilegível %s: %s", mf, err)
                 continue
         itens.sort(key=lambda d: str(d.get("criado_em") or ""), reverse=True)
         return itens

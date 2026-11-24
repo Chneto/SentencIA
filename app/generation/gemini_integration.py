@@ -575,8 +575,8 @@ def _chamar_gemini_detalhado(script_markdown: str, chave: str, modelo: str) -> T
                                 else _MAX_OUTPUT_TOKENS_PADRAO
                             )
                             continue
-                    except Exception:
-                        pass
+                    except Exception as err_rec:
+                        logger.debug("Falha ao redescobrir modelo Gemini substituto: %s", type(err_rec).__name__)
             raise _traduzir_erro_gemini(exc, chave) from exc
 
     finish_reason = _extrair_finish_reason(resp)

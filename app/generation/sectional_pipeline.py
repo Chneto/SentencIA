@@ -1226,8 +1226,8 @@ class SectionalPipelineEngine:
             ultima = _ULTIMA_DECISAO_OLLAMA or {}
             if ultima.get("modelo"):
                 return str(ultima["modelo"])
-        except Exception:
-            pass
+        except Exception as err:
+            logger.debug("Falha ao ler última decisão Ollama: %s", err)
         return getattr(self.settings, "ollama_model", "") or "modelo local"
 
     # ------------------------------------------------------------------ montagem e telemetria

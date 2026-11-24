@@ -1,5 +1,6 @@
 // Persistência do rascunho de decisões por caso (servidor + fallback sessionStorage) — TASK-068.
-import { apiFetch } from "./api.js?v=2.2.0";
+import { apiFetch } from "./api.js?v=2.2.1";
+import { state } from "./estado.js?v=2.2.1";
 
 export const CHAVE_DECISOES_SESSAO = "sentencia.decisoes.v1";
 const CHAVE_DECISOES_LEGADO = "jvdfm.decisoes.v1";
@@ -11,6 +12,7 @@ export function salvarRascunhoDecisoes(payload) {
   } catch (_) {
     /* sessionStorage indisponível */
   }
+  const manifestoId = payload.manifestoId ?? state.activeCase?.manifesto_caso?.id ?? null;
   apiFetch("/api/cases/rascunho-decisoes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -18,6 +20,7 @@ export function salvarRascunhoDecisoes(payload) {
       case_key: payload.caseKey,
       crime_configs: payload.crimeConfigs,
       extras: payload.extras || {},
+      manifesto_id: manifestoId,
     }),
   })
     .then((res) => (res && typeof res.text === "function" ? res.text() : null))

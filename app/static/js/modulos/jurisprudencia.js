@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: jurisprudencia.js (TASK-019: Painel de jurisprudência do gabinete)
-import { state } from "./estado.js?v=2.2.0";
-import { $, escapeHtml, openModal, showToast } from "./dom.js?v=2.2.0";
-import { apiJson, handleApiError, postJson } from "./api.js?v=2.2.0";
+import { state } from "./estado.js?v=2.2.1";
+import { $, escapeHtml, openModal, showToast } from "./dom.js?v=2.2.1";
+import { apiJson, handleApiError, postJson } from "./api.js?v=2.2.1";
 
 const MIN_TEXTO_LITERAL = 20;
 

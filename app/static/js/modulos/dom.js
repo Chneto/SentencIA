@@ -1,5 +1,5 @@
 // SentencIA — Módulo ES: dom.js (TASK-015)
-import { MARCADOR_RE, PENAL_CATALOG_LABELS, state } from "./estado.js?v=2.2.0";
+import { MARCADOR_RE, PENAL_CATALOG_LABELS, state } from "./estado.js?v=2.2.1";
 
 const $ = (id) => document.getElementById(id);
 
@@ -100,8 +100,17 @@ function showToast(msg, kind = "info", duracaoMs = TOAST_INFO_DURATION_MS) {
   const container = $("toastContainer");
   if (!container) return;
 
+  const textoMsg = String(msg ?? "");
   const normalizedKind = kind === "ok" ? "success" : (kind || "info");
-  const isSimulacao = /minuta de simula[cç][aã]o/i.test(String(msg || ""));
+  const existente = Array.from(container.children).find(
+    (el) => el.dataset.toastMsg === textoMsg && el.dataset.toastKind === normalizedKind
+  );
+  if (existente) {
+    if (typeof existente._renewToast === "function") existente._renewToast(duracaoMs);
+    return;
+  }
+
+  const isSimulacao = /minuta de simula[cç][aã]o/i.test(textoMsg);
   const isPersistent = normalizedKind === "error" || normalizedKind === "warn" || isSimulacao;
 
   // Respeita o limite máximo de 3 toasts empilhados:
@@ -119,6 +128,7 @@ function showToast(msg, kind = "info", duracaoMs = TOAST_INFO_DURATION_MS) {
 
   const item = document.createElement("div");
   item.className = "toast-item";
+  item.dataset.toastMsg = textoMsg;
   item.dataset.toastKind = normalizedKind;
   item.dataset.toastPersistent = isPersistent ? "true" : "false";
   item.dataset.toastSimulacao = isSimulacao ? "true" : "false";
@@ -126,7 +136,7 @@ function showToast(msg, kind = "info", duracaoMs = TOAST_INFO_DURATION_MS) {
   if (normalizedKind === "error") item.style.borderLeftColor = "var(--semantic-danger)";
   else if (normalizedKind === "success") item.style.borderLeftColor = "var(--semantic-emerald)";
   else if (normalizedKind === "warn" || isSimulacao) item.style.borderLeftColor = "var(--semantic-amber)";
-  item.innerHTML = `<span>${escapeHtml(msg)}</span><button type="button" class="btn btn-sm" style="padding:2px 7px;">OK</button>`;
+  item.innerHTML = `<span>${escapeHtml(textoMsg)}</span><button type="button" class="btn btn-sm" style="padding:2px 7px;">OK</button>`;
 
   let timerId = null;
   let startedAt = 0;
@@ -146,6 +156,16 @@ function showToast(msg, kind = "info", duracaoMs = TOAST_INFO_DURATION_MS) {
     if (isPersistent || paused || timerId !== null) return;
     startedAt = Date.now();
     timerId = setTimeout(dismiss, Math.max(0, remainingMs));
+  };
+
+  item._renewToast = (novaDuracaoMs) => {
+    if (isPersistent) return;
+    if (timerId !== null) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+    remainingMs = typeof novaDuracaoMs === "number" && novaDuracaoMs > 0 ? novaDuracaoMs : TOAST_INFO_DURATION_MS;
+    if (!paused) startTimer();
   };
 
   const pauseTimer = () => {

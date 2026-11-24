@@ -20,25 +20,84 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  testes:
-    name: Pytest + Sigilo + Pacote (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            ocr_extra: ocr-windows
-          - os: macos-15
-            ocr_extra: ocr-macos
+  verificacao-rapida:
+    name: Verificação Rápida (Ruff + Sigilo + Unitários/API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout do código
         uses: actions/checkout@v5
 
       - name: Configurar uv e Python 3.12
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sincronizar dependências base (sem Playwright)
+        shell: bash
+        run: |
+          uv sync --frozen \
+            --extra nuvem \
+            --extra seguranca \
+            --group dev
+
+      - name: Gate estático Ruff (S110, S112, F841)
+        shell: bash
+        run: |
+          uvx ruff check --select S110,S112,F841 app/ tests/
+
+      - name: Verificar sigilo (padrões, CPF, CNJ, caminhos e segredos)
+        shell: bash
+        run: |
+          uv run --frozen python scripts/verificar_sigilo.py --apenas-padroes
+
+      - name: Validar empacotamento de distribuição (--dry-run)
+        shell: bash
+        run: |
+          uv run --frozen python scripts/build_release.py --dry-run
+
+      - name: Executar testes unitários e API (sem E2E)
+        shell: bash
+        env:
+          SENTENCIA_SECRETS_BACKEND: arquivo
+        run: |
+          uv run --frozen --extra nuvem pytest -q --ignore=tests/e2e -m "not aceitacao_juridica"
+
+      - name: Executar testes de aceitação jurídica (fontes oficiais)
+        shell: bash
+        env:
+          SENTENCIA_SECRETS_BACKEND: arquivo
+        run: |
+          uv run --frozen --extra nuvem pytest -q --ignore=tests/e2e -m aceitacao_juridica
+
+  testes-e2e:
+    name: E2E + OCR + Plataforma (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    continue-on-error: ${{ !matrix.obrigatorio }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            ocr_extra: ocr-windows
+            obrigatorio: true
+          # macos-15-intel garante cobertura macOS mesmo quando runners arm64 (macos-15) ficam sem capacidade ("not acquired").
+          - os: macos-15-intel
+            ocr_extra: ocr-macos
+            obrigatorio: true
+          - os: macos-15
+            ocr_extra: ocr-macos
+            obrigatorio: false
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v5
+
+      - name: Configurar uv e Python 3.12
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
           enable-cache: true
@@ -58,16 +117,6 @@ jobs:
         run: |
           uv run --frozen playwright install chromium
 
-      - name: Verificar sigilo (padrões, CPF, CNJ, caminhos e segredos)
-        shell: bash
-        run: |
-          uv run --frozen python scripts/verificar_sigilo.py --apenas-padroes
-
-      - name: Validar empacotamento de distribuição (--dry-run)
-        shell: bash
-        run: |
-          uv run --frozen python scripts/build_release.py --dry-run
-
       - name: Validar scripts shell com ShellCheck (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -80,37 +129,33 @@ jobs:
             "Iniciar SentencIA.command" \
             "SentencIA.app/Contents/MacOS/sentencia"
 
-      - name: Executar testes de lógica e integração/E2E
+      - name: Executar suíte E2E e testes específicos de plataforma
         shell: bash
         env:
           SENTENCIA_SECRETS_BACKEND: arquivo
         run: |
-          uv run --frozen --extra nuvem pytest -q -m "not aceitacao_juridica"
-
-      - name: Executar testes de aceitação jurídica (fontes oficiais)
-        shell: bash
-        env:
-          SENTENCIA_SECRETS_BACKEND: arquivo
-        run: |
-          uv run --frozen --extra nuvem pytest -q -m aceitacao_juridica
+          uv run --frozen --extra nuvem pytest -q tests/e2e tests/test_instalador_windows_e_assistente.py tests/test_instalador_mac.py tests/test_ocr_winocr_real.py
 
   instalacao-limpa-macos:
     name: Instalação Limpa macOS (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 20
+    continue-on-error: ${{ !matrix.obrigatorio }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-15
-          - macos-15-intel
+        include:
+          - os: macos-15-intel
+            obrigatorio: true
+          - os: macos-15
+            obrigatorio: false
 
     steps:
       - name: Checkout do código
         uses: actions/checkout@v5
 
       - name: Configurar uv e Python 3.12
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
           enable-cache: true

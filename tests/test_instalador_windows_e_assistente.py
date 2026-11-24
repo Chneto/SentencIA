@@ -182,12 +182,14 @@ def test_caminho_a_instala_atualiza_preserva_dados_e_desinstala(tmp_path: Path):
     mesa_real = Path(_os.path.expanduser("~")) / "Desktop"
     try:
         out = subprocess.run(
-            [str(ps), "-NoProfile", "-Command", "[Environment]::GetFolderPath('Desktop')"],
-            capture_output=True, text=True, timeout=30,
+            # Pasta da Área de Trabalho pode ter acento (pt-BR): força saída e leitura em UTF-8.
+            [str(ps), "-NoProfile", "-Command",
+             "[Console]::OutputEncoding = [Text.Encoding]::UTF8; [Environment]::GetFolderPath('Desktop')"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         ).stdout.strip()
         if out:
             mesa_real = Path(out)
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     atalho_real = mesa_real / "SentencIA.lnk"
     atalho_real_existia = atalho_real.is_file()

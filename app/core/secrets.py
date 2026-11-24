@@ -219,8 +219,8 @@ def set_secret(nome: str, valor: str) -> None:
                 kr.set_password(SERVICE_NAME, nome, valor)
                 try:
                     kr.delete_password(SERVICE_NAME_LEGADO, nome)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Remoção best-effort no cofre legado (%s): %s", SERVICE_NAME_LEGADO, type(err).__name__)
                 # Remove eventual cópia antiga no arquivo de fallback.
                 dados = _ler_arquivo()
                 if nome in dados:
@@ -243,8 +243,8 @@ def delete_secret(nome: str) -> None:
             for servico in (SERVICE_NAME, SERVICE_NAME_LEGADO):
                 try:
                     kr.delete_password(servico, nome)
-                except Exception:
-                    pass
+                except Exception as err:
+                    logger.debug("Remoção best-effort no cofre (%s): %s", servico, type(err).__name__)
         dados = _ler_arquivo()
         if nome in dados:
             dados.pop(nome)

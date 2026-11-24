@@ -240,8 +240,8 @@ def _duracao_midia_segundos(media_path: Path) -> Optional[float]:
         with av.open(str(media_path)) as cont:
             if cont.duration:
                 return float(cont.duration) / float(getattr(av, "time_base", 1_000_000) or 1_000_000)
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("PyAV indisponível ou falhou ao medir duração de %s: %s", media_path.name, err)
     ffprobe = find_binary("ffprobe")
     if not ffprobe:
         return None

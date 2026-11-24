@@ -1,10 +1,10 @@
 // SentencIA — Módulo ES: estacao-analise.js (TASK-015)
-import { focarTrecho, realcarTrecho } from "./estacao-autos.js?v=2.2.0";
-import { META_CAMPOS_FORM, META_CAMPOS_LABELS, hooks, state } from "./estado.js?v=2.2.0";
-import { $, closeModal, codigosCatalogo, escapeHtml, fmtDateBr, fmtMoeda, isoDate, openModal, rotuloCrime, setActiveStation, showToast } from "./dom.js?v=2.2.0";
-import { acompanharJob, apiJson, consentirOllamaNaOperacao, handleApiError, postJson } from "./api.js?v=2.2.0";
-import { camposConfissao, salvarConfissao } from "./registro-confissao.js?v=2.2.0";
-import { renderPedidos } from "./registro-pedidos.js?v=2.2.0";
+import { focarTrecho, realcarTrecho } from "./estacao-autos.js?v=2.2.1";
+import { META_CAMPOS_FORM, META_CAMPOS_LABELS, hooks, state } from "./estado.js?v=2.2.1";
+import { $, closeModal, codigosCatalogo, escapeHtml, fmtDateBr, fmtMoeda, isoDate, openModal, rotuloCrime, setActiveStation, showToast } from "./dom.js?v=2.2.1";
+import { acompanharJob, apiJson, consentirOllamaNaOperacao, handleApiError, postJson } from "./api.js?v=2.2.1";
+import { camposConfissao, salvarConfissao } from "./registro-confissao.js?v=2.2.1";
+import { renderPedidos } from "./registro-pedidos.js?v=2.2.1";
 
 const PONTOS = {
   data_nascimento_reu: { titulo: "Nascimento do réu", pena: true, campos: [["", "Data de nascimento", "date"]] },
@@ -782,7 +782,7 @@ function bindAnaliseEvents() {
       try {
         const resp = await apiJson("/api/cases/transcricao/papel-segmento", {
           method: "POST",
-          body: JSON.stringify({ media_id: mediaId, indice: idx, papel, confirmar: true }),
+          body: JSON.stringify({ media_id: mediaId, indice: idx, papel, confirmar: true, manifesto_id: state.activeCase?.manifesto_caso?.id || null }),
         });
         if (state.activeCase && resp.matriz_oral) {
           state.activeCase.matriz_oral = resp.matriz_oral;

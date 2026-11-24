@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import re
 import sys
@@ -80,8 +82,8 @@ def _consultar_idiomas_ocr_windows() -> Optional[List[str]]:
 
         langs = OcrEngine.available_recognizer_languages
         return [str(getattr(lang, "language_tag", "") or "") for lang in langs]
-    except Exception:
-        pass
+    except Exception as err:
+        logging.getLogger(__name__).debug("winsdk OCR indisponível, tentando winrt: %s", err)
     try:
         from winrt.windows.media.ocr import OcrEngine  # type: ignore[import-not-found]
 

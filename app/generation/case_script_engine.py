@@ -24,6 +24,7 @@ v2.0.0:
 import datetime
 import difflib
 import hashlib
+import logging
 import json
 import re
 from dataclasses import dataclass, field
@@ -239,8 +240,8 @@ def _numeros_cnj_publicos() -> set:
         for item in list(kb.get("sumulas_e_temas", [])) + list(kb.get("precedentes_gabinete", [])):
             for campo in ("referencia", "texto_literal", "fonte_oficial", "titulo"):
                 publicos.update(_PADRAO_NUMERO_CNJ.findall(str(item.get(campo, "") or "")))
-    except Exception:  # pragma: no cover - acervo indisponível não impede a pseudonimização
-        pass
+    except Exception as err:  # pragma: no cover - acervo indisponível não impede a pseudonimização
+        logging.getLogger(__name__).debug("Acervo indisponível para CNJs públicos: %s", err)
     return publicos
 
 

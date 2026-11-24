@@ -1,4 +1,4 @@
-import { escapeHtml, fmtDateBr } from "./dom.js?v=2.2.0";
+import { escapeHtml, fmtDateBr } from "./dom.js?v=2.2.1";
 
 export function camposAntecedentes(registros, cfg) {
   return registros.map((registro) => {

@@ -12,6 +12,7 @@ usuário o deixou; sem edição, vale o padrão forense (justificado, recuo de 1
 """
 
 import io
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -81,8 +82,8 @@ def _aplicar_marca_dagua_docx(doc: "docx.document.Document", marca: str) -> None
     try:
         doc.core_properties.subject = marca
         doc.core_properties.keywords = marca
-    except Exception:
-        pass
+    except Exception as err:
+        logging.getLogger(__name__).debug("Falha ao gravar metadados de rascunho no DOCX: %s", err)
 
 
 def _campo_docx(paragrafo: "docx.text.paragraph.Paragraph", instrucao: str, tamanho_pt: float) -> None:

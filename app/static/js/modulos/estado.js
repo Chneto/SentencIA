@@ -1,6 +1,6 @@
 // SentencIA — Módulo ES: estado.js (TASK-015)
 
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.2.1";
 const TOKEN_HEADER = "X-SentencIA-Token";
 const LEGACY_GEMINI_KEY_STORAGE = "jvdfm_gemini_api_key";
 const THEME_STORAGE = "sentencia_theme";

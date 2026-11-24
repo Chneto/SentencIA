@@ -1915,8 +1915,6 @@ def extrair_metadados_processo(
     pedidos_defesa: List[PedidoParteItem] = []
     textos_defesa_orais: List[Dict[str, str]] = []
 
-    pecas_mp_af = [p for p in pecas if p.categoria == "ALEGACOES_FINAIS_MP"]
-    pecas_def_af = [p for p in pecas if p.categoria == "ALEGACOES_FINAIS_DEFESA"]
     pecas_ata = [p for p in pecas if p.categoria == "TERMO_AUDIENCIA"]
 
     for p_mp in pecas:

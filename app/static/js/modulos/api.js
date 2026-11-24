@@ -1,6 +1,6 @@
 // SentencIA — Módulo ES: api.js (TASK-015)
-import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.2.0";
-import { $, showToast, sleep } from "./dom.js?v=2.2.0";
+import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.2.1";
+import { $, showToast, sleep } from "./dom.js?v=2.2.1";
 
 function lerTokenSessao() {
   const el = document.querySelector('meta[name="sentencia-token"]');
@@ -9,19 +9,88 @@ function lerTokenSessao() {
 
 const SESSION_TOKEN = lerTokenSessao();
 
+const ROTULOS_CAMPO_422 = {
+  decisoes_acessorias: "Decisões acessórias",
+  medidas_protetivas: "Medidas protetivas",
+  substituicao: "Substituição da pena",
+  sursis: "Suspensão condicional da pena",
+  fundamento: "Fundamento",
+  fontes: "Peças dos autos",
+  contraditorio_confirmado: "Confirmação de oitiva",
+  decisao: "Decisão",
+  modalidades: "Modalidades/condições",
+  especificacao: "Especificação",
+  prazo_anos: "Prazo em anos",
+  crimes_config: "Crimes",
+  decisao_cautelar: "Decisão cautelar",
+  intervalos_custodia: "Intervalos de custódia",
+  data_sentenca: "Data da sentença",
+  valor_dano_moral: "Valor do dano moral",
+  dias_prisao_cautelar: "Dias de prisão cautelar",
+};
+
+function formatarCaminho422(loc) {
+  if (!Array.isArray(loc)) return "";
+  const partes = loc
+    .filter((x) => x !== "body" && x !== "custom_dosimetria_override")
+    .map((x) => {
+      if (typeof x === "number") return `#${x + 1}`;
+      return ROTULOS_CAMPO_422[String(x)] || String(x);
+    });
+  return partes.join(" › ");
+}
+
+function traduzirItem422(item) {
+  const tipo = String(item?.type || "");
+  const msg = String(item?.msg || "").trim();
+  const ctx = item?.ctx || {};
+  if (tipo === "string_too_short" || /String should have at least 1 character/i.test(msg)) {
+    const min = Number(ctx.min_length || 1);
+    return min <= 1 ? "informe este campo (não pode ficar vazio)" : `informe ao menos ${min} caracteres`;
+  }
+  if (tipo === "too_short" || tipo === "list_too_short" || /List should have at least 1 item/i.test(msg)) {
+    const min = Number(ctx.min_length || 1);
+    return min <= 1 ? "selecione ao menos um item" : `selecione ao menos ${min} itens`;
+  }
+  if (tipo === "missing" || /^Field required$/i.test(msg)) {
+    return "campo obrigatório";
+  }
+  if (tipo === "greater_than_equal" || /greater than or equal to/i.test(msg)) {
+    return ctx.ge !== undefined ? `valor mínimo permitido: ${ctx.ge}` : "valor abaixo do mínimo permitido";
+  }
+  if (tipo === "less_than_equal" || /less than or equal to/i.test(msg)) {
+    return ctx.le !== undefined ? `valor máximo permitido: ${ctx.le}` : "valor acima do máximo permitido";
+  }
+  if (tipo === "int_parsing" || tipo === "int_type" || /valid integer/i.test(msg)) {
+    return "informe um número inteiro válido";
+  }
+  if (tipo === "literal_error" || /Input should be '/i.test(msg)) {
+    return "escolha uma opção válida";
+  }
+  if (tipo === "extra_forbidden" || /Extra inputs are not permitted/i.test(msg)) {
+    return "campo não reconhecido";
+  }
+  if (tipo === "value_error" || /^Value error,\s*/i.test(msg)) {
+    return msg.replace(/^Value error,\s*/i, "");
+  }
+  return msg || "valor inválido";
+}
+
+function formatarErroValidacao422(detail) {
+  if (!Array.isArray(detail) || !detail.length) return "";
+  const itens = detail.map((e) => {
+    const caminho = formatarCaminho422(e?.loc);
+    const motivo = traduzirItem422(e);
+    return caminho ? `${caminho}: ${motivo}` : motivo;
+  });
+  return "Verifique os campos informados: " + itens.join("; ");
+}
+
 function mensagemDeErro(status, body) {
   const d = body ? body.detail : null;
   if (typeof d === "string" && d.trim()) return d;
   if (Array.isArray(d) && d.length) {
-    return (
-      "Requisição inválida: " +
-      d
-        .map((e) => {
-          const loc = Array.isArray(e.loc) ? e.loc.filter((x) => x !== "body").join(".") : "";
-          return `${loc}${loc ? ": " : ""}${e.msg || ""}`;
-        })
-        .join("; ")
-    );
+    return formatarErroValidacao422(d);
   }
   if (body && body.mensagem) return String(body.mensagem);
   if (status === 0) return "Não foi possível contactar o servidor local.";
@@ -276,6 +345,7 @@ export {
   apiJson,
   atualizarBarraProgresso,
   esconderProgresso,
+  formatarErroValidacao422,
   handleApiError,
   lerJson,
   lerTokenSessao,

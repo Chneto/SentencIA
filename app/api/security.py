@@ -348,5 +348,5 @@ def remover_handlers_log(destinos: Iterable[Path] | None = None) -> None:
             raiz.removeHandler(h)
             try:
                 h.close()
-            except Exception:  # pragma: no cover
-                pass
+            except Exception as err:  # pragma: no cover
+                logger.debug("Falha ao fechar handler de log: %s", err)
