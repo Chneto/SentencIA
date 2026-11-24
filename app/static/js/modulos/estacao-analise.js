@@ -1,22 +1,34 @@
 // SentencIA — Módulo ES: estacao-analise.js (TASK-015)
 import { focarTrecho, realcarTrecho } from "./estacao-autos.js?v=2.1.0";
 import { META_CAMPOS_FORM, META_CAMPOS_LABELS, hooks, state } from "./estado.js?v=2.1.0";
-import { $, closeModal, codigosCatalogo, escapeHtml, fmtDateBr, fmtMoeda, isoDate, openModal, rotuloCrime, showToast } from "./dom.js?v=2.1.0";
+import { $, closeModal, codigosCatalogo, escapeHtml, fmtDateBr, fmtMoeda, isoDate, openModal, rotuloCrime, setActiveStation, showToast } from "./dom.js?v=2.1.0";
 import { acompanharJob, apiJson, consentirOllamaNaOperacao, handleApiError, postJson } from "./api.js?v=2.1.0";
-
+import { camposConfissao, salvarConfissao } from "./registro-confissao.js?v=2.1.0";
+import { renderPedidos } from "./registro-pedidos.js?v=2.1.0";
 
 const PONTOS = {
   data_nascimento_reu: { titulo: "Nascimento do réu", pena: true, campos: [["", "Data de nascimento", "date"]] },
   antecedentes: { titulo: "Antecedentes", pena: true, campos: [
-    ["classificacao", "Classificação", "select", { primario: "Primário", neutro_em_curso: "Ações ou inquéritos em curso", reincidencia: "Reincidência", maus_antecedentes: "Maus antecedentes", condenacao_sem_data: "Condenação sem data", verificar_periodo_depurador: "Verificar período depurador", verificar_data_do_fato: "Verificar data do fato" }],
-    ["data_transito", "Trânsito em julgado", "date"],
+    ["classificacao", "Resultado da leitura", "select", {
+      certidao_negativa: "Declaração negativa",
+      certidao_inconclusiva: "Certidão inconclusiva",
+      registros_distintos: "Registros distintos na certidão",
+      neutro_em_curso: "Ações ou inquéritos em curso",
+      reincidencia: "Registro a conferir para a 2ª fase",
+      maus_antecedentes: "Registro a conferir para a 1ª fase",
+      condenacao_sem_data: "Condenação sem data",
+      verificar_periodo_depurador: "Verificar período depurador",
+      verificar_data_do_fato: "Verificar data do fato",
+    }],
   ] },
   confissao: { titulo: "Confissão", pena: true, campos: [
     ["tipo", "Tipo", "select", { total: "Total", parcial: "Parcial", qualificada: "Qualificada", ausente: "Ausente" }],
     ["minuto", "Minutagem", "text"],
   ] },
   prisao_provisoria: { titulo: "Prisão provisória", pena: true, campos: [
-    ["data_prisao", "Início da prisão", "date"], ["data_soltura", "Soltura", "date"],
+    ["data_prisao", "Início da prisão", "date"], ["fonte_inicio", "Peça de início (ex.: ID-...)", "text"],
+    ["data_soltura", "Soltura", "date"], ["fonte_fim", "Peça da soltura ou da custódia em curso", "text"],
+    ["em_curso", "Custódia em curso na data da sentença?", "sim-nao"],
   ] },
   representacao: { titulo: "Representação", campos: [
     ["presente", "Há representação?", "sim-nao"], ["data", "Data da representação", "date"],
@@ -36,18 +48,6 @@ const PONTOS = {
   ] },
 };
 
-const ROTULO_PEDIDO = {
-  condenacao_total: "Condenação total",
-  condenacao_parcial: "Condenação parcial",
-  absolvicao: "Absolvição",
-  desclassificacao: "Desclassificação",
-  dano_moral: "Dano moral",
-  agravante_qualificadora: "Agravante ou qualificadora",
-  atenuante: "Atenuante",
-  regime: "Regime inicial",
-  outro: "Outro pedido",
-};
-const TESE_HONRA = /leg[ií]tima\s+defesa\s+da\s+honra/i;
 const SIM_NAO = { sim: "Sim", nao: "Não" };
 const pontosAtuais = () => state.activeCase?.metadados?.pontos_decisivos || [];
 
@@ -60,64 +60,6 @@ function trechoBotao(item, rotulo = "Ver trecho") {
 
 function rotuloFonte(item) {
   return [item.fonte_id, item.folha].filter(Boolean).join(" · ");
-}
-
-function teseHonra(pedido) {
-  return TESE_HONRA.test([pedido.descricao, pedido.titulo, pedido.descricao_defesa, pedido.trecho].join(" "));
-}
-
-function renderPedidos(c, meta) {
-  const grupos = new Map();
-  for (const [parte, pedidos] of [["mp", meta.pedidos_mp || []], ["defesa", meta.pedidos_defesa || []]]) {
-    for (const pedido of pedidos) {
-      const crime = pedido.crime || "";
-      if (!grupos.has(crime)) grupos.set(crime, { mp: [], defesa: [] });
-      grupos.get(crime)[parte].push(pedido);
-    }
-  }
-
-  const honraEmPedido = (meta.pedidos_defesa || []).some(teseHonra);
-  const tese = (meta.teses_defesa || []).find(teseHonra);
-  const peca = (c.pecas || []).find((p) =>
-    ["RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA"].includes(p.categoria) && TESE_HONRA.test(p.conteudo || ""));
-  const alerta = '<strong class="pd-honra">Tese vedada (ADPF 779/STF): repudiar expressamente</strong>';
-  const alertaGeral = !honraEmPedido && (tese || peca)
-    ? '<div class="pd-alerta-honra">' + alerta + ' ' +
-      trechoBotao(tese?.fonte_id ? tese : { fonte_id: peca?.doc_id, folha: peca?.folha, trecho: peca?.conteudo?.match(TESE_HONRA)?.[0] }) + '</div>'
-    : "";
-  const coluna = (pedidos, defesa) => pedidos.length
-    ? '<ul class="pd-pedidos">' + pedidos.map((pedido) => {
-        const vedada = defesa && teseHonra(pedido);
-        const tipo = ROTULO_PEDIDO[pedido.tipo] || String(pedido.tipo || "Pedido").replaceAll("_", " ");
-        return '<li' + (vedada ? ' class="pd-alerta-honra"' : '') + '><span class="pd-tipo">' +
-          escapeHtml(tipo) + '</span><p>' + escapeHtml(pedido.descricao) + '</p>' +
-          (vedada ? alerta : "") + '<div class="pd-fonte">' + escapeHtml(rotuloFonte(pedido)) +
-          trechoBotao(pedido) + '</div></li>';
-      }).join("") + '</ul>'
-    : '<p class="muted">Sem pedido identificado.</p>';
-  const linhas = [...grupos].sort(([a], [b]) => Number(!a) - Number(!b)).map(([crime, partes]) =>
-    '<tr><th scope="rowgroup" colspan="2">' + escapeHtml(crime ? rotuloCrime(crime) : "Pedidos sem crime individualizado") +
-    '</th></tr><tr><td>' + coluna(partes.mp, false) + '</td><td>' + coluna(partes.defesa, true) + '</td></tr>');
-  return alertaGeral + '<table class="pd-quadro" aria-label="MP pede × Defesa pede"><thead><tr>' +
-    '<th scope="col">MP pede</th><th scope="col">Defesa pede</th></tr></thead>' +
-    (linhas.length ? linhas.map((linha) => "<tbody>" + linha + "</tbody>").join("") :
-      '<tbody><tr><td colspan="2">Nenhum pedido identificado nas alegações finais.</td></tr></tbody>') +
-    '</table>';
-}
-
-const ANTECEDENTES_A_CONFERIR = new Set([
-  "condenacao_sem_data", "verificar_periodo_depurador", "verificar_data_do_fato",
-]);
-
-const EFEITO_ANTECEDENTES = {
-  primario: "Sem agravante por reincidência nem valoração negativa dos antecedentes.",
-  neutro_em_curso: "Ações penais em curso e inquéritos são neutros na dosimetria.",
-  reincidencia: "Agravante da reincidência na segunda fase da dosimetria (art. 61, I, do CP).",
-  maus_antecedentes: "Valoração dos maus antecedentes na primeira fase da dosimetria (art. 59 do CP).",
-};
-
-function antecedentesIncompletos(ponto) {
-  return ponto.chave === "antecedentes" && ANTECEDENTES_A_CONFERIR.has(ponto.valor?.classificacao);
 }
 
 function idadeAnos(nascimento, referencia) {
@@ -133,7 +75,15 @@ function valorDoPonto(ponto, meta) {
 }
 
 function estadoDoPonto(ponto, meta) {
-  if (antecedentesIncompletos(ponto)) return "pendente";
+  if (ponto.chave === "confissao") {
+    const sugestoes = Object.entries(meta.confissoes_sugeridas || {});
+    if (sugestoes.some(([chave, item]) => item.tipo !== "ausente" && !meta.confissoes_confirmadas?.[chave])) {
+      return "pendente";
+    }
+    if (Object.keys(meta.confissoes_confirmadas || {}).length) return "confirmado";
+    return ponto.estado === "ausente" ? "ausente" : "extraido";
+  }
+  if (ponto.chave === "antecedentes" && ponto.estado === "extraido") return "extraido";
   if (ponto.confirmado || (ponto.chave === "data_nascimento_reu" && meta.data_nascimento_reu)) return "confirmado";
   return ponto.estado === "ausente" ? "ausente" : "pendente";
 }
@@ -179,28 +129,32 @@ function renderPontosDecisivos(c) {
   $("pdContador").hidden = !c || c.empty;
   $("pdAvisoGeracao").textContent = avisoPontosPendentes(meta);
   $("pdAvisoGeracao").hidden = !$("pdAvisoGeracao").textContent;
-  $("pdQuadro").innerHTML = c && !c.empty ? renderPedidos(c, meta) : '<p class="muted">Nenhum processo carregado.</p>';
+  $("pdQuadro").innerHTML = c && !c.empty ? renderPedidos(c, meta, trechoBotao, rotuloFonte) : '<p class="muted">Nenhum processo carregado.</p>';
   $("pdCards").innerHTML = pontos.filter((p) => PONTOS[p.chave]).map((p) => {
     const def = PONTOS[p.chave];
     const estado = estadoDoPonto(p, meta);
-    const rotulo = { confirmado: "Confirmado", pendente: "A confirmar", ausente: "Ausente" }[estado];
+    const rotulo = { confirmado: "Confirmado", pendente: "A confirmar", ausente: "Ausente", extraido: "Informativo" }[estado];
     const valor = valorDoPonto(p, meta);
     const idade = p.chave === "data_nascimento_reu" ? idadeEfeito(valor, meta) : "";
     const fonte = rotuloFonte(p);
-    const efeito = p.chave === "antecedentes" && estado === "confirmado"
-      ? EFEITO_ANTECEDENTES[valor?.classificacao] || p.efeito : p.efeito;
-    const confissaoAuto = p.chave === "confissao" && estado === "pendente"
-      ? '<p class="pd-aviso-confissao">Confissão aplicada automaticamente: confirme ou corrija.</p>' : "";
+    const efeito = p.efeito;
     const titulo = escapeHtml(def.titulo);
+    if (p.chave === "confissao") {
+      return '<article class="pd-cartao inner-tile" data-ponto="confissao" data-estado="' + estado + '">' +
+        '<h3 tabindex="-1">' + titulo + '</h3><p>' + escapeHtml(efeito || "") + '</p>' +
+        camposConfissao(meta) + '</article>';
+    }
     return '<article class="pd-cartao inner-tile" data-ponto="' + p.chave + '" data-estado="' + estado + '">' +
       '<div class="pd-cartao-topo"><h3 tabindex="-1">' + titulo + '</h3><span class="pd-estado">' + rotulo + '</span></div>' +
       '<p class="pd-valor">' + escapeHtml(p.chave === "confissao" && valor === "" ? "Ausente" : textoValorPonto(valor, def) || "Sem dado registrado") + '</p>' +
-      (idade ? '<p>' + escapeHtml(idade) + '</p>' : '') + '<p>' + escapeHtml(efeito || "") + '</p>' + confissaoAuto +
+      (idade ? '<p>' + escapeHtml(idade) + '</p>' : '') + '<p>' + escapeHtml(efeito || "") + '</p>' +
       '<div class="pd-fonte">' + escapeHtml(fonte ? "Fonte: " + fonte : estado === "confirmado" ? "Fonte: informado pelo juízo" : "Fonte não localizada") +
       (fonte ? trechoBotao(p, "Ver fonte") : "") + '</div>' +
-      '<div class="pd-acoes">' + (estado === "pendente" && valor != null && !antecedentesIncompletos(p)
-        ? '<button type="button" class="btn btn-sm btn-primary" data-pd-confirmar aria-label="Confirmar ' + titulo + '">Confirmar</button>'
-        : '') + '<button type="button" class="btn btn-sm" data-pd-corrigir aria-label="Corrigir ' + titulo + '">Corrigir</button></div></article>';
+      '<div class="pd-acoes">' + (p.chave === "antecedentes"
+        ? 'Confira cada registro na estação de dosimetria.'
+        : (estado === "pendente" && valor != null
+          ? '<button type="button" class="btn btn-sm btn-primary" data-pd-confirmar aria-label="Confirmar ' + titulo + '">Confirmar</button>'
+          : '') + '<button type="button" class="btn btn-sm" data-pd-corrigir aria-label="Corrigir ' + titulo + '">Corrigir</button>') + '</div></article>';
   }).join("");
 }
 
@@ -221,10 +175,19 @@ function campoCorrecao([chave, rotulo, tipo, opcoes], valor) {
 }
 
 function abrirCorrecao(ponto, botao) {
+  if (ponto.chave === "prisao_provisoria") {
+    setActiveStation("dosimetria");
+    const chk = $("usarIntervalosCustodia");
+    if (chk && !chk.checked) { chk.checked = true; chk.dispatchEvent(new Event("change", { bubbles: true })); }
+    const editor = $("editorCustodia");
+    editor?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    editor?.querySelector("input, select, button")?.focus({ preventScroll: true });
+    showToast("Edite os intervalos de custódia com fonte na estação de Dosimetria.", "info");
+    return;
+  }
   const dialogo = $("pdCorrecao");
   const def = PONTOS[ponto.chave];
-  let valor = valorDoPonto(ponto, state.activeCase.metadados);
-  if (ponto.chave === "confissao" && valor === "") valor = { tipo: "ausente" };
+  const valor = valorDoPonto(ponto, state.activeCase.metadados);
   dialogo.dataset.corrigirPonto = ponto.chave;
   $("pdCorrecaoTitulo").textContent = "Corrigir " + def.titulo.toLowerCase();
   $("pdCorrecaoErro").textContent = "";
@@ -247,17 +210,17 @@ function lerCorrecao(form, chave) {
     const valor = tipo === "sim-nao" ? bruto === "sim" : tipo === "number" ? (bruto ? Number(bruto) : null) : bruto;
     return [nome || "valor", valor];
   }));
-  if (chave === "antecedentes" && ANTECEDENTES_A_CONFERIR.has(valores.classificacao)) {
-    throw new Error("Confira os dados da certidão e selecione a classificação apurada.");
-  }
   if (chave === "prisao_provisoria") {
-    const { data_prisao, data_soltura } = valores;
-    if (!data_prisao && !data_soltura) throw new Error("Informe o início da prisão ou a data de soltura.");
-    if (data_prisao && data_soltura && data_soltura < data_prisao) throw new Error("A soltura não pode anteceder o início da prisão.");
-    valores.dias = data_prisao && data_soltura ? (Date.parse(data_soltura) - Date.parse(data_prisao)) / 86400000 : null;
+    const { data_prisao, fonte_inicio, data_soltura, fonte_fim, em_curso } = valores;
+    if (!data_prisao || !String(fonte_inicio || "").trim()) throw new Error("Informe o início da prisão e a peça de origem.");
+    if (!em_curso && data_soltura && data_soltura < data_prisao) throw new Error("A soltura não pode anteceder o início da prisão.");
+    if ((em_curso || data_soltura) && !String(fonte_fim || "").trim()) throw new Error("Informe a peça da soltura ou da custódia em curso.");
+    const fim = em_curso ? null : (data_soltura || null);
+    return {
+      data_prisao, data_soltura: fim,
+      intervalos: [{ inicio: data_prisao, fim, fonte_inicio: String(fonte_inicio).trim(), fonte_fim: String(fonte_fim || "").trim(), em_curso: Boolean(em_curso) }],
+    };
   }
-  // O cálculo usa a verdade lógica do valor confirmado da confissão.
-  if (chave === "confissao" && valores.tipo === "ausente") return "";
   return def.campos[0][0] ? valores : valores.valor;
 }
 
@@ -291,6 +254,7 @@ async function salvarPonto(ponto, correcao, botao) {
 }
 
 function bindPontosDecisivos() {
+  $("pdCards").addEventListener("submit", salvarConfissao);
   $("pdCards").addEventListener("click", (e) => {
     const botao = e.target.closest("[data-pd-confirmar],[data-pd-corrigir]");
     if (!botao || salvandoPonto) return;
@@ -450,10 +414,17 @@ function renderAnaliseProvas() {
         const first = list[0];
         const ids = list.map((x) => `<button type="button" class="id-badge" data-inspect-id="${escapeHtml(x.media_id)}">${escapeHtml(x.media_id)}</button>`).join(" ");
         const sintese = list.map((x) => x.discurso_indireto_sentenca || "").filter(Boolean).join(" ");
+        const pend = Number(list.reduce((acc, x) => acc + Number(x.segmentos_pendentes_confirmacao || 0), 0));
+        const badgePapel = first.papel === "INDETERMINADO"
+          ? `<span class="badge-tag badge-warn">INDETERMINADO — confirmar papel</span>`
+          : `<span class="badge-tag badge-neutral">${escapeHtml(first.papel)}</span>`;
+        const badgePend = pend > 0
+          ? ` <span class="badge-tag badge-warn">${pend} trecho(s) sem confirmação</span>`
+          : "";
         return `
           <div class="forensic-tape">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
-              <div><strong>${escapeHtml(first.depoente)}</strong> <span class="badge-tag badge-neutral">${escapeHtml(first.papel)}</span></div>
+              <div><strong>${escapeHtml(first.depoente)}</strong> ${badgePapel}${badgePend}</div>
               <div>${ids}</div>
             </div>
             <div style="font-size:13px;">${escapeHtml(sintese)}</div>
@@ -768,9 +739,22 @@ function openEvidenceInspector(rawId, { folha = "", trecho = "" } = {}) {
             (s, i) => `
           <div class="trans-seg" style="display:flex; gap:10px; align-items:flex-start; padding:5px 0; border-bottom:1px solid var(--border-subtle, rgba(128,128,128,.2));">
             <span class="mono muted" style="flex:0 0 96px; font-size:11.5px;">${escapeHtml(s.timestamp || "--:--")}</span>
+            ${s.papel_segmento ? `<span class="badge-tag ${s.papel_estado === "CONFIRMADO" ? "badge-success" : "badge-warn"}" title="Papel do segmento (${escapeHtml(s.papel_estado || "INDETERMINADO")})" style="flex:0 0 auto;">${escapeHtml(s.papel_segmento)}${s.papel_estado && s.papel_estado !== "CONFIRMADO" ? ` (${escapeHtml(s.papel_estado.toLowerCase())})` : ""}</span>` : ""}
             ${falantes[i] ? `<span class="badge-tag ${falantes[i] === "INCERTO" ? "badge-neutral" : "badge-success"}" title="Sugestão da IA local; confira com o áudio" style="flex:0 0 auto;">${escapeHtml(ROTULO_FALANTE[falantes[i]] || falantes[i])}</span>` : ""}
             <span style="flex:1;">${realcarTrecho(s.texto_literal, trecho) || escapeHtml(s.texto_literal)}${s.texto_whisper ? ` <span class="muted" style="font-size:11px;" title="Texto original do Whisper: ${escapeHtml(s.texto_whisper)}">(nome/número ajustado: ${escapeHtml(Array.isArray(s.ajustes) ? s.ajustes.join("; ") : (s.ajustes || ""))})</span>` : ""}</span>
-            <button type="button" class="btn btn-sm" data-citar-media="${escapeHtml(dep.media_id)}" data-citar-idx="${i}">Citar</button>
+            <span style="display:flex; gap:4px; align-items:center; flex:0 0 auto;">
+              <select class="input-sm" data-papel-select="${escapeHtml(dep.media_id)}:${i}" aria-label="Papel do segmento ${i + 1}" style="font-size:11px; padding:2px 4px;">
+                <option value="OFENDIDA" ${s.papel_segmento === "OFENDIDA" ? "selected" : ""}>OFENDIDA</option>
+                <option value="TESTEMUNHA_POLICIAL" ${s.papel_segmento === "TESTEMUNHA_POLICIAL" ? "selected" : ""}>TESTEMUNHA_POLICIAL</option>
+                <option value="TESTEMUNHA_ACUSACAO" ${s.papel_segmento === "TESTEMUNHA_ACUSACAO" ? "selected" : ""}>TESTEMUNHA_ACUSACAO</option>
+                <option value="TESTEMUNHA_DEFESA" ${s.papel_segmento === "TESTEMUNHA_DEFESA" ? "selected" : ""}>TESTEMUNHA_DEFESA</option>
+                <option value="INTERROGATORIO_REU" ${s.papel_segmento === "INTERROGATORIO_REU" ? "selected" : ""}>INTERROGATORIO_REU</option>
+                <option value="ALEGACOES_FINAIS_MP" ${s.papel_segmento === "ALEGACOES_FINAIS_MP" ? "selected" : ""}>ALEGACOES_FINAIS_MP</option>
+                <option value="ALEGACOES_FINAIS_DEFESA" ${s.papel_segmento === "ALEGACOES_FINAIS_DEFESA" ? "selected" : ""}>ALEGACOES_FINAIS_DEFESA</option>
+              </select>
+              <button type="button" class="btn btn-sm" data-confirmar-papel-media="${escapeHtml(dep.media_id)}" data-confirmar-papel-idx="${i}">Confirmar papel</button>
+              <button type="button" class="btn btn-sm" data-citar-media="${escapeHtml(dep.media_id)}" data-citar-idx="${i}">Citar</button>
+            </span>
           </div>`
           )
           .join("") +
@@ -787,7 +771,30 @@ function openEvidenceInspector(rawId, { folha = "", trecho = "" } = {}) {
 function bindAnaliseEvents() {
   bindPontosDecisivos();
   // Clique delegado: inspeção de peças/mídias, marcadores e atalhos de complementação.
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", async (e) => {
+    const btnPapel = e.target.closest("[data-confirmar-papel-media]");
+    if (btnPapel) {
+      const mediaId = btnPapel.dataset.confirmarPapelMedia;
+      const idx = Number(btnPapel.dataset.confirmarPapelIdx);
+      const sel = document.querySelector(`[data-papel-select="${CSS.escape(`${mediaId}:${idx}`)}"]`);
+      const papel = sel ? sel.value : "";
+      if (!papel) return;
+      try {
+        const resp = await apiJson("/api/cases/transcricao/papel-segmento", {
+          method: "POST",
+          body: JSON.stringify({ media_id: mediaId, indice: idx, papel, confirmar: true }),
+        });
+        if (state.activeCase && resp.matriz_oral) {
+          state.activeCase.matriz_oral = resp.matriz_oral;
+          renderAnalise();
+        }
+        inspecionarEvidence(mediaId);
+        showToast("Papel do segmento confirmado.", "success");
+      } catch (err) {
+        handleApiError(err);
+      }
+      return;
+    }
     const goto = e.target.closest("[data-marcador-goto]");
     if (goto) {
       e.preventDefault();

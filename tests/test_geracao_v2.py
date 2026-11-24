@@ -210,7 +210,7 @@ def test_confissao_respeita_negacao_e_pedidos_defensivos():
 def test_detracao_conta_da_prisao_em_flagrante_ate_a_soltura():
     pecas = [
         _peca("ID-APF", "BO", "Auto de Prisão em Flagrante", "Lavrado o auto de prisão em flagrante.", "2025-01-20"),
-        _peca("ID-ALV", "OUTROS", "Alvará de Soltura", "Expeça-se alvará de soltura.", "2025-01-22"),
+        _peca("ID-ALV", "OUTROS", "Certidão de cumprimento do alvará de soltura", "Cumprido o alvará em 22/01/2025.", "2025-01-22"),
     ]
     dias, periodo = inferir_detracao_cautelar(pecas, data_fato_iso="2024-12-01")
     assert dias == 3
@@ -410,7 +410,8 @@ def test_pipeline_ollama_usa_num_ctx_e_contexto_resumido():
 def test_pipeline_llm_aprovado_rotula_ollama_e_sem_fallback():
     demo = get_demo_case_bundle()
     textos = {}
-    dispositivo_completo = calcular_secoes_deterministicas(demo).secao("dispositivo")
+    base_motivada = calcular_secoes_deterministicas(demo)
+    dispositivo_completo = base_motivada.secao("dispositivo")
 
     def falso_gerar_texto(prompt, **kwargs):
         secao = re.search(r"a seção: (\w+)", prompt).group(1).lower()
@@ -418,11 +419,8 @@ def test_pipeline_llm_aprovado_rotula_ollama_e_sem_fallback():
         return {
             "relatorio": "I – RELATÓRIO\n\nTexto redigido pelo LLM com base na denúncia (ID-4100201) e nos autos, sem fatos novos.",
             "preliminares": "II – FUNDAMENTAÇÃO\n\nRejeito a preliminar PREL-01, pois a denúncia (ID-4100201) atende ao art. 41 do CPP.",
-            "merito": "Rejeito as teses MER-01, MER-02, MER-03 e MER-04 à luz da prova oral (ID-4100301) e do laudo (ID-4100108).",
-            "dosimetria": (
-                "Culpabilidade, antecedentes, conduta social, personalidade, motivos, circunstâncias, consequências "
-                "e comportamento da vítima foram valorados conforme o cálculo do motor."
-            ),
+            "merito": base_motivada.secao("merito"),
+            "dosimetria": base_motivada.secao("dosimetria"),
             "dispositivo": dispositivo_completo,
         }[secao]
 

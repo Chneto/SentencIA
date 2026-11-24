@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 from pydantic import BaseModel, Field
 
 from app.core.text_utils import normalizar
-from app.ingestion.laya_classifier import PecaClassificada
+from app.ingestion.laya_classifier import CATEGORIAS_SEM_FONTE_DE_FATOS, PecaClassificada
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ PapelLiteral = Literal[
     "INTERROGATORIO_REU",
     "ALEGACOES_FINAIS_MP",
     "ALEGACOES_FINAIS_DEFESA",
+    "INDETERMINADO",
 ]
 CoerenciaLiteral = Literal[
     "ALTA_COERENCIA",
@@ -46,7 +47,10 @@ PAPEIS_VALIDOS = (
     "INTERROGATORIO_REU",
     "ALEGACOES_FINAIS_MP",
     "ALEGACOES_FINAIS_DEFESA",
+    "INDETERMINADO",
 )
+PAPEIS_CONCRETOS = tuple(p for p in PAPEIS_VALIDOS if p != "INDETERMINADO")
+ESTADOS_PAPEL_SEGMENTO = ("INDETERMINADO", "SUGERIDO", "CONFIRMADO")
 _SINONIMOS_PAPEL = {
     "VITIMA": "OFENDIDA",
     "ACUSADO": "INTERROGATORIO_REU",
@@ -64,8 +68,10 @@ class DepoenteAnaliseOral(BaseModel):
     arquivo: str
     depoente: str
     papel: PapelLiteral
+    papel_confirmado: bool = False
     duracao: str
-    segmentos_literais: List[Dict[str, str]]
+    segmentos_literais: List[Dict[str, Any]]
+    segmentos_pendentes_confirmacao: int = 0
     discurso_indireto_sentenca: str
     relato_fase_policial: str
     coerencia_delegacia_juizo: CoerenciaLiteral
@@ -79,6 +85,7 @@ class MatrizCorroboracaoOral(BaseModel):
     fundamentacao_sintese: str
     # Mídias cuja transcrição falhou/está vazia: não entram na matriz (nada é inventado).
     midias_sem_transcricao: List[Dict[str, str]] = Field(default_factory=list)
+    segmentos_pendentes_confirmacao: int = 0
 
 
 _FILLER_ASR_RE = re.compile(
@@ -136,8 +143,58 @@ def _normalizar_papel(valor: Any) -> str:
     if papel in _SINONIMOS_PAPEL:
         return _SINONIMOS_PAPEL[papel]
     if papel:
-        logger.warning("Papel processual desconhecido '%s'; tratado como TESTEMUNHA_ACUSACAO.", papel)
-    return "TESTEMUNHA_ACUSACAO"
+        logger.warning("Papel processual desconhecido '%s'; tratado como INDETERMINADO.", papel)
+    return "INDETERMINADO"
+
+
+def _normalizar_segmento_papel(seg: Dict[str, Any], papel_midia: str) -> Dict[str, Any]:
+    """Garante ``papel_segmento``, ``papel_estado`` e ``papel_confirmado`` explícitos no segmento."""
+    out = dict(seg)
+    papel_seg_bruto = out.get("papel_segmento") or out.get("papel")
+    papel_seg = _normalizar_papel(papel_seg_bruto) if papel_seg_bruto is not None else papel_midia
+    estado_bruto = str(out.get("papel_estado") or "").strip().upper()
+    confirmado = bool(out.get("papel_confirmado")) or estado_bruto == "CONFIRMADO"
+    if papel_seg == "INDETERMINADO":
+        estado = "INDETERMINADO"
+        confirmado = False
+    elif confirmado:
+        estado = "CONFIRMADO"
+    elif estado_bruto == "SUGERIDO" or papel_seg_bruto is None:
+        estado = "SUGERIDO"
+    else:
+        estado = "SUGERIDO"
+    out["papel_segmento"] = papel_seg
+    out["papel_estado"] = estado
+    out["papel_confirmado"] = confirmado
+    return out
+
+
+def confirmar_papel_segmento(
+    tr: Dict[str, Any],
+    indice_segmento: int,
+    papel: str,
+    *,
+    confirmar: bool = True,
+) -> Dict[str, Any]:
+    """Atribui e opcionalmente confirma o papel processual de um segmento específico de áudio."""
+    if not isinstance(tr, dict):
+        raise ValueError("Transcrição inválida.")
+    segmentos = tr.get("segmentos")
+    if not isinstance(segmentos, list) or not (0 <= indice_segmento < len(segmentos)):
+        raise IndexError(f"Índice de segmento fora dos limites: {indice_segmento}")
+    papel_norm = _normalizar_papel(papel)
+    if confirmar and papel_norm not in PAPEIS_CONCRETOS:
+        raise ValueError(
+            f"Confirmação humana exige papel processual concreto ({', '.join(PAPEIS_CONCRETOS)}), recebido: {papel!r}"
+        )
+    if not confirmar and papel_norm not in PAPEIS_VALIDOS:
+        raise ValueError(f"Papel inválido: {papel!r}")
+    seg = dict(segmentos[indice_segmento])
+    seg["papel_segmento"] = papel_norm
+    seg["papel_confirmado"] = bool(confirmar)
+    seg["papel_estado"] = "CONFIRMADO" if confirmar else ("INDETERMINADO" if papel_norm == "INDETERMINADO" else "SUGERIDO")
+    segmentos[indice_segmento] = seg
+    return seg
 
 
 def _fmt_ref(media_id: str, ts: str) -> str:
@@ -273,6 +330,11 @@ def _sintetizar_nucleo_forense_oral(
         partes_ref.append(f"intervalo {span}")
     ref = "; ".join(partes_ref)
 
+    if papel == "INDETERMINADO":
+        return (
+            f"Registro audiovisual ({nome}, {ref}) com papel processual INDETERMINADO, "
+            "aguardando confirmação humana antes de alimentar a valoração do mérito ou a dosimetria."
+        )
     pontos = _identificar_temas(segs_ancorados, papel)
     nucleo = "; ".join(pontos) if pontos else "prestou declarações registradas na transcrição integral da mídia, cujo teor deve ser examinado pelo Juízo"
 
@@ -330,7 +392,10 @@ def _localizar_oitiva_policial(pecas: List[PecaClassificada], nome: str, papel: 
     """Peça da fase policial que registra a oitiva (ou menção nominal) do depoente, se houver."""
     nome_n = normalizar(re.sub(r"\s*\(Parte\s+\d+\)\s*$", "", nome or "", flags=re.IGNORECASE))
     tokens = [t for t in re.split(r"[^a-z0-9]+", nome_n) if len(t) > 2]
-    candidatas = [p for p in pecas if p.fase == "INQUISITORIAL" or p.categoria == "BO"]
+    candidatas = [
+        p for p in pecas
+        if p.categoria not in CATEGORIAS_SEM_FONTE_DE_FATOS and (p.fase == "INQUISITORIAL" or p.categoria == "BO")
+    ]
     for p in candidatas:
         titulo_n = normalizar(p.titulo)
         if papel == "OFENDIDA" and "termo de declaracoes" in titulo_n:
@@ -360,23 +425,33 @@ def _build_real_case_oral_analysis(
     m_id = str(tr.get("media_id") or "")
     nome = str(tr.get("depoente") or "Depoente")
     papel = _normalizar_papel(tr.get("papel"))
-    segs: List[Dict[str, str]] = [s for s in (tr.get("segmentos") or []) if _texto_segmento(s)]
+    papel_confirmado_midia = bool(tr.get("papel_confirmado"))
+    segs_brutos = [s for s in (tr.get("segmentos") or []) if _texto_segmento(s)]
+    segs: List[Dict[str, Any]] = [_normalizar_segmento_papel(s, papel) for s in segs_brutos]
+    pendentes_seg = sum(1 for s in segs if s.get("papel_estado") != "CONFIRMADO")
+    segs_para_sintese = [s for s in segs if s.get("papel_segmento") != "INDETERMINADO"]
     dur = str(tr.get("duracao") or "")
     arquivo = str(tr.get("arquivo") or "")
 
     refs = _extrair_refs_documentais_pecas(pecas)
     nome_base = re.sub(r"\s*\(Parte\s+\d+\)\s*$", "", nome, flags=re.IGNORECASE).strip()
-    indireto = _sintetizar_nucleo_forense_oral(
-        segs=segs,
-        papel=papel,
-        nome=nome_base,
-        media_ids=[m_id] if m_id else [],
-        duracao_total=dur,
-        id_ata=refs["id_ata"],
-        id_den=refs["id_den"],
-        id_bo=refs["id_bo"],
-        laudos_str=refs["laudos"],
-    )
+    if not segs_para_sintese:
+        indireto = (
+            f"Registro audiovisual ({nome_base or nome}, Mídia {m_id or 'sem ID'}) com todos os trechos "
+            "em papel INDETERMINADO, aguardando confirmação humana antes de alimentar a valoração do mérito ou a dosimetria."
+        )
+    else:
+        indireto = _sintetizar_nucleo_forense_oral(
+            segs=segs_para_sintese,
+            papel=papel,
+            nome=nome_base,
+            media_ids=[m_id] if m_id else [],
+            duracao_total=dur,
+            id_ata=refs["id_ata"],
+            id_den=refs["id_den"],
+            id_bo=refs["id_bo"],
+            laudos_str=refs["laudos"],
+        )
 
     if papel == "ALEGACOES_FINAIS_MP":
         relato_policial = "Não se aplica (manifestação final do Ministério Público)."
@@ -406,8 +481,10 @@ def _build_real_case_oral_analysis(
         arquivo=arquivo,
         depoente=nome,
         papel=papel,  # type: ignore[arg-type]
+        papel_confirmado=(papel != "INDETERMINADO") and (papel_confirmado_midia or pendentes_seg == 0),
         duracao=dur,
         segmentos_literais=segs,
+        segmentos_pendentes_confirmacao=pendentes_seg,
         discurso_indireto_sentenca=indireto,
         relato_fase_policial=relato_policial,
         coerencia_delegacia_juizo="PENDENTE_AVALIACAO_JUIZO",
@@ -660,4 +737,5 @@ def gerar_matriz_corroboracao_oral(
         depoentes=depoentes_out,
         fundamentacao_sintese=_SINTESE_DEMO if is_demo else _SINTESE_REAL,
         midias_sem_transcricao=ignoradas,
+        segmentos_pendentes_confirmacao=sum(d.segmentos_pendentes_confirmacao for d in depoentes_out),
     )

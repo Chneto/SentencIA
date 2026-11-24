@@ -300,8 +300,8 @@ class TestInvarianteConformidadeAuditorFallback:
         engine = SectionalPipelineEngine(gating_validator=reject_all_validator, use_ollama=False, max_retries=2)
         sentenca = engine.executar_pipeline(demo_bundle)
 
-        pecas = classificar_pecas_autos(demo_bundle["raw_documents"])
-        meta = extrair_metadados_processo(pecas)
+        pecas = classificar_pecas_autos(demo_bundle["raw_documents"], is_demo=True)
+        meta = extrair_metadados_processo(pecas, is_demo=True)
 
         relatorio_audit = auditar_sentenca(
             texto_sentenca=sentenca.texto_completo,
@@ -336,8 +336,8 @@ class TestInvarianteConformidadeAuditorFallback:
         engine = SectionalPipelineEngine(use_ollama=False)
         sentenca = engine.executar_pipeline(demo_bundle, custom_dosimetria_override=override)
 
-        pecas = classificar_pecas_autos(demo_bundle["raw_documents"])
-        meta = extrair_metadados_processo(pecas)
+        pecas = classificar_pecas_autos(demo_bundle["raw_documents"], is_demo=True)
+        meta = extrair_metadados_processo(pecas, is_demo=True)
 
         relatorio_audit = auditar_sentenca(
             texto_sentenca=sentenca.texto_completo,

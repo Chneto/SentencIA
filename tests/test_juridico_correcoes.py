@@ -64,14 +64,20 @@ def test_detracao_entra_na_fixacao_do_regime_e_o_texto_acompanha():
     assert sem.pena_total_unificada == PenaAnosMesesDias(anos=4, meses=8)
     assert sem.regime_inicial == "semiaberto"
 
-    com = calcular_dosimetria_global(crimes, dias_prisao_cautelar=250)
+    from app.legal_engine.detracao import IntervaloCustodia, calcular_detracao
+
+    periodo = IntervaloCustodia(
+        inicio=datetime.date(2025, 1, 1), fim=datetime.date(2025, 9, 7),
+        fonte_inicio="ID-PRISAO-FICTICIA", fonte_fim="ID-SOLTURA-FICTICIA",
+    )
+    com = calcular_dosimetria_global(crimes, detracao=calcular_detracao([periodo]))
     assert com.pena_remanescente_detracao == PenaAnosMesesDias(anos=3, meses=11, dias=20)
     assert com.regime_inicial == "aberto"  # regime calculado sobre a pena remanescente
     assert com.regime_sem_detracao == "semiaberto"
     assert com.pena_considerada_regime == com.pena_remanescente_detracao
     assert "250" in com.fundamentacao_regime and "SEMIABERTO" in com.fundamentacao_regime
 
-    texto = formatar_secao_dosimetria_completa(com, "um_oitavo_intervalo", detracao_periodo="entre 01/01/2025 e 07/09/2025")
+    texto = formatar_secao_dosimetria_completa(com, "um_oitavo_intervalo")
     assert "ALTEROU o regime" in texto
     assert "sem implicar alteração do regime" not in texto
     assert "REGIME INICIAL ABERTO" in texto
@@ -85,22 +91,22 @@ def test_detracao_que_nao_muda_o_regime_diz_que_nao_mudou():
     assert "não alterou o regime resultante" in texto
 
 
-def test_detracao_acima_de_365_dias_nao_e_descartada(monkeypatch):
+def test_detracao_acima_de_365_dias_nao_e_descartada():
     import app.generation.sentence_generator as sg
 
-    peca_apf = SimpleNamespace(doc_id="ID-1", data_peca="2023-01-01", conteudo="Auto de prisão em flagrante lavrado em 01/01/2023")
-    peca_solt = SimpleNamespace(doc_id="ID-2", data_peca="2024-06-01", conteudo="Alvará de soltura")
-    monkeypatch.setattr(sg, "_localizar_apf", lambda pecas: peca_apf)
-    monkeypatch.setattr(sg, "localizar_documento_liberdade", lambda pecas: peca_solt)
-    monkeypatch.setattr(sg, "_data_inicio_prisao", lambda p: D(2023, 1, 1))
-    dias, periodo = sg.inferir_detracao_cautelar([])
-    assert dias == (D(2024, 6, 1) - D(2023, 1, 1)).days + 1 > 365
-    assert "ID-1" in periodo
+    peca_apf = SimpleNamespace(
+        doc_id="ID-1", data_peca="2023-01-01", titulo="Auto de Prisão em Flagrante",
+        categoria="BO", conteudo="Auto de prisão em flagrante lavrado em 01/01/2023",
+    )
+    peca_solt = SimpleNamespace(
+        doc_id="ID-2", data_peca="2024-06-01", titulo="Certidão de cumprimento de alvará de soltura",
+        categoria="CERTIDAO", conteudo="Cumprido o alvará de soltura em 01/06/2024.",
+    )
+    dias, periodo = sg.inferir_detracao_cautelar([peca_apf, peca_solt])
+    assert dias > 365
+    assert "01/01/2023" in periodo and "01/06/2024" in periodo
 
 
-# ==============================================================================
-# 5. Atenuante do art. 65, I (menoridade relativa/senilidade) no fluxo real
-# ==============================================================================
 def test_menoridade_relativa_entra_na_segunda_fase_do_fluxo_real():
     bundle = _cenario(1)
     bundle["metadados_override"] = {"data_nascimento_reu": "2005-06-01"}  # 19 anos em 20/01/2025

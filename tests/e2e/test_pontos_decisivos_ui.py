@@ -84,11 +84,10 @@ def test_task043_confirmar_e_corrigir_nascimento_grava_override(_live_server: _L
             antecedentes = page.locator('[data-ponto="antecedentes"]')
             expect(antecedentes).to_contain_text("Verificar período depurador")
             expect(antecedentes.get_by_role("button", name="Confirmar Antecedentes")).to_have_count(0)
-            antecedentes.get_by_role("button", name="Corrigir Antecedentes").click()
-            expect(page.locator('#pdCorrecao option[value="verificar_data_do_fato"]')).to_have_text("Verificar data do fato")
-            page.get_by_role("button", name="Cancelar", exact=True).click()
+            expect(antecedentes.get_by_role("button", name="Corrigir Antecedentes")).to_have_count(0)
+            expect(antecedentes).to_contain_text("Confira cada registro na estação de dosimetria.")
             expect(page.locator('[data-ponto="confissao"]')).to_contain_text(
-                "Confissão aplicada automaticamente: confirme ou corrija."
+                "mediante decisão do juízo"
             )
             with page.expect_response("**/api/cases/metadata-override") as confirmacao:
                 cartao.get_by_role("button", name="Confirmar Nascimento do réu").click()
@@ -109,5 +108,40 @@ def test_task043_confirmar_e_corrigir_nascimento_grava_override(_live_server: _L
             assert correcao.value.json()["metadados_override"]["data_nascimento_reu"] == "2004-02-15"
             expect(cartao).to_have_attribute("data-estado", "confirmado")
             expect(cartao).to_contain_text("15/02/2004")
+        finally:
+            browser.close()
+
+
+def test_pedidos_repetidos_tem_uma_linha_com_os_dois_trechos(_live_server: _LocalAppServer):
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch_chromium(pw)
+        try:
+            page = browser.new_page()
+            page.goto(_live_server.base_url, wait_until="networkidle")
+
+            def com_ocorrencias(route):
+                resposta = route.fetch()
+                corpo = resposta.json()
+                corpo["metadados"]["pedidos_mp"] = [
+                    {
+                        "tipo": "absolvicao", "descricao": "Pedido fictício reiterado",
+                        "fonte_id": f"ID-FICTICIO-{num}", "folha": "", "trecho": f"Trecho fictício {num}",
+                        "parte": "mp", "natureza": "principal", "ordem": num,
+                    }
+                    for num in (1, 2)
+                ]
+                route.fulfill(response=resposta, json=corpo)
+
+            page.route("**/api/cases/load-demo", com_ocorrencias)
+            page.click("#btnLoadDemo")
+            page.click('.station-btn[data-station="analise"]')
+            ocorrencia = page.locator(".pd-pedidos li").filter(has_text="Pedido fictício reiterado")
+            expect(ocorrencia).to_have_count(1)
+            ocorrencia.locator("summary").click()
+            expect(ocorrencia.get_by_role("button", name="Ver trecho")).to_have_count(2)
+            expect(ocorrencia).to_contain_text("ID-FICTICIO-1")
+            expect(ocorrencia).to_contain_text("ID-FICTICIO-2")
         finally:
             browser.close()

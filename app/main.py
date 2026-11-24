@@ -62,6 +62,7 @@ from app.api.models import (
     ImportExternalSentenceRequest,
     LimparDemoRequest,
     LoadFromDiskRequest,
+    CategoriaPecaRequest,
     MetadataOverrideRequest,
     OllamaPullRequest,
     RegenerateSectionRequest,
@@ -103,6 +104,7 @@ from app.core.session_state import (
     PIPELINE_LOCK,
     STATE_LOCK,
     clear_production_state,  # noqa: F401 - reexportado por compatibilidade
+    consultar_categorias_pecas,
     consultar_manifesto_caso,
     listar_versoes,
     obter_estado,
@@ -139,6 +141,7 @@ from app.generation.case_script_engine import (
     gerar_script_estruturado_caso,
 )
 from app.generation.decisoes_imputacao import (
+    alvos_imputacao,
     datas_dos_fatos,
     ha_recebimento_por_imputacao,
     serializar_decisoes_imputacao,
@@ -151,7 +154,8 @@ from app.generation.sentence_generator import (
     resolver_data,
     resolver_dosimetria_e_decisoes,
 )
-from app.ingestion.laya_classifier import MetadadosProcesso
+from app.ingestion.confissao import DecisaoConfissao
+from app.ingestion.laya_classifier import CATEGORIAS_LAYA, MetadadosProcesso
 from app.ingestion.pdf_ingestor import motor_ocr_disponivel, segmentar_autos_pdf_pje
 from app.knowledge.knowledge_base import (
     PrecedenteDuplicadoError,
@@ -232,6 +236,8 @@ app = FastAPI(
     version=VERSAO_APP,
     lifespan=_lifespan,
 )
+app.include_router(__import__("app.api.papel_segmento", fromlist=["router"]).router)
+app.include_router(__import__("app.api.rascunho_decisoes", fromlist=["router"]).router)
 
 # Ordem: o último middleware adicionado é o mais externo → CORS responde aos preflights e a
 # segurança (Host/Origin/token) envolve todas as rotas.
@@ -289,7 +295,8 @@ def _empty_metadados() -> Dict[str, Any]:
         "data_recebimento_denuncia": "",
         "data_intimacao_mpu": "",
         "intimidado_pessoalmente_mpu": False,
-        "reu_primario_sumula444": False,
+        "reu_primario_sumula444": None,
+        "registros_antecedentes": [],
         "pedido_dano_moral_expresso_mp": False,
         "valor_dano_moral_pedido_mp": 0.0,
         "crimes_imputados": [],
@@ -386,6 +393,7 @@ def _serialize_active_bundle(
         "data_fato": meta.data_fato or bundle.get("data_fato") or "",
         "data_recebimento_denuncia": meta.data_recebimento_denuncia or bundle.get("data_recebimento_denuncia") or "",
         "pecas": [p.model_dump() for p in ctx.pecas],
+        "categorias_pecas": list(CATEGORIAS_LAYA),
         "metadados": meta.model_dump(),
         "metadados_override": dict(bundle.get("metadados_override") or {}),
         "alertas_extracao": list(getattr(meta, "alertas_extracao", []) or []),
@@ -393,6 +401,7 @@ def _serialize_active_bundle(
         "transcricoes": _resumo_transcricoes(bundle),
         "manifesto_caso": bundle.get("manifesto_caso"),
         "elementos_probatorios": {"comuns": ELEMENTOS_COMUNS, "especificos": ELEMENTOS_ESPECIFICOS},
+        "rascunho_decisoes": bundle.get("rascunho_decisoes"),
         "upload_status": upload_status if upload_status is not None else _upload_status_atual(),
         "arquivos_em_disco": _arquivos_em_disco(),
     }
@@ -910,6 +919,16 @@ def _pdfs_na_raiz() -> List[Path]:
     )
 
 
+def _reaplicar_categorias_pecas(docs: List[Dict[str, Any]], identidade: str) -> None:
+    escolhas = consultar_categorias_pecas(identidade, cases_dir=_cases_dir())
+    for doc_id, categoria in escolhas.items():
+        if categoria not in CATEGORIAS_LAYA:
+            continue
+        alvos = [doc for doc in docs if doc.get("doc_id") == doc_id]
+        if len(alvos) == 1:
+            alvos[0]["categoria_confirmada"] = categoria
+
+
 def _load_real_case_from_disk_if_present(
     consentimento_envio_externo: bool = False,
     status_saida: Optional[Dict[str, Any]] = None,
@@ -971,8 +990,9 @@ def _load_real_case_from_disk_if_present(
     if not novos_docs:
         return None
 
-    _, known_ofendida, known_reu, numero = _nomes_conhecidos(novos_docs)
     manifesto = montar_manifesto_caso(documentos_manifesto, [])
+    _reaplicar_categorias_pecas(novos_docs, manifesto["id"])
+    _, known_ofendida, known_reu, numero = _nomes_conhecidos(novos_docs)
     salvo = consultar_manifesto_caso(manifesto["id"], cases_dir=cases_dir)
     vinculos = {
         item["arquivo"]: item for item in salvo.get("midias", [])
@@ -1098,6 +1118,35 @@ def api_load_from_disk(req: Optional[LoadFromDiskRequest] = Body(default=None)) 
         INGESTAO_LOCK.release()
 
 
+@app.post("/api/cases/document-category")
+def api_categoria_peca(req: CategoriaPecaRequest) -> Dict[str, Any]:
+    if INGESTAO_LOCK.locked():
+        raise HTTPException(status_code=409, detail="Aguarde o carregamento dos autos para classificar a peça.")
+    bundle = _require_active_bundle()
+    manifesto = bundle.get("manifesto_caso") or {}
+    if manifesto.get("id") != req.manifesto_id:
+        raise HTTPException(status_code=409, detail="O caso ativo mudou. Selecione novamente a peça.")
+    if req.categoria is not None and req.categoria not in CATEGORIAS_LAYA:
+        raise DadosInsuficientesError(["categoria"], "Escolha uma categoria válida de peça.")
+    novo = copy.deepcopy(bundle)
+    alvos = [doc for doc in (novo.get("raw_documents") or []) if doc.get("doc_id") == req.doc_id]
+    if len(alvos) != 1:
+        raise DadosInsuficientesError(["doc_id"], "Selecione uma peça única dos autos ativos.")
+    if req.categoria is None:
+        alvos[0].pop("categoria_confirmada", None)
+    else:
+        alvos[0]["categoria_confirmada"] = req.categoria
+    with STATE_LOCK:
+        if ACTIVE_CASE_STATE.get("bundle") is not bundle or INGESTAO_LOCK.locked():
+            raise HTTPException(status_code=409, detail="Os autos mudaram durante a classificação. Tente novamente.")
+        upload_status = ACTIVE_CASE_STATE.get("upload_status")
+        if manifesto:
+            _publicar_caso_preparado(novo, upload_status)
+        else:
+            set_active_bundle(novo, explicit_demo=bool(ACTIVE_CASE_STATE.get("explicit_demo")), upload_status=upload_status)
+    return {"status": "ok", "active_case": _serialize_active_bundle(novo)}
+
+
 @app.post("/api/cases/metadata-override")
 def api_metadata_override(req: MetadataOverrideRequest) -> Dict[str, Any]:
     """Complementação dos metadados pelo juízo (ex.: datas e crimes não extraídos dos autos).
@@ -1113,7 +1162,13 @@ def api_metadata_override(req: MetadataOverrideRequest) -> Dict[str, Any]:
             detail="Há um carregamento de autos em andamento. Aguarde a conclusão para complementar os metadados.",
         )
     bundle = _require_active_bundle()
-    campos_validos = set(MetadadosProcesso.model_fields)
+    manifesto = bundle.get("manifesto_caso") or {}
+    if req.manifesto_id is not None and req.manifesto_id != manifesto.get("id"):
+        raise HTTPException(status_code=409, detail="O caso ativo mudou. Confira a imputação novamente.")
+    campos_validos = set(MetadadosProcesso.model_fields) - {
+        "registros_antecedentes", "reu_primario_sumula444", "confissoes_sugeridas",
+        "intervalos_custodia", "alertas_custodia",
+    }
     desconhecidos = sorted(k for k in req.metadados if k not in campos_validos)
     if desconhecidos:
         return JSONResponse(
@@ -1125,10 +1180,29 @@ def api_metadata_override(req: MetadataOverrideRequest) -> Dict[str, Any]:
             },
         )
 
-    base_meta = obter_contexto(bundle).meta.model_dump()
+    meta_ativa = obter_contexto(bundle).meta
+    base_meta = meta_ativa.model_dump()
     overrides = {} if req.substituir else dict(bundle.get("metadados_override") or {})
     invalidos: List[str] = []
     for campo, valor in req.metadados.items():
+        if campo == "confissoes_confirmadas" and isinstance(valor, dict):
+            anteriores = overrides.get(campo)
+            confirmadas = dict(anteriores) if isinstance(anteriores, dict) else {}
+            chaves = alvos_imputacao(meta_ativa)
+            for chave, decisao in valor.items():
+                caminho = f"{campo}.{chave}"
+                if chave not in chaves:
+                    invalidos.append(caminho)
+                    continue
+                if decisao is None:
+                    confirmadas.pop(chave, None)
+                    continue
+                try:
+                    confirmadas[chave] = DecisaoConfissao.model_validate(decisao).model_dump()
+                except ValidationError:
+                    invalidos.append(caminho)
+            overrides[campo] = confirmadas
+            continue
         if valor is None or (isinstance(valor, str) and not valor.strip()) or (isinstance(valor, (list, tuple)) and not valor):
             overrides.pop(campo, None)
             continue
@@ -1245,6 +1319,7 @@ def _processar_arquivos_upload_sync(
     midias_status_list = list(cur_up_status.get("midias_audiencia", [])) if mesmo_caso else []
     existing_real_transcriptions = list(bundle.get("transcriptions") or []) if mesmo_caso else []
     vinculos = {item["arquivo"]: item for item in manifesto_anterior.get("midias", [])} if mesmo_caso else {}
+    _reaplicar_categorias_pecas(novos_docs, manifesto["id"])
     _, known_ofendida, known_reu, numero_prelim = _nomes_conhecidos(novos_docs)
 
     if saved_medias:
@@ -1802,6 +1877,8 @@ def api_refazer_ocr(req: Optional[RefazerOcrRequest] = Body(default=None)) -> Di
 
             PROGRESSO.atualizar(phase="classificando_laya", etapa="classificacao", current_file="", percent=95)
             up_status["pdfs_processo"] = list(pdfs_status_map.values())
+            if manifesto:
+                _reaplicar_categorias_pecas(todos_docs, manifesto["id"])
             novo_bundle = _construir_bundle_real(todos_docs, transcricoes_atuais, overrides_atuais)
             if manifesto:
                 novo_bundle["manifesto_caso"] = manifesto

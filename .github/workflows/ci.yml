@@ -16,6 +16,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   testes:
     name: Pytest + Sigilo + Pacote (${{ matrix.os }})
@@ -32,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar uv e Python 3.12
         uses: astral-sh/setup-uv@v5
@@ -43,7 +46,7 @@ jobs:
       - name: Sincronizar dependências do projeto
         shell: bash
         run: |
-          uv sync \
+          uv sync --frozen \
             --extra nuvem \
             --extra seguranca \
             --extra transcricao \
@@ -53,17 +56,17 @@ jobs:
       - name: Instalar navegador Chromium (Playwright E2E)
         shell: bash
         run: |
-          uv run playwright install chromium
+          uv run --frozen playwright install chromium
 
       - name: Verificar sigilo (padrões, CPF, CNJ, caminhos e segredos)
         shell: bash
         run: |
-          uv run python scripts/verificar_sigilo.py --apenas-padroes
+          uv run --frozen python scripts/verificar_sigilo.py --apenas-padroes
 
       - name: Validar empacotamento de distribuição (--dry-run)
         shell: bash
         run: |
-          uv run python scripts/build_release.py --dry-run
+          uv run --frozen python scripts/build_release.py --dry-run
 
       - name: Validar scripts shell com ShellCheck (macOS)
         if: runner.os == 'macOS'
@@ -77,12 +80,19 @@ jobs:
             "Iniciar SentencIA.command" \
             "SentencIA.app/Contents/MacOS/sentencia"
 
-      - name: Executar suíte completa de testes (unitários, integração e E2E)
+      - name: Executar testes de lógica e integração/E2E
         shell: bash
         env:
           JVDFM_SECRETS_BACKEND: arquivo
         run: |
-          uv run --extra nuvem pytest -q
+          uv run --frozen --extra nuvem pytest -q -m "not aceitacao_juridica"
+
+      - name: Executar testes de aceitação jurídica (fontes oficiais)
+        shell: bash
+        env:
+          JVDFM_SECRETS_BACKEND: arquivo
+        run: |
+          uv run --frozen --extra nuvem pytest -q -m aceitacao_juridica
 
   instalacao-limpa-macos:
     name: Instalação Limpa macOS (${{ matrix.os }})
@@ -97,7 +107,7 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar uv e Python 3.12
         uses: astral-sh/setup-uv@v5
@@ -117,7 +127,7 @@ jobs:
       - name: Gerar pacote local (.zip + SHA256SUMS.txt)
         shell: bash
         run: |
-          uv run python scripts/build_release.py
+          uv run --frozen python scripts/build_release.py
 
       - name: Executar instalador macOS em pasta limpa e validar /api/health e ocrmac
         shell: bash

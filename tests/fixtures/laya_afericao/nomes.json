@@ -1,0 +1,292 @@
+[
+  {
+    "id": "partes-1",
+    "reu": "ZORIVAL FICTÍCIO",
+    "vit": "VIRELA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nAcusado: ZORIVAL\nFICTÍCIO, qualificado.\nVítima: VIRELA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-2",
+    "reu": "AURELINO FICTÍCIO",
+    "vit": "OREVINA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nRÉU: AURELINO FICTÍCIO, qualificado.\nOFENDIDA: OREVINA\nSIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-3",
+    "reu": "TEVALDO SIMULADO",
+    "vit": "MALÉRIA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: TEVALDO\nVÍTIMA: MALÉRIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDenunciado: TEVALDO SIMULADO, qualificado.\nVÍTIMA(S): MALÉRIA IMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-4",
+    "reu": "SALVÉRIO IMAGINÁRIO",
+    "vit": "ZANÉLIA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: SALVÉRIO\nVÍTIMA: ZANÉLIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDENUNCIADO: SALVÉRIO IMAGINÁRIO, qualificado.\nOFENDIDA: ZANÉLIA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-5",
+    "reu": "NELÚCIO FICTÍCIO",
+    "vit": "VELINA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nAcusado: NELÚCIO\nFICTÍCIO, qualificado.\nVítima: VELINA SIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-6",
+    "reu": "MÉLVARO SIMULADO",
+    "vit": "TÉLVIA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nRÉU: MÉLVARO SIMULADO, qualificado.\nOFENDIDA: TÉLVIA\nIMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-7",
+    "reu": "RÁVINO IMAGINÁRIO",
+    "vit": "RALÚCIA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: RÁVINO\nVÍTIMA: RALÚCIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDenunciado: RÁVINO IMAGINÁRIO, qualificado.\nVÍTIMA(S): RALÚCIA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-8",
+    "reu": "VELÚCIO FICTÍCIO",
+    "vit": "MENÓRIA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: VELÚCIO\nVÍTIMA: MENÓRIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDENUNCIADO: VELÚCIO FICTÍCIO, qualificado.\nOFENDIDA: MENÓRIA SIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-9",
+    "reu": "TÁRIUS SIMULADO",
+    "vit": "ELVINA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nAcusado: TÁRIUS\nSIMULADO, qualificado.\nVítima: ELVINA IMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-10",
+    "reu": "ELVÂNIO IMAGINÁRIO",
+    "vit": "NADÉLIA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nRÉU: ELVÂNIO IMAGINÁRIO, qualificado.\nOFENDIDA: NADÉLIA\nFICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-11",
+    "reu": "DORÉLIO FICTÍCIO",
+    "vit": "ORESCA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: DORÉLIO\nVÍTIMA: ORESCA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDenunciado: DORÉLIO FICTÍCIO, qualificado.\nVÍTIMA(S): ORESCA SIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-12",
+    "reu": "NIMARCO SIMULADO",
+    "vit": "DARÍNA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: NIMARCO\nVÍTIMA: DARÍNA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDENUNCIADO: NIMARCO SIMULADO, qualificado.\nOFENDIDA: DARÍNA IMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-13",
+    "reu": "ZENÓRIO IMAGINÁRIO",
+    "vit": "VIRLANA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nAcusado: ZENÓRIO\nIMAGINÁRIO, qualificado.\nVítima: VIRLANA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-14",
+    "reu": "ORVALINO FICTÍCIO",
+    "vit": "TELVINA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nRÉU: ORVALINO FICTÍCIO, qualificado.\nOFENDIDA: TELVINA\nSIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-15",
+    "reu": "MIRÁVIO SIMULADO",
+    "vit": "MIRÉVIA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: MIRÁVIO\nVÍTIMA: MIRÉVIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDenunciado: MIRÁVIO SIMULADO, qualificado.\nVÍTIMA(S): MIRÉVIA IMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-16",
+    "reu": "ARDELINO IMAGINÁRIO",
+    "vit": "VERLÚCIA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: ARDELINO\nVÍTIMA: VERLÚCIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDENUNCIADO: ARDELINO IMAGINÁRIO, qualificado.\nOFENDIDA: VERLÚCIA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-17",
+    "reu": "TEOLVINO FICTÍCIO",
+    "vit": "AREVINA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nAcusado: TEOLVINO\nFICTÍCIO, qualificado.\nVítima: AREVINA SIMULADA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-18",
+    "reu": "EYVALDO SIMULADO",
+    "vit": "NEVÉLIA IMAGINÁRIA",
+    "docs": [
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nRÉU: EYVALDO SIMULADO, qualificado.\nOFENDIDA: NEVÉLIA\nIMAGINÁRIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-19",
+    "reu": "ÉLORO IMAGINÁRIO",
+    "vit": "LAVÉRIA FICTÍCIA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: ÉLORO\nVÍTIMA: LAVÉRIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDenunciado: ÉLORO IMAGINÁRIO, qualificado.\nVÍTIMA(S): LAVÉRIA FICTÍCIA, qualificada."
+      }
+    ]
+  },
+  {
+    "id": "partes-20",
+    "reu": "ZELVÂNIO FICTÍCIO",
+    "vit": "ZINÉLIA SIMULADA",
+    "docs": [
+      {
+        "doc_id": "ID-CAPA-PJE",
+        "titulo": "Capa e Autuação",
+        "conteudo": "Polo Passivo: ZELVÂNIO\nVÍTIMA: ZINÉLIA\n"
+      },
+      {
+        "doc_id": "ID-DEN",
+        "titulo": "Denúncia Ministerial",
+        "conteudo": "O Ministério Público oferece denúncia.\nDENUNCIADO: ZELVÂNIO FICTÍCIO, qualificado.\nOFENDIDA: ZINÉLIA SIMULADA, qualificada."
+      }
+    ]
+  }
+]

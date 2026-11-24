@@ -16,7 +16,17 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A suspensão condicional do processo e a transação penal não se aplicam na hipótese de delitos sujeitos ao rito da Lei Maria da Penha.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "suspensao_condicional",
+        "acao_penal",
+        "competencia"
+      ]
     },
     {
       "id": "SUMULA-542-STJ",
@@ -34,7 +44,16 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A ação penal relativa ao crime de lesão corporal resultante de violência doméstica contra a mulher é pública incondicionada.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "lesao_corporal"
+      ]
     },
     {
       "id": "SUMULA-588-STJ",
@@ -52,7 +71,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A prática de crime ou contravenção penal contra a mulher com violência ou grave ameaça no ambiente doméstico impossibilita a substituição da pena privativa de liberdade por restritiva de direitos.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "substituicao_pena"
+      ]
     },
     {
       "id": "SUMULA-589-STJ",
@@ -70,7 +97,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É inaplicável o princípio da insignificância nos crimes ou contravenções penais praticados contra a mulher no âmbito das relações domésticas.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "insignificancia"
+      ]
     },
     {
       "id": "SUMULA-600-STJ",
@@ -88,7 +123,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Para a configuração da violência doméstica e familiar prevista no artigo 5º da Lei n.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "SUMULA-231-STJ",
@@ -106,7 +149,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A incidência da circunstância atenuante não pode conduzir à redução da pena abaixo do mínimo legal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "SUMULA-444-STJ",
@@ -124,7 +175,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É vedada a utilização de inquéritos policiais e ações penais em curso para agravar a pena-base.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "SUMULA-545-STJ",
@@ -142,7 +201,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Quando a confissão for utilizada para a formação do convencimento do julgador, o réu fará jus à atenuante prevista no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "TEMA-983-STJ",
@@ -160,7 +227,16 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=983&cod_tema_final=983",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Nos casos de violência contra a mulher praticados no âmbito doméstico e familiar, é possível a fixação de valor mínimo indenizatório a título de dano moral, desde que haja pedido expresso da acusação ou da parte ofendida, ainda que não especificada a quantia, e independentemente de instrução probatória.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos",
+        "competencia"
+      ]
     },
     {
       "id": "TEMA-1197-STJ",
@@ -177,7 +253,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1197&cod_tema_final=1197",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A aplicação da agravante do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "RES-CNJ-492-2023",
@@ -195,7 +279,15 @@
         "status": "verificado",
         "fonte_url": "https://atos.cnj.jus.br/atos/detalhar/4986",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Determina a adoção obrigatória das diretrizes do Protocolo para Julgamento com Perspectiva de Gênero em todo o Poder Judiciário brasileiro, conferindo especial relevância à palavra da mulher vítima em crimes praticados na clandestinidade doméstica e vedando estereótipos de gênero na valoração probatória.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "perspectiva_de_genero"
+      ]
     },
     {
       "id": "SUMULA-642-STJ",
@@ -212,7 +304,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O direito à indenização por danos morais transmite-se com o falecimento do titular, possuindo os herdeiros da vítima legitimidade ativa para ajuizar ou prosseguir a ação indenizatória.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos"
+      ]
     },
     {
       "id": "SUMULA-269-STJ",
@@ -229,7 +329,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É admissível a adoção do regime prisional semi-aberto aos reincidentes condenados a pena igual ou inferior a quatro anos se favoráveis as circunstâncias judiciais.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "execucao_penal_e_regime_prisional_(art._33_cp)"
+      ]
     },
     {
       "id": "SUMULA-440-STJ",
@@ -246,7 +354,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Fixada a pena-base no mínimo legal, é vedado o estabelecimento de regime prisional mais gravoso do que o cabível em razão da sanção imposta, com base apenas na gravidade abstrata do delito.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "SUMULA-718-STF",
@@ -263,7 +379,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=jurisprudenciaSumula",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A opinião do julgador sobre a gravidade em abstrato do crime não constitui motivação idônea para a imposição de regime de cumprimento de pena mais severo do que o permitido segundo a pena aplicada.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "regime_prisional_e_motivacao_judicial"
+      ]
     },
     {
       "id": "SUMULA-719-STF",
@@ -280,7 +404,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=jurisprudenciaSumula",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A imposição do regime de cumprimento mais severo do que a pena aplicada permitir exige motivação idônea.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "regime_prisional_e_motivacao_idonea"
+      ]
     },
     {
       "id": "SUMULA-VINCULANTE-56-STF",
@@ -297,7 +429,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=jurisprudenciaSumula",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A falta de estabelecimento penal adequado não autoriza a manutenção do condenado em regime prisional mais gravoso, devendo-se observar, nessa hipótese, os parâmetros fixados no RE 641.320/RS.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "execucao_penal_e_dignidade_humana"
+      ]
     },
     {
       "id": "TEMA-1189-STJ",
@@ -314,7 +454,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1189&cod_tema_final=1189",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A vedação constante do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "pena_de_multa_e_prevencao_geral_(art._17_lmp)"
+      ]
     },
     {
       "id": "TEMA-1249-STJ",
@@ -331,7 +479,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1249&cod_tema_final=1249",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "I - As medidas protetivas de urgência (MPUs) têm natureza jurídica de tutela inibitória e sua vigência não se subordina à existência (atual ou vindoura) de boletim de ocorrência, inquérito policial, processo cível ou criminal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "TEMA-1186-STJ",
@@ -348,7 +504,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1186&cod_tema_final=1186",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "1. A condição de gênero feminino é suficiente para atrair a aplicabilidade da Lei Maria da Penha em casos de violência doméstica e familiar, prevalecendo sobre a questão etária. 2. A Lei Maria da Penha prevalece quando suas disposições conflitarem com as de estatutos específicos, como o da Criança e do Adolescente.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "TEMA-177-STJ",
@@ -365,7 +529,17 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=177&cod_tema_final=177",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A ação penal nos crimes de lesão corporal leve cometidos em detrimento da mulher, no âmbito doméstico e familiar, é pública incondicionada.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "competencia",
+        "lesao_corporal"
+      ]
     },
     {
       "id": "TEMA-1167-STJ",
@@ -382,7 +556,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A audiência prevista no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal"
+      ]
     },
     {
       "id": "TEMA-1333-STJ",
@@ -399,7 +581,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1333&cod_tema_final=1333",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "1 - A agravante prevista no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "ADC-19-STF",
@@ -416,7 +606,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/processos/detalhe.asp?incidente=2584650",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O Supremo Tribunal Federal declarou a constitucionalidade dos artigos 1º, 33 e 41 da Lei nº 11.340/2006, assentando que o tratamento diferenciado dispensado à mulher visa compensar a vulnerabilidade histórica e estrutural de gênero, sendo constitucional a vedação absoluta à aplicação dos institutos despenalizadores da Lei nº 9.099/1995.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "suspensao_condicional"
+      ]
     },
     {
       "id": "ADI-4424-STF",
@@ -433,7 +631,16 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/processos/detalhe.asp?incidente=3897992",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A ação penal relativa a lesão corporal resultante de violência doméstica contra a mulher (seja leve, grave ou culposa) é pública incondicionada, dando-se interpretação conforme aos artigos 12, I, e 16 da Lei nº 11.340/2006 para afastar a necessidade de representação da vítima ou designação de audiência de retratação.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "lesao_corporal"
+      ]
     },
     {
       "id": "ADPF-779-STF",
@@ -451,7 +658,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/noticias/verNoticiaDetalhe.asp?idConteudo=511556",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O STF declarou inconstitucional a tese da legítima defesa da honra, por contrariar a dignidade da pessoa humana, a proteção à vida e a igualdade de gênero, e a excluiu do âmbito do instituto da legítima defesa.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "legitima_defesa_honra"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-01",
@@ -468,7 +683,16 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A Lei n. 11.340/2006, denominada Lei Maria da Penha, objetiva proteger a mulher da violência doméstica e familiar que lhe cause morte, lesão, sofrimento físico, sexual ou psicológico, e dano moral ou patrimonial, desde que o crime seja cometido no âmbito da unidade doméstica, da família ou em qualquer relação íntima de afeto.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos",
+        "competencia"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-02",
@@ -485,7 +709,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A Lei Maria da Penha atribuiu às uniões homoafetivas o caráter de entidade familiar, ao prever, no seu artigo 5º, parágrafo único, que as relações pessoais mencionadas naquele dispositivo independem de orientação sexual.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "entidade_familiar_e_unioes_homoafetivas"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-03",
@@ -502,7 +734,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O sujeito passivo da violência doméstica objeto da Lei Maria da Penha é a mulher, já o sujeito ativo pode ser tanto o homem quanto a mulher, desde que fique caracterizado o vínculo de relação doméstica, familiar ou de afetividade, além da convivência, com ou sem coabitação.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-06",
@@ -519,7 +759,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A vulnerabilidade, hipossuficiência ou fragilidade da mulher têm-se como presumidas nas circunstâncias descritas na Lei n.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "vulnerabilidade_presumida_da_mulher"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-07",
@@ -536,7 +784,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A agressão do namorado contra a namorada, mesmo cessado o relacionamento, mas que ocorra em decorrência dele, está inserida na hipótese do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "vinculo_afetivo_anterior_e_ex-namoro"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-08",
@@ -553,7 +809,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Os Juizados de Violência Doméstica e Familiar contra a Mulher têm competência cumulativa para o julgamento e a execução das causas decorrentes da prática de violência doméstica e familiar contra a mulher.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-10",
@@ -570,7 +834,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Não é possível a aplicação dos princípios da insignificância e da bagatela imprópria nos delitos praticados com violência ou grave ameaça no âmbito das relações domésticas e familiares.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "insignificancia"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-12",
@@ -587,7 +859,16 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É cabível a decretação de prisão preventiva para garantir a execução de medidas de urgência nas hipóteses em que o delito envolver violência doméstica e familiar contra a mulher.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva",
+        "prisao_preventiva"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-13",
@@ -605,7 +886,16 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Nos crimes praticados no âmbito doméstico e familiar, a palavra da vítima tem especial relevância para fundamentar o recebimento da denúncia ou a condenação, pois normalmente são cometidos sem a presença de testemunhas.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "palavra_da_vitima",
+        "competencia"
+      ]
     },
     {
       "id": "TESE-STJ-ED41-16",
@@ -622,7 +912,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O habeas corpus não constitui meio idôneo para se pleitear a revogação de medidas protetivas previstas no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "STJ-AGRG-MPUMP-6-DF",
@@ -639,7 +937,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/docs_internet/jurisprudencia/jurisprudenciaemteses/Jurisprudencia%20em%20Teses%2041%20-%20Violencia%20Domestica%20e%20Familiar%20Contra%20Mulher.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Hipossuficiência e vulnerabilidade da mulher são presumidas no âmbito da Lei Maria da Penha, sendo desnecessário demonstrar situação concreta de subjugação para sua aplicação (superou a antiga tese 5 da Edição 41).",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "vulnerabilidade_presumida_da_mulher"
+      ]
     },
     {
       "id": "STJ-ARESP-2763567-RN",
@@ -656,7 +962,15 @@
         "status": "verificado",
         "fonte_url": "https://paineisanalytics.cnj.jus.br/single/?appid=f3bb4296-6c88-4c1f-b3bb-8a51e4268a58&sheet=03bb002c-6256-4b1d-9c93-a421f1bf8833",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "À luz do hodierno microssistema de proteção às mulheres, considera-se suficiente a mera condição - objetiva - da vítima de violência doméstica e/ou familiar do sexo feminino (cuja presunção de vulnerabilidade presume-se, objetivamente, por força da lei) para atrair a proteção e reação Estatal (especial e profícua) positivada no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "lesao_corporal"
+      ]
     },
     {
       "id": "STJ-AGRG-RESP-2080317-GO",
@@ -673,7 +987,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Na lesão praticada por irmão contra irmã no âmbito familiar, a vulnerabilidade da mulher é presumida, sendo desnecessária a comprovação de motivação específica de gênero para atrair a Lei Maria da Penha e a competência do juizado especializado.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "STJ-APN-1079-DF",
@@ -690,7 +1012,16 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A palavra da vítima corroborada por perícia e testemunhas tem relevante valor probatório; a tese defensiva de autolesão ou interesse patrimonial desacompanhada de prova reforça estereótipos de gênero; cabível o dano moral mínimo in re ipsa.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos",
+        "palavra_da_vitima"
+      ]
     },
     {
       "id": "STJ-AGRG-ARESP-2682075-SE",
@@ -707,7 +1038,16 @@
         "status": "verificado",
         "fonte_url": "https://paineisanalytics.cnj.jus.br/single/?appid=f3bb4296-6c88-4c1f-b3bb-8a51e4268a58&sheet=03bb002c-6256-4b1d-9c93-a421f1bf8833",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A palavra da vítima assume especial relevância pela clandestinidade dos delitos domésticos; laudo pericial compatível reforça sua credibilidade; o in dubio pro reo exige dúvida razoável, impondo-se o controle de convencionalidade e a observância do Protocolo para Julgamento com Perspectiva de Gênero.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "palavra_da_vitima",
+        "perspectiva_de_genero"
+      ]
     },
     {
       "id": "STJ-AGRG-ARESP-3103801-PB",
@@ -724,7 +1064,17 @@
         "status": "verificado",
         "fonte_url": "https://paineisanalytics.cnj.jus.br/single/?appid=f3bb4296-6c88-4c1f-b3bb-8a51e4268a58&sheet=03bb002c-6256-4b1d-9c93-a421f1bf8833",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Declarações da vítima na fase policial corroboradas por testemunhas e laudo pericial bastam à condenação; eventual retratação da ofendida em juízo deve ser avaliada no contexto concreto (reaproximação, filhos, gravidez, medida protetiva anterior) à luz do Protocolo para Julgamento com Perspectiva de Gênero.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "medida_protetiva",
+        "perspectiva_de_genero"
+      ]
     },
     {
       "id": "STJ-INFO-846-CONSUNCAO",
@@ -741,7 +1091,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Não há consunção entre o crime de violação de domicílio e o de lesão corporal praticados no contexto de violência doméstica contra a mulher, por tutelarem objetividades jurídicas distintas.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "lesao_corporal"
+      ]
     },
     {
       "id": "STJ-CE-AMEACA-COLERA",
@@ -758,7 +1116,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A ameaça proferida em contexto de cólera ou ira no âmbito da violência doméstica contra a mulher não afasta a tipicidade do delito do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "crime_de_ameaca_(art._147_cp)_e_estado_de_animo_exaltado"
+      ]
     },
     {
       "id": "STJ-INFO-824-RELACAO-BREVE",
@@ -775,7 +1141,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A circunstância de a relação íntima de afeto ter sido breve ou efêmera não afasta a incidência da Lei Maria da Penha.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "ambito_de_aplicacao_e_relacao_intima_de_afeto"
+      ]
     },
     {
       "id": "STJ-AGRG-ARESP-2330912-DF",
@@ -792,7 +1166,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A aproximação do agressor com o consentimento livre e espontâneo da vítima pode tornar atípica a conduta do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "STJ-AGRG-HC-860073-SC",
@@ -809,7 +1191,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O consentimento da ofendida não afasta a tipicidade do crime de descumprimento de medida protetiva de urgência (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "STJ-HC-437535-SP",
@@ -826,7 +1216,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A prática da contravenção penal de vias de fato no contexto de violência doméstica contra a mulher não justifica a decretação de prisão preventiva.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "prisao_preventiva"
+      ]
     },
     {
       "id": "STJ-CC-190666-MG",
@@ -843,7 +1241,17 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O juízo do domicílio da vítima é competente para apreciar o pedido de medida protetiva de urgência, ainda que o fato tenha ocorrido em outro local, sem alterar a competência para a futura ação penal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "medida_protetiva",
+        "competencia"
+      ]
     },
     {
       "id": "STJ-RESP-1977124-SP",
@@ -860,7 +1268,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A Lei Maria da Penha aplica-se às mulheres trans em situação de violência doméstica e familiar, afastado o critério exclusivamente biológico para definição da proteção legal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "identidade_de_genero_e_tutela_protetiva_da_mulher_trans"
+      ]
     },
     {
       "id": "STJ-INFO-860-MPU-RISCO",
@@ -877,7 +1293,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A manutenção das medidas protetivas de urgência depende da persistência da situação de risco à mulher, e não da ocorrência de novos fatos delituosos; exigir da vítima nova prova inverte indevidamente o ônus probatório.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "STF-MI-7452-DF",
@@ -894,7 +1318,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A Lei Maria da Penha aplica-se, por analogia, a casais homoafetivos do sexo masculino e a mulheres travestis ou transexuais nas relações intrafamiliares (observar o Enunciado 78 FONAVID quanto à competência).",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "STF-ADI-6138-DF",
@@ -911,7 +1343,15 @@
         "status": "verificado",
         "fonte_url": "https://pc.sc.gov.br/wp-content/uploads/2026/05/atualizacao-de-jurisprudencia-Lei-11.340.2006.pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É constitucional o art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "constitucionalidade_do_art._12-c_da_lmp_e_afastamento_do_lar"
+      ]
     },
     {
       "id": "ENUNCIADO-01-FONAVID",
@@ -928,7 +1368,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Para incidência da Lei Maria da Penha, não importa o período de relacionamento entre a mulher em situação de violência e a pessoa autora de violências, nem o tempo decorrido desde o seu rompimento, bastando que reste comprovado que a violência decorreu da relação de afeto.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "ambito_temporal_e_vinculo_de_afeto"
+      ]
     },
     {
       "id": "ENUNCIADO-03-FONAVID",
@@ -945,7 +1393,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A competência cível dos Juizados de Violência Doméstica e Familiar contra a Mulher é restrita às medidas protetivas de urgência previstas na Lei Maria da Penha, devendo as ações cíveis e as de Direito de Família ser processadas e julgadas pelas varas cíveis e de família, respectivamente.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva",
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-04-FONAVID",
@@ -962,7 +1419,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A audiência prevista no artigo 16 da Lei 11.340/2006 é cabível apenas nos casos de ação penal pública condicionada à representação, desde que haja manifestação expressa de retratação da mulher em situação de violência.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal"
+      ]
     },
     {
       "id": "ENUNCIADO-07-FONAVID",
@@ -979,7 +1444,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Presentes os requisitos legais, é possível a aplicação do Sursis de que trata o artigo 77 do Código Penal aos crimes praticados no contexto de violência doméstica e familiar contra a mulher.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "suspensao_condicional"
+      ]
     },
     {
       "id": "ENUNCIADO-11-FONAVID",
@@ -996,7 +1469,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A multa pecuniária poderá ser fixada a fim de assegurar a eficácia das medidas protetivas de urgência, sem prejuízo da configuração do crime previsto no artigo 24-A da Lei 11.340/2006.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-19-FONAVID",
@@ -1013,7 +1494,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O não comparecimento da mulher em situação de violência à audiência prevista no artigo 16 da Lei 11.340/2006 tem como consequência o prosseguimento do feito.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "art._16_da_lei_maria_da_penha_e_prosseguimento_da_acao"
+      ]
     },
     {
       "id": "ENUNCIADO-20-FONAVID",
@@ -1030,7 +1519,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O registro do boletim de ocorrência pela mulher em situação de violência deve ser considerado representação, se não houver manifestação expressa desta em sentido contrário.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal"
+      ]
     },
     {
       "id": "ENUNCIADO-21-FONAVID",
@@ -1047,7 +1544,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A competência para apreciar os recursos contra as decisões proferidas pelos Juizados de Violência Doméstica contra a Mulher é dos Tribunais de Justiça, independentemente da pena.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-22-FONAVID",
@@ -1064,7 +1569,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A decretação da prisão preventiva, ainda que decorrente da conversão da prisão em flagrante, independe de prévia manifestação do Ministério Público.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "prisao_preventiva"
+      ]
     },
     {
       "id": "ENUNCIADO-24-FONAVID",
@@ -1081,7 +1594,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A competência do Juizado da Violência Doméstica e Familiar contra a Mulher restringe-se às violências baseadas no gênero, na forma dos artigos 5° e 7° da Lei Maria da Penha e do artigo 1° da Convenção de Belém do Pará, não sendo suficiente que a mulher em situação de violência seja do gênero feminino.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-25-FONAVID",
@@ -1098,7 +1619,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As normas de tutela de direitos humanos das mulheres e o Protocolo para Julgamento com Perspectiva de gênero não se restringem aos Juizados de Violência Doméstica e Familiar contra a Mulher.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "perspectiva_de_genero",
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-26-FONAVID",
@@ -1115,7 +1645,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A juíza ou o juiz poderá determinar medida protetiva de urgência que obrigue a pessoa autora de violências a comparecer a atendimento psicossocial e pedagógico, como prática de enfrentamento da violência doméstica e familiar contra as mulheres.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-29-FONAVID",
@@ -1132,7 +1670,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A prisão cautelar da pessoa autora de violências independentemente de concessão ou descumprimento de medida protetiva é possível, inclusive de ofício, a fim de assegurar a integridade física e/ou psicológica da ofendida.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-31-FONAVID",
@@ -1149,7 +1695,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As medidas protetivas de urgência, previstas na Lei Maria da Penha, são aplicáveis nas Varas do Tribunal do Júri.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-36-FONAVID",
@@ -1166,7 +1720,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Poderá ser utilizado mecanismo compulsório de controle eletrônico em desfavor da pessoa autora de violências para a garantia do cumprimento das medidas protetivas de urgência.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-38-FONAVID",
@@ -1183,7 +1745,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Quando da audiência de custódia, e sendo deferida a liberdade provisória à pessoa autora de violências, a juíza ou o juiz deverá avaliar a hipótese de deferimento das medidas protetivas de urgência previstas na Lei 11.340/2006.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-39-FONAVID",
@@ -1200,7 +1770,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A qualificadora do feminicídio, nos termos do artigo 121, §2°A, I e II, do Código Penal (redação anterior à Lei 14.994/2024), é de natureza objetiva, dispensando qualquer valoração específica.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "feminicidio_e_qualificadora_objetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-42-FONAVID",
@@ -1217,7 +1795,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É cabível a intimação com hora certa de medidas protetivas de urgência, em analogia à citação com hora certa (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-43-FONAVID",
@@ -1234,7 +1820,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Esgotadas todas as possibilidades de intimação pessoal, será cabível a intimação por edital das decisões de medidas protetivas de urgência.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-45-FONAVID",
@@ -1251,7 +1845,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As medidas protetivas de urgência previstas na Lei 11.340/2006 podem ser deferidas de forma autônoma, apenas com base na palavra da mulher em situação de violência, quando ausentes outros elementos probantes nos autos.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "palavra_da_vitima",
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-46-FONAVID",
@@ -1268,7 +1871,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A Lei 11.340/2006 se aplica às mulheres trans, independentemente de alteração registral do nome e de cirurgia de redesignação sexual, sempre que configuradas as hipóteses do artigo 5° da Lei 11.340/2006.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "identidade_de_genero_e_tutela_de_mulheres_trans"
+      ]
     },
     {
       "id": "ENUNCIADO-47-FONAVID",
@@ -1285,7 +1896,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A plenitude da defesa no júri deve observar normativas e documentos nacionais e internacionais de direitos humanos das mulheres, bem como a jurisprudência dos Sistemas Global e Regional de Direitos Humanos, cabendo à juíza ou ao juiz presidente impedir perguntas e/ou argumentos ofensivos à dignidade da mulher.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "tribunal_do_juri_e_dignidade_da_mulher"
+      ]
     },
     {
       "id": "ENUNCIADO-48-FONAVID",
@@ -1302,7 +1921,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A competência para processar e julgar o crime de descumprimento de medidas protetivas de urgência previsto no art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva",
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-51-FONAVID",
@@ -1319,7 +1947,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O artigo 20 da Lei Maria da Penha não foi revogado tacitamente pelas modificações do Código de Processo Penal, ante o princípio da especialidade.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "prisao_preventiva"
+      ]
     },
     {
       "id": "ENUNCIADO-37-FONAVID",
@@ -1336,7 +1972,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A concessão da medida protetiva de urgência não está condicionada à existência de fato que configure, em tese, ilícito penal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "acao_penal",
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-50-FONAVID",
@@ -1353,7 +1998,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Deve ser respeitada a vontade da mulher em situação de violência de não se expressar durante seu depoimento em juízo, após devidamente informada dos seus direitos.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "garantias_processuais_da_vitima_e_direito_ao_silencio"
+      ]
     },
     {
       "id": "ENUNCIADO-52-FONAVID",
@@ -1370,7 +2023,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A aplicação do Formulário Nacional de Avaliação de Risco poderá ser articulada pela juíza ou juiz junto com a Rede de Enfrentamento e de Atendimento às mulheres em situação de violência, com o apoio da respectiva Coordenadoria da Violência Doméstica.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "formulario_nacional_de_risco_(fonar)_e_rede_de_protecao"
+      ]
     },
     {
       "id": "ENUNCIADO-54-FONAVID",
@@ -1387,7 +2048,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As Medidas Protetivas de Urgência deverão ser analisadas independentemente do preenchimento do Formulário Nacional de Avaliação de Risco, o qual deverá ser aplicado, preferencialmente, pela Polícia Civil, no momento do registro da ocorrência policial, visando a celeridade dos encaminhamentos da mulher em situação de violência para a rede de proteção.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-57-FONAVID",
@@ -1404,7 +2073,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O depoimento especial, previsto na Lei 13.431/2017, poderá ser utilizado para a escuta da mulher diante da gravidade das diversas formas de violência doméstica e familiar, a fim de preservar a dignidade da pessoa humana e evitar retraumatizações, em conformidade à Resolução 492/2023, do Conselho Nacional de Justiça.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "perspectiva_de_genero"
+      ]
     },
     {
       "id": "ENUNCIADO-58-FONAVID",
@@ -1421,7 +2098,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O exame pericial não é necessário para a prova do dano emocional do crime de violência psicológica, descrito no artigo 147-B do Código Penal.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "violencia_psicologica"
+      ]
     },
     {
       "id": "ENUNCIADO-59-FONAVID",
@@ -1438,7 +2123,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A violência praticada contra a mulher na presença das filhas e filhos pode ser valorada como circunstância judicial desfavorável no momento de fixação da pena base (artigo 59 do Código Penal).",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "ENUNCIADO-60-FONAVID",
@@ -1455,7 +2148,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O artigo 217 do CPP deve ser aplicado sob a perspectiva de gênero, em audiências presenciais ou por videoconferência, assegurando-se que mulheres em situação de violência e testemunhas possam ser ouvidas sem a presença do réu, observada a participação da Defesa Técnica.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "perspectiva_de_genero"
+      ]
     },
     {
       "id": "ENUNCIADO-61-FONAVID",
@@ -1472,7 +2173,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O ciúme e o sentimento de posse da pessoa autora de violências sobre a mulher em situação de violência, em contexto de violência doméstica e familiar, são elementos que podem ser valorados como circunstâncias judiciais desfavoráveis no momento de fixação da pena base (artigo 59 do Código Penal).",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "ENUNCIADO-64-FONAVID",
@@ -1489,7 +2198,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O arquivamento do inquérito policial ou a absolvição da pessoa autora de violência não é requisito determinante para a revogação das medidas protetivas de urgência, ante a sua natureza autônoma, observada a existência de fatores de risco que justifiquem a sua manutenção.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-70-FONAVID",
@@ -1506,7 +2223,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Caso a mulher em situação de violência, devidamente intimada, deixe de comparecer na audiência, é recomendada a realização de diligências a fim de verificar o motivo da ausência, atentando-se para o princípio da autonomia da vontade da ofendida e eventuais riscos de revitimização.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "instrucao_processual_e_autonomia_da_vitima"
+      ]
     },
     {
       "id": "ENUNCIADO-71-FONAVID",
@@ -1523,7 +2248,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A assistência jurídica qualificada é direito das mulheres em situação de violência e de vítimas diretas e indiretas de feminicídio, abrangendo a formulação de perguntas e participação ativa no processo, inclusive com direito a sustentação em plenário do júri, conforme previsto nos artigos 27 e 28 da Lei 11.340/2006 e Recomendação 33 da CEDAW, em obediência ao critério da diligência devida.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "assistencia_juridica_qualificada_e_direitos_da_vitima"
+      ]
     },
     {
       "id": "ENUNCIADO-72-FONAVID",
@@ -1540,7 +2273,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As relações íntimas de afeto mantidas no âmbito das redes sociais ou qualquer outro meio virtual, ainda que sem contato físico, estão protegidas pela Lei Maria da Penha.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "ambito_de_aplicacao_e_violencia_em_meio_virtual"
+      ]
     },
     {
       "id": "ENUNCIADO-74-FONAVID",
@@ -1557,7 +2298,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A configuração da materialidade do crime de lesão à saúde mental previsto no artigo 129 do Código Penal dependerá de perícia psicológica ou psiquiátrica, que deverá ser realizada com perspectiva de gênero.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "perspectiva_de_genero",
+        "lesao_corporal"
+      ]
     },
     {
       "id": "ENUNCIADO-76-FONAVID",
@@ -1574,7 +2324,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A revogação de medidas protetivas de urgência não implicará na automática revogação da que determina a participação em grupos reflexivos e responsabilizantes de homens autores de violência (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-78-FONAVID",
@@ -1591,7 +2349,16 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A apreciação das medidas protetivas de urgência requeridas por casais homoafetivos do gênero masculino compete às varas criminais, cíveis, família, juizados especiais criminais, varas de tribunais do júri, a depender da natureza da demanda e das normas de organização judiciária.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva",
+        "competencia"
+      ]
     },
     {
       "id": "ENUNCIADO-79-FONAVID",
@@ -1608,7 +2375,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As medidas protetivas de urgência somente poderão ser revogadas, após oportunizada a prévia e facilitada manifestação da mulher em situação de violência, garantida a assistência jurídica qualificada e a intervenção do Ministério Público, nos termos dos artigos 25, 27 e 28 da Lei Maria da Penha.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-80-FONAVID",
@@ -1625,7 +2400,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Configura violência processual de gênero o uso instrumentalizado, reiterado, protelatório ou abusivo do sistema jurídico, com o fim de retaliar, punir, silenciar, desgastar, descredibilizar, fragilizar ou sobrecarregar a mulher em situação de violência doméstica e familiar, causar sofrimento físico e/ou psíquico ou prejuízo financeiro, devendo tal prática ser considerada na análise do risco, para aplicação ou manutenção das medidas protetivas de urgência, com imediata comunicação aos juízos das respectivas demandas.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "ENUNCIADO-81-FONAVID",
@@ -1642,7 +2425,15 @@
         "status": "verificado",
         "fonte_url": "https://www.tjpr.jus.br/documents/d/cevid/fonavid_enunciados_atualizados_xviifonavid-1-pdf",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Na decisão condenatória devem constar orientações às partes acerca de como proceder à execução/pagamento da quantia referente à reparação dos danos causados pela infração, prevista no artigo 387, IV, do CPP.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos"
+      ]
     },
     {
       "id": "SUMULA-54-STJ",
@@ -1660,7 +2451,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Os juros moratórios fluem a partir do evento danoso, em caso de responsabilidade extracontratual.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos"
+      ]
     },
     {
       "id": "SUMULA-362-STJ",
@@ -1678,7 +2477,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A correção monetária do valor da indenização do dano moral incide desde a data do arbitramento.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "reparacao_danos"
+      ]
     },
     {
       "id": "TEMA-585-STJ",
@@ -1695,7 +2502,15 @@
         "status": "verificado",
         "fonte_url": "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=585&cod_tema_final=585",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "É possível, na segunda fase da dosimetria da pena, a compensação integral da atenuante da confissão espontânea com a agravante da reincidência, seja ela específica ou não.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "SUMULA-497-STF",
@@ -1712,7 +2527,15 @@
         "status": "verificado",
         "fonte_url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=jurisprudenciaSumula",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "Quando se tratar de crime continuado, a prescrição regula-se pela pena imposta na sentença, não se computando o acréscimo decorrente da continuação.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "prescricao"
+      ]
     },
     {
       "id": "SUMULA-659-STJ",
@@ -1729,7 +2552,15 @@
         "status": "verificado",
         "fonte_url": "https://www.stj.jus.br/sites/portalp/Jurisprudencia/Sumulas",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A fração de aumento em razão da prática de crime continuado deve ser fixada de acordo com o número de delitos cometidos, aplicando-se 1/6 pela prática de duas infrações, 1/5 para três, 1/4 para quatro, 1/3 para cinco, 1/2 para seis e 2/3 para sete ou mais infrações.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "SUMULA-636-STJ",
@@ -1747,7 +2578,15 @@
         "status": "verificado",
         "fonte_url": "https://scon.stj.jus.br/SCON/sumstj/toc.jsp?sumula=636.num.",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A folha de antecedentes criminais é documento suficiente a comprovar os maus antecedentes e a reincidência.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "TEMA-129-STF",
@@ -1765,7 +2604,15 @@
         "status": "verificado",
         "fonte_url": "https://noticias.stf.jus.br/?p=36083",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A existência de inquéritos policiais ou de ações penais sem trânsito em julgado não pode ser considerada como maus antecedentes para fins de dosimetria da pena.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria"
+      ]
     },
     {
       "id": "TJRN-1G-INSUFICIENCIA-PROBATORIA",
@@ -1783,7 +2630,15 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "O in dubio pro reo é afastado quando a palavra da vítima encontra corroboração.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "palavra_da_vitima"
+      ]
     },
     {
       "id": "TJRN-1G-EMBRIAGUEZ-VOLUNTARIA",
@@ -1801,7 +2656,15 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A embriaguez voluntária não exclui a imputabilidade (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "imputabilidade_penal"
+      ]
     },
     {
       "id": "TJRN-1G-DESCLASSIFICACAO",
@@ -1819,7 +2682,15 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As sentenças examinam os pedidos de desclassificação à luz da prova pericial, como na passagem do § 13 para o § 9º do art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "lesao_corporal"
+      ]
     },
     {
       "id": "TJRN-1G-BIS-IN-IDEM",
@@ -1837,7 +2708,16 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "A motivação de gênero já contida na qualificadora (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "dosimetria",
+        "lesao_corporal"
+      ]
     },
     {
       "id": "TJRN-1G-CIENCIA-MPU",
@@ -1855,7 +2735,15 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As sentenças examinadas exigem prova de ciência inequívoca da medida protetiva mediante intimação pessoal anterior ao fato.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "medida_protetiva"
+      ]
     },
     {
       "id": "TJRN-1G-CONCURSO-MATERIAL",
@@ -1873,7 +2761,15 @@
         "status": "verificado",
         "fonte_url": "https://jurisprudencia.tjrn.jus.br/",
         "conferido_em": "2026-11-21"
-      }
+      },
+      "proposicao_juridica": "As sentenças aplicam o concurso material e somam as penas quando ameaça e dano ou lesão e ameaça decorrem de condutas autônomas (art.",
+      "proposicao_origem": "primeira_frase",
+      "recorte_fatico": "",
+      "vigencia": "nao_verificada",
+      "data_revisao": "2026-11-21",
+      "questoes_juridicas": [
+        "concurso_de_crimes_(art._69_do_cp)"
+      ]
     }
   ],
   "doutrina": [

@@ -52,8 +52,14 @@ def test_depoimentos_divergentes_mantem_trechos_literais_e_conclusao_do_juizo():
     trecho_a = "Eu ouvi duas frases em 2024-01-15."
     trecho_b = "Eu ouvi apenas uma frase."
     bundle["transcriptions"] += [
-        {"media_id": "ID-MIDIA-FICTICIO-A", "segmentos": [{"texto_literal": trecho_a}]},
-        {"media_id": "ID-MIDIA-FICTICIO-B", "segmentos": [{"texto": trecho_b}]},
+        {"media_id": "ID-MIDIA-FICTICIO-A", "segmentos": [{
+            "texto_literal": trecho_a, "papel_segmento": "OFENDIDA", "papel_estado": "CONFIRMADO",
+            "papel_confirmado": True,
+        }]},
+        {"media_id": "ID-MIDIA-FICTICIO-B", "segmentos": [{
+            "texto": trecho_b, "papel_segmento": "TESTEMUNHA_DEFESA", "papel_estado": "CONFIRMADO",
+            "papel_confirmado": True,
+        }]},
     ]
     registro = _registro(
         "promessa_mal_grave", "indeterminado", "Os depoimentos divergem sobre o ponto em análise.",
@@ -117,7 +123,7 @@ def test_script_e_importacao_nao_substituem_registros_por_suposicao():
     assert "merito" in telemetria["secoes_fallback"]
 
 
-def test_seccional_mantem_merito_e_dispositivo_deterministicos(monkeypatch):
+def test_seccional_mantem_secoes_decisorias_deterministicas(monkeypatch):
     bundle = _cenario(1)
     override = _veredictos(bundle)
     motor = SectionalPipelineEngine(use_ollama=True)
@@ -131,6 +137,16 @@ def test_seccional_mantem_merito_e_dispositivo_deterministicos(monkeypatch):
     monkeypatch.setattr("app.generation.sectional_pipeline.resolver_modelo_ollama", lambda: {})
     sentenca = motor.executar_pipeline(bundle, custom_dosimetria_override=override)
     base = gerar_sentenca_estruturada(bundle, override, use_ollama_if_available=False)
-    assert set(chamadas) == {SecaoTipo.RELATORIO, SecaoTipo.PRELIMINARES, SecaoTipo.DOSIMETRIA}
+    assert set(chamadas) == {SecaoTipo.RELATORIO, SecaoTipo.PRELIMINARES}
+    assert sentenca.secao_dosimetria == base.secao_dosimetria
     assert sentenca.secao_merito == base.secao_merito
     assert sentenca.secao_dispositivo == base.secao_dispositivo
+
+
+@pytest.mark.parametrize("elemento", ["materialidade", "autoria"])
+def test_veredicto_condenatorio_rejeita_negativa_de_elemento_comum(elemento):
+    bundle = _cenario(1)
+    override = _config(bundle, "art_147_cp", _registro(elemento, "nao_provado", "Prova fictícia insuficiente."))
+    with pytest.raises(DadosInsuficientesError, match="veredicto condenatório") as excinfo:
+        calcular_secoes_deterministicas(bundle, override)
+    assert any(campo.endswith("." + elemento) for campo in excinfo.value.campos)

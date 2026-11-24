@@ -86,7 +86,11 @@ from pydantic import BaseModel, Field
 from app.core.text_utils import normalizar, remover_acentos
 from app.generation.adversarial_critic import repudio_explicito_honra, tese_vedada_honra, violacao_vedacao_honra
 from app.generation.date_formatter import numero_por_extenso
-from app.generation.dispositivo import ComandosDispositivo, construir_comandos_dispositivo
+from app.generation.dispositivo import (
+    ComandosDispositivo,
+    construir_comandos_dispositivo,
+    verificar_decisoes_acessorias,
+)
 from app.legal_engine.dosimetria_calculator import formatar_especie_pena
 from app.ingestion.laya_classifier import PecaClassificada, TeseDefensivaItem
 from app.knowledge.knowledge_base import get_all_knowledge_base, versao_acervo
@@ -108,6 +112,7 @@ class RelatorioAuditoriaSentenca(BaseModel):
     citacoes_nao_autorizadas: List[str]
     teses_defesa_enfrentadas: List[str]
     teses_omitidas: List[str]
+    teses_pendentes: List[str] = Field(default_factory=list)
     conformidade_art381_cpp: bool
     conformidade_art21_lmp: bool
     conformidade_lc95_98: bool
@@ -147,6 +152,7 @@ class RelatorioAuditoriaSecao(BaseModel):
     citacoes_nao_autorizadas: List[str] = Field(default_factory=list)
     citacoes_juridicas_verificadas: List[str] = Field(default_factory=list)
     teses_omitidas: List[str] = Field(default_factory=list)
+    teses_pendentes: List[str] = Field(default_factory=list)
     teses_defesa_enfrentadas: List[str] = Field(default_factory=list)
     conformidade_art381_cpp: bool = True
     conformidade_art21_lmp: bool = True
@@ -1010,6 +1016,9 @@ def _verificar_penas_dispositivo(
         mensagem = "A referência de dosimetria contém comandos inválidos e deve ser recalculada."
         return "PENDENTE", [mensagem], mensagem
     divergencias = verificar_comandos_dispositivo(m_disp.group(1), comandos)
+    acessorias = dosimetria_dados.get("decisoes_acessorias")
+    if isinstance(acessorias, dict):
+        divergencias.extend(verificar_decisoes_acessorias(texto_sentenca[:m_disp.start()], m_disp.group(1), acessorias))
     if divergencias:
         return "REPROVADO", divergencias, f"{len(divergencias)} divergência(s) entre o dispositivo e os comandos calculados."
     return "APROVADO", [], "Comandos e penas do dispositivo conferidos com a dosimetria calculada."
@@ -1199,12 +1208,17 @@ class _TeseAuditavel:
     titulo: str
     tipo: str  # PRELIMINAR | MERITO | SUBSIDIARIA
     descricao: str
+    id_imputacao: str = ""
+    numero_fato: str = ""
+    fonte_id: str = ""
+    ordem: int = 0
 
     @property
     def referencia(self) -> str:
-        if self.codigo:
-            return f"{self.codigo} — {self.titulo}" if self.titulo else self.codigo
-        return self.titulo or "tese sem código"
+        texto = " — ".join(parte for parte in (self.codigo, self.titulo) if parte) or "tese sem código"
+        vinculo = f" · Fato {self.numero_fato}" if self.numero_fato else ""
+        fonte = f" · {self.fonte_id}, ocorrência {self.ordem}" if self.fonte_id and self.ordem else ""
+        return texto + vinculo + fonte
 
 
 _STOPWORDS_TESE = {
@@ -1300,9 +1314,17 @@ def _normalizar_teses(teses_defesa: Optional[Iterable[Any]]) -> List[_TeseAudita
         if not (codigo or titulo):
             continue
         tipo = _normalizar_tipo_tese(tipo_bruto, codigo, titulo)
-        normalizadas.append(
-            _TeseAuditavel(codigo=codigo, titulo=titulo, tipo=tipo, descricao=descricao)
-        )
+        dados = item if isinstance(item, dict) else {
+            campo: getattr(item, campo, "") for campo in ("id_imputacao", "numero_fato", "fonte_id", "ordem")
+        }
+        ordem = dados.get("ordem")
+        normalizadas.append(_TeseAuditavel(
+            codigo=codigo, titulo=titulo, tipo=tipo, descricao=descricao,
+            id_imputacao=str(dados.get("id_imputacao") or ""),
+            numero_fato=str(dados.get("numero_fato") or ""),
+            fonte_id=str(dados.get("fonte_id") or ""),
+            ordem=ordem if isinstance(ordem, int) else 0,
+        ))
     return normalizadas
 
 
@@ -1313,10 +1335,9 @@ def _tokens_significativos(texto: str) -> List[str]:
     return unicos
 
 
-def _tese_linha_enfrentada(texto: str, texto_norm: str, tese: _TeseAuditavel) -> bool:
+def _identificar_tese(texto: str, texto_norm: str, tese: _TeseAuditavel) -> bool:
     """
-    Confronto determinístico de enfrentamento de tese: código formal, prefixo do título,
-    sobreposição de tokens significativos e sinônimos forenses conhecidos.
+    Identifica o assunto pelo código, título ou sinônimos. A apreciação é verificada separadamente.
     """
     if tese.tipo == "VEDADA":
         return repudio_explicito_honra(texto)
@@ -1393,24 +1414,148 @@ def _filtrar_teses_aplicaveis_secao(
     return []
 
 
+_CONCLUSAO_TESE = re.compile(
+    r"\b(?:rejeit(?:o|a-se|ad[ao])|acolh(?:o|e-se|id[ao])|desacolh(?:o|e-se|id[ao])|"
+    r"afasto|reconheco|declaro|absolvo|condeno|fixo|nego|defiro|indefiro|mantenho|"
+    r"inacolhivel|inadmissivel|descabid[ao]|nao (?:prospera|merece acolhi(?:da|mento)|assiste razao)|"
+    r"assiste razao|julgo (?:procedente|improcedente|prejudicad[ao])|"
+    r"resta (?:afastad[ao]|prejudicad[ao]|superad[ao])|prejudicada a analise|impoe-se (?:sua|a) rejeicao)\b"
+)
+_MOTIVO_TESE = re.compile(
+    r"\b(?:porque|pois|porquanto|pelos seguintes motivos|haja vista|tendo em vista|uma vez que|"
+    r"considerando|diante d[aeo]|em razao d[aeo]|por se tratar|em face d[aeo]|"
+    r"por falta d[aeo]|visto que|se deve a|devendo)\b"
+)
+_MOTIVO_AUTONOMO = re.compile(
+    r"\b(?:denuncia|peca acusatoria|provas?|depoimento|documentos?|laudos?|elementos|medida|"
+    r"decisao|acusado|reu|palavra da ofendida|tipo penal|conduta|fato|valoracao|pena|substituicao|atenuante|revelia|confissao)\b"
+    r"(?:[^.;\n]|\.(?=\s*\d)){0,125}\b(?:descrev\w*|expoe|atend\w*|comprov\w*|atest\w*|demonstr\w*|"
+    r"preench\w*|possu\w*|manteve-se|permit\w*|evidenci\w*|corrobor\w*|exig\w*|imped\w*|decorre\w*|nao ger\w*|"
+    r"foi (?:revogad[ao]|reconhecid[ao])|inviabiliz\w*)\b"
+)
+_RELATO_TESE = re.compile(
+    r"\b(?:defesa|acusacao|ministerio publico|promotor|defensor|recorrente)\b"
+    r"[^.!?;]{0,100}\b(?:sustent\w*|aleg\w*|requer\w*|pugn\w*|pedi\w*|postul\w*|pleitei\w*|argu\w*)\b"
+)
+_MOTIVO_GENERICO = re.compile(
+    r"^\s*(?:[oa]s? )?(?:elementos|provas|documentos|argumentos|consta|se extrai|se verifica|disposto)"
+    r"\s+(?:constantes |existentes |acima |ja |nos termos da lei )?(?:d[oa]s? |n[oa]s? )?"
+    r"(?:autos|processo|legislacao|lei)[.!]?\s*$"
+)
+_MARCADOR_TESE = re.compile(r"\[COMPLETAR PELO JU[IÍ]ZO:[^\]]+\]", flags=re.IGNORECASE)
+_SECOES_APRECIACAO = (
+    ("fora", r"(?:I\s*[-–—]\s*)?RELATORIO\b|(?:III|IV)\s*[-–—]\s*DISPOSITIVO\b|DISPOSITIVO\s*$"),
+    ("preliminares", r"(?:II\s*[-–—]\s*)?FUNDAMENTACAO\s*$|(?:1\.\s*)?(?:DAS?\s+QUESTOES\s+)?PRELIMINARES\b"),
+    ("merito", r"(?:2\.\s*)?(?:DO\s+)?MERITO\b"),
+    ("dosimetria", r"(?:(?:\d+(?:\.\d+)*\.?\s+|III\s*[-–—]\s*)?(?:DA\s+)?)DOSIMETRIA(?:\s+DA\s+PENA|\s+TRIFASICA|$)\b"),
+)
+
+
+def _secoes_para_apreciacao(texto: str) -> dict[str, str]:
+    partes: dict[str, list[str]] = {}
+    nome = "fora"
+    for linha in texto.splitlines():
+        normalizada = _remover_acentos(linha).strip()
+        nome = next(
+            (secao for secao, padrao in _SECOES_APRECIACAO if re.match(padrao, normalizada, re.IGNORECASE)), nome,
+        )
+        partes.setdefault(nome, []).append(linha)
+    return {secao: "\n".join(linhas) for secao, linhas in partes.items()}
+
+
+def _alcance_compativel(tese: _TeseAuditavel, texto: str) -> bool:
+    if tese.numero_fato:
+        return bool(re.search(rf"\bfato\s*(?:n[ºo.]?\s*)?{re.escape(tese.numero_fato)}\b", texto)) or (
+            bool(tese.id_imputacao) and tese.id_imputacao.lower() in texto
+        )
+    return not tese.id_imputacao or tese.id_imputacao.lower() in texto
+
+
+def _tem_motivo(texto: str) -> bool:
+    for causal in _MOTIVO_TESE.finditer(texto):
+        razao = texto[causal.end():].split("\n", 1)[0].strip(" ,;")
+        if len(_tokens_significativos(razao)) >= 2 and not _MOTIVO_GENERICO.fullmatch(razao):
+            return True
+    return bool(_MOTIVO_AUTONOMO.search(texto))
+
+
+_FRASES_APRECIACAO = re.compile(r"(?<!\d\.)(?<!\bart\.)(?<!\bfls\.)(?<=[.!?])\s+|\n+")
+_RETOMADA = re.compile(r"\b(?:(?:a|essa|esta) (?:tese|preliminar|alegacao|pretensao)|sua rejeicao)\b")
+_CODIGO_TESE = re.compile(r"\b(?:prel|mer|sub|ved)-\d+\b")
+
+
+def _conclusao_motivada(texto: str, tese: _TeseAuditavel) -> bool:
+    frases = [frase.strip() for frase in _FRASES_APRECIACAO.split(texto) if frase.strip()]
+    primeira_linha = texto.split("\n", 1)[0]
+    titulo_ancora = primeira_linha.endswith(":") and _identificar_tese(primeira_linha, primeira_linha, tese)
+    anterior_identifica = False
+    for indice, frase in enumerate(frases):
+        identifica = _identificar_tese(frase, frase, tese)
+        codigos = set(_CODIGO_TESE.findall(frase))
+        objeto = identifica or ((anterior_identifica or titulo_ancora) and _RETOMADA.search(frase))
+        anterior_identifica = identifica
+        if not objeto or (codigos and tese.codigo and tese.codigo.lower() not in codigos):
+            continue
+        for conclusao in _CONCLUSAO_TESE.finditer(frase):
+            antes = frase[:conclusao.start()]
+            if _RELATO_TESE.search(antes):
+                continue
+            depois = frase[conclusao.end():]
+            if _tem_motivo(depois) or _tem_motivo(antes):
+                return True
+            if indice + 1 < len(frases):
+                proxima = frases[indice + 1]
+                if not _CONCLUSAO_TESE.match(proxima) and _tem_motivo(proxima):
+                    return True
+    return False
+
+
+def _avaliar_apreciacao(texto: str, tese: _TeseAuditavel) -> str:
+    """Distingue apreciação, pendência sinalizada, menção isolada e omissão na seção."""
+    if tese.tipo == "VEDADA":
+        return "apreciada" if repudio_explicito_honra(texto) else "omitida"
+
+    mencao = False
+    pendencia = False
+    blocos = [bloco.strip() for bloco in re.split(r"\n[ \t]*\n", texto) if bloco.strip()]
+    for indice, bloco in enumerate(blocos):
+        candidato = bloco
+        if bloco.rstrip().endswith(":") and indice + 1 < len(blocos):
+            candidato += "\n" + blocos[indice + 1]
+        norm = _remover_acentos(candidato).lower()
+        if not _identificar_tese(candidato, norm, tese) or not _alcance_compativel(tese, norm):
+            continue
+        mencao = True
+        if any(
+            _identificar_tese(m.group(0), _remover_acentos(m.group(0)).lower(), tese)
+            for m in _MARCADOR_TESE.finditer(candidato)
+        ):
+            pendencia = True
+        decisorio = _remover_acentos(_MARCADOR_TESE.sub("", candidato)).lower()
+        if _tese_com_evasiva(decisorio, tese):
+            continue
+        if _conclusao_motivada(decisorio, tese):
+            return "apreciada"
+    if pendencia:
+        return "pendente"
+    return "mencionada" if mencao else "omitida"
+
+
 def _auditar_teses_seccionais(
     texto: str,
     teses_aplicaveis: Sequence[_TeseAuditavel],
-) -> Tuple[List[str], List[str]]:
-    """Confronta as teses aplicáveis contra o texto seccional (Camada 3)."""
-    texto_norm = _remover_acentos(texto or "").lower()
-    enfrentadas: List[str] = []
+) -> Tuple[List[str], List[str], List[str]]:
+    apreciadas: List[str] = []
     omitidas: List[str] = []
+    pendentes: List[str] = []
+    destinos = {"apreciada": apreciadas, "pendente": pendentes, "mencionada": omitidas, "omitida": omitidas}
+    estados = {}
     for tese in teses_aplicaveis:
-        if not _tese_linha_enfrentada(texto, texto_norm, tese):
-            omitidas.append(tese.referencia)
-            continue
-        evasiva = _tese_com_evasiva(texto_norm, tese)
-        if evasiva:
-            omitidas.append(f"{tese.referencia} (tangenciada por fórmula evasiva: '{evasiva}')")
-        else:
-            enfrentadas.append(tese.referencia)
-    return enfrentadas, omitidas
+        chave = (tese.codigo, tese.titulo, tese.tipo, tese.id_imputacao, tese.numero_fato)
+        if chave not in estados:
+            estados[chave] = _avaliar_apreciacao(texto, tese)
+        destinos[estados[chave]].append(tese.referencia)
+    return apreciadas, omitidas, pendentes
 
 
 # ==============================================================================
@@ -1463,13 +1608,26 @@ def auditar_sentenca(
     # Camada 3: Enfrentamento das Teses da Defesa (Art. 381, III, CPP)
     teses_respondidas: List[str] = []
     teses_omitidas: List[str] = []
-    texto_norm_c3 = _remover_acentos(texto_sentenca).lower()
-    for t_norm in _normalizar_teses(teses_defesa):
-        referencia = f"{t_norm.codigo} — {t_norm.titulo}" if t_norm.codigo else t_norm.referencia
-        if _tese_linha_enfrentada(texto_sentenca, texto_norm_c3, t_norm):
-            teses_respondidas.append(referencia)
-        else:
-            teses_omitidas.append(referencia)
+    teses_pendentes: List[str] = []
+    secoes_teses = _secoes_para_apreciacao(texto_sentenca)
+    normas_teses = _normalizar_teses(teses_defesa)
+    for secao in ("preliminares", "merito", "dosimetria"):
+        trecho = secoes_teses.get(secao, "")
+        aplicaveis = _filtrar_teses_aplicaveis_secao(secao, normas_teses)
+        if secao == "merito" and not trecho and set(secoes_teses) <= {"fora"}:
+            # O ponto de entrada também aceita peças curtas para verificar o repúdio à tese vedada.
+            vedadas = [t for t in aplicaveis if t.tipo == "VEDADA"]
+            ok_honra, faltou_honra, _ = _auditar_teses_seccionais(texto_sentenca, vedadas)
+            teses_respondidas.extend(ok_honra)
+            teses_omitidas.extend(faltou_honra)
+            aplicaveis = [t for t in aplicaveis if t.tipo != "VEDADA"]
+        apreciadas, omitidas, pendentes = _auditar_teses_seccionais(trecho, aplicaveis)
+        teses_respondidas.extend(apreciadas)
+        teses_omitidas.extend(omitidas)
+        teses_pendentes.extend(pendentes)
+
+    total_teses = len(teses_respondidas) + len(teses_omitidas) + len(teses_pendentes)
+    estado_teses = "REPROVADO" if teses_omitidas else "PENDENTE" if teses_pendentes else "APROVADO"
 
     # Camada 4: Conformidade Art. 381 CPP, Art. 21 Lei 11.340/2006, LC 95/1998, ABNT NBR 10520,
     # Padrão de Datas BR e Magistratura (CNJ/AMB)
@@ -1584,8 +1742,8 @@ def auditar_sentenca(
         },
         {
             "camada": "3. Completude de Enfrentamento Defensivo (Art. 381, III, CPP)",
-            "status": "APROVADO" if not teses_omitidas else "OMISSÃO DETECTADA",
-            "descricao": f"{len(teses_respondidas)}/{len(teses_respondidas) + len(teses_omitidas)} preliminares e teses de mérito respondidas individualmente.",
+            "status": estado_teses,
+            "descricao": f"{len(teses_respondidas)}/{total_teses} ocorrências apreciadas.",
         },
         {
             "camada": "4. Padronização Forense, Art. 59 CP, ABNT, Datas e Diretrizes CNJ/AMB",
@@ -1638,9 +1796,9 @@ def auditar_sentenca(
         },
         {
             "verificacao": "teses_defensivas",
-            "status": "APROVADO" if not teses_omitidas else "REPROVADO",
-            "descricao": f"{len(teses_respondidas)} tese(s) enfrentada(s); {len(teses_omitidas)} omitida(s).",
-            "itens": list(teses_omitidas),
+            "status": estado_teses,
+            "descricao": f"{len(teses_respondidas)} apreciada(s), {len(teses_pendentes)} pendente(s), {len(teses_omitidas)} omitida(s).",
+            "itens": [*teses_omitidas, *teses_pendentes],
         },
         {
             "verificacao": "marcadores_completar_pelo_juizo",
@@ -1679,6 +1837,7 @@ def auditar_sentenca(
         citacoes_nao_autorizadas=citacoes_invalidas,
         teses_defesa_enfrentadas=teses_respondidas,
         teses_omitidas=teses_omitidas,
+        teses_pendentes=teses_pendentes,
         conformidade_art381_cpp=conf_art381,
         conformidade_art21_lmp=conf_art21_lmp,
         conformidade_lc95_98=conf_lc95,
@@ -1839,7 +1998,7 @@ def auditar_secao(
     # ------------------------------------------------------------------
     teses_normalizadas = _normalizar_teses(teses_defesa)
     teses_aplicaveis = _filtrar_teses_aplicaveis_secao(secao_nome, teses_normalizadas)
-    teses_enfrentadas, teses_omitidas = _auditar_teses_seccionais(texto, teses_aplicaveis)
+    teses_enfrentadas, teses_omitidas, teses_pendentes = _auditar_teses_seccionais(texto, teses_aplicaveis)
     referencias_vedadas = {t.referencia for t in teses_aplicaveis if t.tipo == "VEDADA"}
     for tese_omitida in teses_omitidas:
         if any(tese_omitida.startswith(ref) for ref in referencias_vedadas):
@@ -1869,9 +2028,12 @@ def auditar_secao(
     detalhes.append(
         {
             "camada": "3. Completude de Enfrentamento Defensivo (Art. 381, III, CPP)",
-            "status": "APROVADO" if (not teses_omitidas and conf_evasiva) else "OMISSÃO DETECTADA",
+            "status": (
+                "OMISSÃO DETECTADA" if teses_omitidas or not conf_evasiva
+                else "PENDENTE" if teses_pendentes else "APROVADO"
+            ),
             "descricao": f"{len(teses_enfrentadas)}/{len(teses_aplicaveis)} teses aplicáveis "
-            f"enfrentadas; {len(teses_omitidas)} omissões; {len(evasivas)} fórmulas evasivas.",
+            f"apreciadas; {len(teses_pendentes)} pendências; {len(teses_omitidas)} omissões; {len(evasivas)} fórmulas evasivas.",
         }
     )
 
@@ -2082,6 +2244,7 @@ def auditar_secao(
         citacoes_nao_autorizadas=citacoes_invalidas,
         citacoes_juridicas_verificadas=citacoes_ok,
         teses_omitidas=teses_omitidas,
+        teses_pendentes=teses_pendentes,
         teses_defesa_enfrentadas=teses_enfrentadas,
         conformidade_art381_cpp=conf_art381,
         conformidade_art21_lmp=conf_art21,

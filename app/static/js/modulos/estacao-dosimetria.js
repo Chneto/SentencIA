@@ -2,7 +2,14 @@ import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, 
 import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.1.0";
 import { handleApiError, postJson } from "./api.js?v=2.1.0";
 import { abrirComplementacao } from "./estacao-analise.js?v=2.1.0";
-import { camposCautelar, camposConclusoes, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.1.0";
+import { camposCautelar, camposConclusoes, dadosCondicoesAcao, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.1.0";
+import { camposPrescricao, ligarRegistroPrescricao, painelPrescricao } from "./registro-prescricao.js?v=2.1.0";
+
+import { camposAntecedentes, dadosAntecedentes, ligarAntecedentes } from "./registro-antecedentes.js?v=2.1.0";
+import { CHAVE_DECISOES_SESSAO, lerRascunhoDecisoes, salvarRascunhoDecisoes } from "./registro-rascunho.js?v=2.1.0";
+
+import { dadosDetracao, montarDetracao } from "./registro-detracao.js?v=2.1.0";
+import { dadosAcessorias } from "./registro-decisoes-acessorias.js?v=2.1.0";
 
 function novoCrimeConfig(code, isDemo) {
   const vetores = {};
@@ -22,7 +29,8 @@ function novoCrimeConfig(code, isDemo) {
     vetores,
     vetores_fundamentacao: {},
     confissao: isDemo && code === "art_24a_lmp" ? "sim" : "auto",
-    reincidente: false,
+    reincidente: "pendente",
+    usos_antecedentes: {},
     agravante_art61f: !!isDemo,
     tentativa_fracao: "",
     dias_multa: "",
@@ -39,46 +47,33 @@ function chaveCaso(c, usarManifesto = true) {
   return `${c.case_id || ""}|${c.is_demo ? "demo" : "real"}|${(c.pecas || []).length}|${ids}`;
 }
 
-const CHAVE_DECISOES_SESSAO = "jvdfm.decisoes.v1";
 let salvarDecisoesTimer = null;
 
 function salvarDecisoesSessao() {
-  try {
-    if (!state.caseKey || !state.crimeConfigs.length) return;
-    sessionStorage.setItem(
-      CHAVE_DECISOES_SESSAO,
-      JSON.stringify({
-        caseKey: state.caseKey,
-        crimeConfigs: state.crimeConfigs,
-        extras: {
-          valor: $("inputValorDanoMoral")?.value || "",
-          dias: $("inputDiasPrisaoCautelar")?.value || "",
-          fracao: $("selFracaoConcurso")?.value || "",
-          menor21: !!$("chkReuMenor21")?.checked,
-          maior70: !!$("chkReuMaior70")?.checked,
-          decisaoCautelar: state.decisaoCautelar,
-        },
-      })
-    );
-  } catch (e) {
-    /* armazenamento indisponivel: segue sem persistir */
-  }
+  if (!state.caseKey || !state.crimeConfigs.length) return;
+  salvarRascunhoDecisoes({
+    caseKey: state.caseKey,
+    crimeConfigs: state.crimeConfigs,
+    extras: {
+      valor: $("inputValorDanoMoral")?.value || "",
+      dias: $("inputDiasPrisaoCautelar")?.value || "",
+      intervalos: dadosDetracao().intervalos_prisao,
+      fracao: $("selFracaoConcurso")?.value || "",
+      menor21: !!$("chkReuMenor21")?.checked,
+      maior70: !!$("chkReuMaior70")?.checked,
+      decisaoCautelar: state.decisaoCautelar,
+    },
+  });
 }
 
-function agendarSalvarDecisoes() {
+function agendarSalvarDecisoes(ev) {
+  if (ev?.target?.closest && ev.target.closest("#sentenceRenderBody")) return;
   clearTimeout(salvarDecisoesTimer);
   salvarDecisoesTimer = setTimeout(salvarDecisoesSessao, 250);
 }
 
 function lerDecisoesSessao(caseKey) {
-  try {
-    const bruto = sessionStorage.getItem(CHAVE_DECISOES_SESSAO);
-    if (!bruto || !caseKey) return null;
-    const d = JSON.parse(bruto);
-    return d && d.caseKey === caseKey && Array.isArray(d.crimeConfigs) ? d : null;
-  } catch (e) {
-    return null;
-  }
+  return lerRascunhoDecisoes(caseKey, state.activeCase);
 }
 
 document.addEventListener("input", agendarSalvarDecisoes);
@@ -129,6 +124,8 @@ function initCrimeConfigsFromCase(caseData, mesmoCaso) {
     const referencia = item.fonte_id ? `${etiqueta} · ${item.fonte_id}` : "";
     return {
       ...inicial, ...anterior,
+      reincidente: anterior?.reincidente === true ? "sim" :
+        (typeof anterior?.reincidente === "string" ? anterior.reincidente : "pendente"),
       // Rascunhos antigos vinham com o aumento marcado. Exija nova confirmação.
       aplicar_aumento_art147a_p1_ii: anterior?.majorante_147a_confirmada === true
         && anterior.aplicar_aumento_art147a_p1_ii === true,
@@ -160,6 +157,10 @@ function initCrimeConfigsFromCase(caseData, mesmoCaso) {
     }
   }
   atualizarHintDanoMoral();
+  if (!mesmoCaso) montarDetracao(caseData, salvas?.extras?.intervalos, () => {
+    agendarSalvarDecisoes();
+    simularAposEdicao();
+  });
   agendarSalvarDecisoes();
 }
 
@@ -326,7 +327,8 @@ function renderDosimetryCrimeTabsAndEditor() {
   const oferecerMajorante24a = codigoEfetivo === "art_24a_lmp" && dataDoFatoConfig(cfg) >= "2026-04-10";
   const majorante = cfg.majorante_art24a_p4 || {};
 
-  const vetoresHtml = VETORES_59_META.map((v) => {
+  const registrosAntecedentes = state.activeCase?.metadados?.registros_antecedentes || [];
+  const vetoresHtml = VETORES_59_META.filter((v) => v.key !== "antecedentes" || !registrosAntecedentes.length).map((v) => {
     const checked = !!cfg.vetores[v.key];
     const customFund = cfg.vetores_fundamentacao?.[v.key] || "";
     const semFund = checked && !customFund.trim() && v.key !== "comportamento_vitima";
@@ -343,6 +345,8 @@ function renderDosimetryCrimeTabsAndEditor() {
         }" />
       </div>`;
   }).join("");
+
+  const antecedentesHtml = camposAntecedentes(registrosAntecedentes, cfg);
 
   let resultado;
   if (cfg.veredicto === "absolver") resultado = "Absolvição — sem pena";
@@ -407,6 +411,7 @@ function renderDosimetryCrimeTabsAndEditor() {
     </div>
 
     ${camposConclusoes(cfg, tipoEfetivoCrime(cfg))}
+    ${camposPrescricao(cfg)}
     ${camposCautelar()}
     <div ${condenatorio ? "" : "hidden"}>
       ${ameacaExigeConfirmacao(cfg) ? `
@@ -421,18 +426,26 @@ function renderDosimetryCrimeTabsAndEditor() {
         </div>` : ""}
       <h3 style="font-size:13px; margin:0 0 8px;">1ª Fase — 8 Circunstâncias Judiciais (Art. 59 do CP)</h3>
       ${vetoresHtml}
+      ${antecedentesHtml ? `<h4>Antecedentes por registro</h4>${antecedentesHtml}` : ""}
 
       <h3 style="font-size:13px; margin:14px 0 8px;">2ª e 3ª Fases — Agravantes, Atenuantes, Causas Especiais e Multa</h3>
       <div class="grid-4" style="align-items:end;">
         <div>
           <label class="form-label" for="selCrimeConfissao">Confissão (Art. 65, III, 'd')</label>
           <select class="form-select" id="selCrimeConfissao">
-            <option value="auto" ${cfg.confissao === "auto" ? "selected" : ""}>Conforme os autos (detecção automática)</option>
+            <option value="auto" ${cfg.confissao === "auto" ? "selected" : ""}>Conforme decisão na Análise</option>
             <option value="sim" ${cfg.confissao === "sim" ? "selected" : ""}>Sim — reconhecer</option>
             <option value="nao" ${cfg.confissao === "nao" ? "selected" : ""}>Não reconhecer</option>
           </select>
         </div>
-        <label class="switch-inline"><input type="checkbox" id="chkCrimeReincidente" ${cfg.reincidente ? "checked" : ""} /><span>Reincidência (Art. 61, I)</span></label>
+        ${registrosAntecedentes.length ? "" : `<div>
+          <label class="form-label" for="selCrimeReincidente">Reincidência (Art. 61, I)</label>
+          <select class="form-select" id="selCrimeReincidente">
+            <option value="pendente">A decidir</option>
+            <option value="sim" ${cfg.reincidente === "sim" ? "selected" : ""}>Reconhecer</option>
+            <option value="nao" ${cfg.reincidente === "nao" ? "selected" : ""}>Afastar</option>
+          </select>
+        </div>`}
         <label class="switch-inline"><input type="checkbox" id="chkCrimeArt61f" ${cfg.agravante_art61f ? "checked" : ""} /><span>Agravante Art. 61, II, 'f'</span></label>
         <div>
           <label class="form-label" for="selCrimeTentativa">3ª Fase — Tentativa (Art. 14 CP)</label>
@@ -482,6 +495,7 @@ function renderDosimetryCrimeTabsAndEditor() {
   `;
 
   ligarRegistroProbatorio(edEl, cfg);
+  ligarRegistroPrescricao(edEl, cfg);
   const aoMudar = (rerender) => {
     if (rerender) renderDosimetryCrimeTabsAndEditor();
     else renderVeredictoBanner();
@@ -541,10 +555,11 @@ function renderDosimetryCrimeTabsAndEditor() {
     cfg.confissao = e.target.value;
     aoMudar(false);
   });
-  $("chkCrimeReincidente")?.addEventListener("change", (e) => {
-    cfg.reincidente = e.target.checked;
+  $("selCrimeReincidente")?.addEventListener("change", (e) => {
+    cfg.reincidente = e.target.value;
     aoMudar(false);
   });
+  ligarAntecedentes(edEl, cfg, () => aoMudar(false));
   $("chkCrimeArt61f")?.addEventListener("change", (e) => {
     cfg.agravante_art61f = e.target.checked;
     aoMudar(false);
@@ -570,9 +585,10 @@ function renderDosimetryCrimeTabsAndEditor() {
 
 function buildCrimesConfig() {
   return state.crimeConfigs.map((c) => {
-    const item = { codigo: c.codigo };
+    const item = { codigo: c.codigo, ...dadosCondicoesAcao(c) };
     if (c.id_imputacao) item.id_imputacao = c.id_imputacao;
     if (c.data_fato_informada) item.data_fato = c.data_fato_informada;
+    if (Object.keys(c.linha_tempo_prescricao || {}).length) item.linha_tempo_prescricao = c.linha_tempo_prescricao;
     if (!c.veredicto) return item; // sem decisão: simulação presume condenação (sinalizada); geração real exige
     item.veredicto = c.veredicto;
     if (c.veredicto !== "extinguir") {
@@ -594,8 +610,10 @@ function buildCrimesConfig() {
       return item;
     }
     if (c.veredicto === "desclassificar") item.crime_desclassificado = c.crime_desclassificado || "";
+    const registros = state.activeCase?.metadados?.registros_antecedentes || [];
     const vetores_art59 = {};
     VETORES_59_META.forEach((v) => {
+      if (v.key === "antecedentes" && registros.length) return;
       const f = (c.vetores_fundamentacao?.[v.key] || "").trim();
       vetores_art59[v.key] = { desfavoravel: c.vetores[v.key] === true };
       if (f) vetores_art59[v.key].fundamentacao = f;
@@ -603,7 +621,7 @@ function buildCrimesConfig() {
     item.vetores_art59 = vetores_art59;
     if (c.confissao === "sim") item.confissao = true;
     else if (c.confissao === "nao") item.confissao = false;
-    item.reincidente = c.reincidente === true;
+    Object.assign(item, dadosAntecedentes(registros, c));
     item.agravante_art61f = c.agravante_art61f === true;
     item.tentativa_fracao = (c.tentativa_fracao || "").trim() || null;
     if (c.dias_multa) item.dias_multa = Number(c.dias_multa);
@@ -617,7 +635,7 @@ function buildCrimesConfig() {
 }
 
 function buildDosimetryPayload() {
-  const p = { crimes_config: buildCrimesConfig() };
+  const p = { crimes_config: buildCrimesConfig(), ...dadosAcessorias() };
   if (state.decisaoCautelar?.decisao) p.decisao_cautelar = state.decisaoCautelar;
   const crit = $("selCriterio1Fase")?.value;
   if (crit) p.criterio_primeira_fase = crit;
@@ -629,11 +647,9 @@ function buildDosimetryPayload() {
   if (valor) p.valor_dano_moral = Number(valor);
   const dataSent = $("inputDataSentenca")?.value;
   if (dataSent) p.data_sentenca = dataSent;
-  const diasRaw = String($("inputDiasPrisaoCautelar")?.value || "").trim();
-  if (diasRaw !== "") {
-    const dias = parseInt(diasRaw, 10);
-    if (Number.isFinite(dias) && dias >= 0) p.dias_prisao_cautelar = dias;
-  }
+  Object.assign(p, dadosDetracao());
+  const campoDias = $("inputDiasPrisaoCautelar");
+  if (campoDias?.value && !campoDias.disabled) p.dias_prisao_cautelar = Number(campoDias.value);
   if ($("chkReuMenor21")?.checked) p.reu_menor_21_na_data_fato = true;
   if ($("chkReuMaior70")?.checked) p.reu_maior_70_na_sentenca = true;
   return p;
@@ -739,36 +755,7 @@ function renderDosimetryResults(res) {
     hintFr.textContent = partes.join(" · ");
   }
 
-  if (p) {
-    const porCrime = p.por_crime || [];
-    const incompleta = porCrime.some((item) => item.verificacao_completa === false);
-    const semRecebimento = porCrime.some((item) => !item.data_recebimento_denuncia);
-    $("prescricaoPanelContainer").innerHTML = `
-      <div style="margin-bottom:8px;">
-        <span class="badge-tag ${p.prescricao_reconhecida ? "badge-danger" : incompleta ? "badge-warn" : "badge-success"}">
-          ${p.prescricao_reconhecida ? "PRESCRIÇÃO RECONHECIDA" : incompleta ? "VERIFICAÇÃO INCOMPLETA" : "NÃO PRESCRITO"}
-        </span>
-        ${semRecebimento ? '<span class="badge-tag badge-warn">Recebimento não informado para alguma imputação</span>' : ""}
-      </div>
-      ${porCrime
-        .map(
-          (pc) => `
-        <div class="inner-tile" style="margin-bottom:8px; font-size:12.5px;">
-          <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-            <strong>${escapeHtml(pc.crime_nome || rotuloCrime(pc.crime_code))} ${pc.referencia_imputacao ? "· " + escapeHtml(pc.referencia_imputacao) : ""} ${pc.artigo_formatado ? "(" + escapeHtml(pc.artigo_formatado) + ")" : ""}</strong>
-            <span class="badge-tag ${pc.prescricao_reconhecida ? "badge-danger" : pc.verificacao_completa === false ? "badge-warn" : "badge-success"}">${
-              pc.prescricao_reconhecida ? "PRESCRITO" : pc.verificacao_completa === false ? "VERIFICAÇÃO INCOMPLETA" : "NÃO PRESCRITO"
-            }</span>
-          </div>
-          <div class="muted mono" style="font-size:11px; margin-top:3px;">Pena concreta ${escapeHtml(fmtPena(pc.pena_concreta))} · prazo ${escapeHtml(String(pc.prazo_concreto_anos ?? "—"))} ano(s)${pc.reduzido_metade_art115 ? " (reduzido à metade, art. 115)" : ""}</div>
-          <div style="margin-top:4px;">${escapeHtml(pc.fundamentacao || "")}</div>
-        </div>`
-        )
-        .join("")}
-      <div style="font-size:12.5px;">${escapeHtml(p.fundamentacao || "")}</div>`;
-  } else {
-    $("prescricaoPanelContainer").innerHTML = `<p class="muted">Simule a dosimetria para ver a prescrição.</p>`;
-  }
+  $("prescricaoPanelContainer").innerHTML = painelPrescricao(p);
 
   const leisHtml = (d.crimes_calculados || [])
     .map(

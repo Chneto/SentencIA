@@ -58,6 +58,8 @@ PAPEIS_VALIDOS = (
     "TESTEMUNHA_DEFESA",
     "INTERROGATORIO_REU",
     "ALEGACOES_FINAIS_MP",
+    "ALEGACOES_FINAIS_DEFESA",
+    "INDETERMINADO",
 )
 
 _ENGINES_FICTICIOS_LEGADOS = {"Local Audio Pipeline"}
@@ -153,7 +155,7 @@ def _inferir_papel(stem: str, depoente_input: str, papel_input: str) -> str:
         return "TESTEMUNHA_ACUSACAO"
     if papel in PAPEIS_VALIDOS:
         return papel
-    return "TESTEMUNHA_ACUSACAO"
+    return "INDETERMINADO"
 
 
 def _gerar_media_id(filename: str, sha256_conteudo: Optional[str], part_num: str) -> str:

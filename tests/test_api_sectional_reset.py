@@ -99,9 +99,12 @@ def veredictos_condenatorios(bundle: Dict[str, Any]) -> Dict[str, Any]:
     Na v2 a sentença de caso real exige veredicto explícito por crime (o motor nunca condena por
     padrão); os cenários de fixture simulam a decisão do magistrado.
     """
-    crimes = list(obter_contexto(bundle).meta.crimes_imputados) or list(bundle.get("crimes_imputados") or [])
+    meta = obter_contexto(bundle).meta
+    crimes = list(meta.crimes_imputados) or list(bundle.get("crimes_imputados") or [])
     assert crimes, "O cenário precisa ter crimes imputados para o teste."
-    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
+    # O cenário fictício com certidão opta pela neutralidade do vetor na auditoria.
+    usos = [{'id_registro': r.id_registro, 'fase': 'desconsiderar'} for r in meta.registros_antecedentes]
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar", **({"usos_antecedentes": usos} if usos else {})} for c in crimes]}
 
 
 def _generate(client: TestClient, bundle: Dict[str, Any] | None = None, *, com_veredicto: bool = True, **overrides):

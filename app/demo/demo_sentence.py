@@ -151,7 +151,7 @@ def gerar_secoes_demo(
     data_sentenca: datetime.date,
 ) -> Tuple[str, str, str, str, str]:
     """Relatório, preliminares, mérito, dosimetria e dispositivo do caso demonstrativo."""
-    from app.generation.dispositivo import construir_comandos_dispositivo
+    from app.generation.dispositivo import DecisaoAcessoria, construir_comandos_dispositivo
 
     # Import tardio: sentence_generator importa este módulo.
     from app.generation.sentence_generator import (
@@ -223,6 +223,9 @@ def gerar_secoes_demo(
     doutrina_mbd = obter_doutrina_por_id("DOUT-01")
     doutrina_rsc = obter_doutrina_por_id("DOUT-03")
 
+    tese_mpu = next((t for t in meta.teses_defesa if t.codigo == "MER-03"), None)
+    imputacao_mpu = f", imputação {tese_mpu.id_imputacao}" if tese_mpu and tese_mpu.id_imputacao else ""
+
     merito = (
         f"2. Do Mérito: Materialidade, Autoria, Valoração da Prova sob Perspectiva de Gênero e Apreciação das Teses Defensivas\n\n"
         f"2.1. Da Incidência da Lei nº 11.340/2006 e da Resolução CNJ nº 492/2023:\n"
@@ -239,7 +242,7 @@ def gerar_secoes_demo(
         f"A materialidade e a autoria do delito tipificado no art. 24-A da Lei nº 11.340/2006 restaram cabalmente demonstradas pela Decisão Concessiva de Medidas Protetivas de Urgência de ID-4100115 (fls. 19/21), "
         f"que proibiu o acusado de aproximar-se da ofendida a menos de 300 (trezentos) metros e de manter contato com ela, bem como pela Certidão Positiva do Oficial de Justiça de ID-4100118 (fls. 22/23), "
         f"que comprova a intimação pessoal do réu em {dt_intimacao_extenso}, demonstrando a ciência inequívoca da decisão judicial exigida pelo próprio tipo penal do art. 24-A da Lei nº 11.340/2006.\n\n"
-        f"Não prospera a tese defensiva (MER-03, ID-4100420) de ausência de dolo sob o argumento de que o réu teria comparecido ao imóvel apenas para ver a filha menor. "
+        f"Não prospera a tese defensiva (MER-03, ID-4100420{imputacao_mpu}) de ausência de dolo sob o argumento de que o réu teria comparecido ao imóvel apenas para ver a filha menor. "
         f"O tipo penal do art. 24-A da Lei nº 11.340/2006 exige apenas o dolo genérico, consistente na vontade livre e consciente de desrespeitar as restrições impostas na decisão judicial da qual tinha plena ciência. "
         f"No próprio interrogatório judicial (Mídia ID-4100304, aos 00min40s), o réu confessou que sabia da ordem restritiva vigente e, ainda assim, dirigiu-se à residência da vítima às 21h30min, invadindo o quintal. "
         f"A medida protetiva de urgência constitui instrumento autônomo de salvaguarda da integridade da mulher, cuja eficácia vincula o destinatário independentemente de alegações paralelas de convivência familiar, que devem ser equacionadas pelas vias judiciais próprias.\n\n"
@@ -257,19 +260,42 @@ def gerar_secoes_demo(
         f"2.5. Do 3º Fato Delituoso — Ameaça contra a Mulher (Art. 147, caput e § 1º, do Código Penal) e Rejeição da Tese Defensiva MER-02:\n"
         f"De igual modo, restaram comprovadas a materialidade e a autoria do crime de ameaça. A ofendida relatou de modo seguro (Mídia ID-4100301, aos 03min31s) que o réu, logo após agredi-la fisicamente, "
         f"apontou-lhe o dedo e afirmou que, caso ela não retirasse a queixa e não reatasse o relacionamento, voltaria para \"acabar com a sua vida\", provocando-lhe fundado temor.\n\n"
-        f"Afasto a tese defensiva de atipicidade por ânimo exaltado ou ira momentânea (MER-02, ID-4100420). Conforme a jurisprudência da Corte Especial do Superior Tribunal de Justiça (processo sob segredo de justiça, j. 10/06/2024, Informativo Extraordinário 21) e a síntese doutrinária de {doutrina_rsc['autor']} ({doutrina_rsc.get('referencia_abnt', doutrina_rsc['obra'])}), {doutrina_rsc['sintese'][0].lower() + doutrina_rsc['sintese'][1:]}\n\n"
+        f"Afasto a tese defensiva de atipicidade por ânimo exaltado ou ira momentânea (MER-02, ID-4100420), pois a promessa de morte durante a invasão da residência e imediatamente após a agressão foi idônea para intimidar. Conforme a jurisprudência da Corte Especial do Superior Tribunal de Justiça (processo sob segredo de justiça, j. 10/06/2024, Informativo Extraordinário 21) e a síntese doutrinária de {doutrina_rsc['autor']} ({doutrina_rsc.get('referencia_abnt', doutrina_rsc['obra'])}), {doutrina_rsc['sintese'][0].lower() + doutrina_rsc['sintese'][1:]}\n\n"
         f"No caso concreto, a promessa de morte foi proferida em meio à invasão domiciliar noturna, em descumprimento de medida protetiva e imediatamente após agressão física na face da vítima, "
         f"revelando nítida idoneidade intimidatória e dolo de ameaçar."
     )
 
+    medidas_protetivas = DecisaoAcessoria(
+        fundamento=(
+            "Persiste o risco à integridade física e psicológica da ofendida, evidenciado "
+            "pelos fatos examinados no mérito (art. 19, § 6º, da Lei nº 11.340/2006 "
+            "e Tema Repetitivo 1249/STJ)."
+        ),
+        comando=(
+            "MANTER integralmente em vigor as Medidas Protetivas de Urgência deferidas "
+            "em favor da ofendida nos autos em apenso (ID-4100115)."
+        ),
+        estado="decidida",
+    )
     dosimetria_texto = formatar_secao_dosimetria_completa(
         dosimetria_global=dosimetria_global,
         criterio_1fase=criterio_1fase,
         ofendida_nome=meta.nome_ofendida,
         prescricao=prescricao,
         fundamento_liberdade=DEMO_FUNDAMENTO_LIBERDADE,
+        medidas_protetivas=medidas_protetivas,
         **DEMO_IDS_DOSIMETRIA,
     )
+
+    substituicao = (
+        "Acolho o pedido de substituição" if dosimetria_global.substituicao_art44_cabivel
+        else "Rejeito o pedido de substituição"
+    )
+    dosimetria_texto += (
+        "\n\nPedidos Subsidiários na Dosimetria (MER-04):\n"
+        f"{substituicao}, pelos seguintes motivos: {dosimetria_global.motivo_vedacao_substituicao}"
+    )
+
 
     comandos = construir_comandos_dispositivo(dosimetria_global)
     condenacoes = "; e ".join(item.texto(meta.nome_reu) for item in comandos.imputacoes)
@@ -290,8 +316,7 @@ def gerar_secoes_demo(
         f"{comandos.texto_penas()}{multa_txt}, a serem cumpridas no {regime_txt}, "
         f"vedada a substituição por penas restritivas de direitos (Súmula 588/STJ).{comandos.texto_soma_penas()}\n\n"
         f"b) {dano_txt};\n\n"
-        f"c) MANTER integralmente em vigor as Medidas Protetivas de Urgência deferidas em favor da ofendida nos autos em apenso (ID-4100115), dada a persistência da situação de risco à sua integridade física e psicológica "
-        f"(art. 19, § 6º, da Lei nº 11.340/2006, acrescentado pela Lei nº 14.550/2023, e Tema Repetitivo 1249/STJ);\n\n"
+        f"c) {medidas_protetivas.comando}\n\n"
         f"d) CONCEDER ao réu o direito de recorrer em liberdade (art. 387, § 1º, do Código de Processo Penal), salvo se por outro motivo estiver preso e desde que cumpra rigorosamente as medidas protetivas vigentes, "
         f"sob pena de decretação da prisão preventiva (art. 313, inciso III, do CPP);\n\n"
         f"e) DETERMINAR a intimação pessoal da ofendida {meta.nome_ofendida} acerca desta sentença e de eventual ingresso ou saída do agressor da prisão, sem prejuízo da intimação de seu advogado ou da Defensoria Pública, "

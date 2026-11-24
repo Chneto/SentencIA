@@ -91,8 +91,8 @@ def test_busca_precedente_por_id_ou_referencia():
 def test_auditor_valida_novas_categorias_e_bloqueia_ficticias():
     """Garante que a Camada 02 da auditoria valida todas as novas categorias autênticas e bloqueia invenções."""
     demo = get_demo_case_bundle()
-    pecas = classificar_pecas_autos(demo["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
+    pecas = classificar_pecas_autos(demo["raw_documents"], is_demo=True)
+    meta = extrair_metadados_processo(pecas, is_demo=True)
 
     sentenca_base = gerar_sentenca_estruturada(case_bundle=demo, use_ollama_if_available=False)
 
@@ -182,8 +182,8 @@ def test_api_knowledge_endpoints_and_filtering():
 def test_auditor_bloqueia_variacoes_sintaticas_de_citacoes_ficticias():
     """Garante que a Camada 02 bloqueia todas as variações sintáticas de citações fictícias (nº, do STJ, Vinculante, etc.)."""
     demo = get_demo_case_bundle()
-    pecas = classificar_pecas_autos(demo["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
+    pecas = classificar_pecas_autos(demo["raw_documents"], is_demo=True)
+    meta = extrair_metadados_processo(pecas, is_demo=True)
     sentenca_base = gerar_sentenca_estruturada(case_bundle=demo, use_ollama_if_available=False)
 
     # 1. Testa variações sintáticas fictícias que antes passavam despercebidas
@@ -660,3 +660,79 @@ def test_task039_teses_existentes_recebem_recorrencia():
         "A ADPF 779 veda a legítima defesa da honra"
     )
 
+
+
+def test_task069_acervo_tem_proposicao_recorte_vigencia_e_data_revisao():
+    """TASK-069: todos os verbetes oficiais possuem proposição jurídica, vigência explícita (ou nao_verificada),
+    data_revisao (ou vazio) e recorte_fatico (vazio quando ausente, nunca sintetizado).
+    """
+    import datetime as dt
+    import app.knowledge.knowledge_base as kb
+
+    for it in kb.SUMULAS_E_TEMAS_VERIFICADOS:
+        assert isinstance(it.get("proposicao_juridica"), str) and len(it["proposicao_juridica"].strip()) >= 15, it["id"]
+        assert it.get("proposicao_origem") in {"primeira_frase", "revisada"}, it["id"]
+        assert isinstance(it.get("recorte_fatico"), str), it["id"]
+        assert it.get("vigencia") in set(kb.VIGENCIAS_VALIDAS), it["id"]
+        if it.get("data_revisao"):
+            dt.date.fromisoformat(str(it["data_revisao"]))
+        assert isinstance(it.get("questoes_juridicas"), list) and len(it["questoes_juridicas"]) >= 1, it["id"]
+
+    # Regra estrita: nada decidido por padrão / nada sintetizado
+    sem_dados = {"id": "TESTE-1", "titulo": "Título Qualquer", "materia": "Penal", "texto_literal": "Primeira frase válida aqui. Segunda frase."}
+    kb._enriquecer_item_acervo(sem_dados)
+    assert sem_dados["vigencia"] == "nao_verificada"
+    assert sem_dados["data_revisao"] == ""
+    assert sem_dados["recorte_fatico"] == ""
+    assert sem_dados["proposicao_origem"] == "primeira_frase"
+
+
+def test_task069_selecionar_por_questao_juridica_pertinencia_e_vigencia(tmp_path, monkeypatch):
+    """TASK-069: seleção por questão jurídica ordena por pertinência, sinaliza nao_verificada e exclui superados."""
+    import app.knowledge.knowledge_base as kb
+
+    # nao_verificada nunca é tratada como vigente quando apenas_vigentes=True e incluir_nao_verificadas=False
+    so_vigentes = kb.selecionar_por_questao_juridica("substituicao_pena", apenas_vigentes=True)
+    assert all(it.get("vigencia") == "vigente" for it in so_vigentes)
+
+    res_subst = kb.selecionar_por_questao_juridica("substituicao_pena", incluir_nao_verificadas=True)
+    assert res_subst
+    assert any(it["id"] == "SUMULA-588-STJ" for it in res_subst[:3])
+
+    res_rep = kb.selecionar_por_questao_juridica(
+        "reparacao_danos",
+        incluir_nao_verificadas=True,
+        palavras_faticas=["dano moral", "pedido expresso", "valor mínimo", "violência doméstica"],
+    )
+    assert res_rep
+    assert res_rep[0]["id"] == "TEMA-983-STJ"
+
+    # Precedente do gabinete superado não aparece quando apenas_vigentes=True (mesmo com incluir_nao_verificadas=True)
+    monkeypatch.setattr(kb, "CUSTOM_KB_FILE", tmp_path / "custom_precedentes.json")
+    kb.add_custom_precedente(
+        referencia="Precedente Fictício 999/TJRN",
+        tribunal="TJRN",
+        titulo="Tese superada sobre ação penal",
+        texto_literal="Entendimento superado em matéria de ação penal.",
+        proposicao_juridica="Tese superada sobre ação penal.",
+        recorte_fatico="Lesão corporal leve em violência doméstica.",
+        vigencia="superado",
+        questoes_juridicas=["acao_penal"],
+    )
+    vigentes = kb.selecionar_por_questao_juridica(
+        "acao_penal", incluir_gabinete=True, apenas_vigentes=True, incluir_nao_verificadas=True, limite=50
+    )
+    assert all(it.get("vigencia") in {"vigente", "nao_verificada"} for it in vigentes)
+    assert not any("999/TJRN" in str(it.get("referencia")) for it in vigentes)
+
+    todos = kb.selecionar_por_questao_juridica("acao_penal", incluir_gabinete=True, apenas_vigentes=False, limite=50)
+    assert any("999/TJRN" in str(it.get("referencia")) for it in todos)
+
+
+def test_task069_get_all_knowledge_base_filtra_por_questao():
+    import app.knowledge.knowledge_base as kb
+
+    filtrado = kb.get_all_knowledge_base(questao="legitima_defesa_honra")
+    ids = {it["id"] for it in filtrado["sumulas_e_temas"]}
+    assert "ADPF-779-STF" in ids
+    assert len(ids) < len(kb.SUMULAS_E_TEMAS_VERIFICADOS)

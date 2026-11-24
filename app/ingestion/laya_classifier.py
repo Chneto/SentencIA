@@ -13,7 +13,19 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel, Field
 
 from app.core.text_utils import normalizar
+from app.ingestion.antecedentes import ler_certidoes
+from app.ingestion.custodia import extrair_intervalos_custodia
+from app.ingestion.confissao import (
+    EFEITO_CONFISSAO,
+    DecisaoConfissao,
+    SugestaoConfissao,
+    alvos_confissao,
+    detectar_confissoes,
+)
 from app.ingestion.imputacoes import EventoImputacao, ImputacaoExtraida, extrair_imputacoes, localizar_tipos_penais
+from app.ingestion.ocorrencias import OcorrenciaProcessual, natureza_ocorrencia, vincular_ocorrencia
+from app.legal_engine.detracao import IntervaloCustodia, calcular_detracao
+from app.legal_engine.antecedentes import RegistroAntecedente, fases_admissiveis
 
 
 class PecaClassificada(BaseModel):
@@ -25,13 +37,16 @@ class PecaClassificada(BaseModel):
     categoria: str
     laya_confidence: float
     laya_scores: Dict[str, float] = Field(default_factory=dict)
+    laya_candidatas: List[str] = Field(default_factory=list)
+    laya_motivo: str = ""
+    categoria_confirmada: bool = False
     ocr_aplicado: bool = False
     resumo_estruturado: str
     entidades_extraidas: List[Dict[str, str]] = Field(default_factory=list)
     conteudo: str
 
 
-class PedidoParteItem(BaseModel):
+class PedidoParteItem(OcorrenciaProcessual):
     tipo: str
     descricao: str
     crime: str = ""
@@ -53,7 +68,8 @@ class PontoDecisivoItem(BaseModel):
     confirmado: bool = False
 
 
-class TeseDefensivaItem(BaseModel):
+class TeseDefensivaItem(OcorrenciaProcessual):
+    parte: Literal["mp", "defesa", "juizo", ""] = "defesa"
     codigo: str
     tipo: str  # PRELIMINAR ou MERITO ou SUBSIDIARIA
     titulo: str
@@ -76,7 +92,8 @@ class MetadadosProcesso(BaseModel):
     data_recebimento_denuncia: str
     data_intimacao_mpu: str
     intimidado_pessoalmente_mpu: bool
-    reu_primario_sumula444: bool
+    reu_primario_sumula444: bool | None
+    registros_antecedentes: List[RegistroAntecedente] = Field(default_factory=list)
     pedido_dano_moral_expresso_mp: bool
     valor_dano_moral_pedido_mp: float
     crimes_imputados: List[str]
@@ -85,8 +102,12 @@ class MetadadosProcesso(BaseModel):
     teses_defesa: List[TeseDefensivaItem]
     pedidos_mp: List[PedidoParteItem] = Field(default_factory=list)
     pedidos_defesa: List[PedidoParteItem] = Field(default_factory=list)
+    intervalos_custodia: List[IntervaloCustodia] = Field(default_factory=list)
+    alertas_custodia: List[str] = Field(default_factory=list)
     pontos_decisivos: List[PontoDecisivoItem] = Field(default_factory=list)
     pontos_decisivos_confirmados: Dict[str, Any] = Field(default_factory=dict)
+    confissoes_sugeridas: Dict[str, SugestaoConfissao] = Field(default_factory=dict)
+    confissoes_confirmadas: Dict[str, DecisaoConfissao] = Field(default_factory=dict)
     # Data de nascimento do réu (AAAA-MM-DD). Não é extraída automaticamente (risco de confundir com a
     # da ofendida); o juízo a informa via metadados_override para o art. 115 do CP (prazo prescricional
     # pela metade: menor de 21 anos na data do fato ou maior de 70 na data da sentença).
@@ -234,6 +255,14 @@ def _recortar_trecho(texto: str, start: int, end: int, max_len: int = 300) -> st
     return trecho
 
 
+def _recortar_ocorrencia(texto: str, ini: int, fim: int) -> str:
+    esquerda = texto.rfind(";", max(0, ini - 180), ini) + 1
+    direita = texto.find(";", fim, min(len(texto), fim + 300))
+    if direita < 0:
+        direita = len(texto)
+    return _recortar_trecho(texto[esquerda:direita], ini - esquerda, fim - esquerda)
+
+
 def _detectar_crime_no_trecho(trecho: str) -> str:
     """Identifica menção a tipo penal específico no trecho do pedido (vazio se geral)."""
     t = trecho.lower()
@@ -270,15 +299,15 @@ def extrair_pedidos_mp_texto(
     pedidos: List[PedidoParteItem] = []
 
     # 1. Pedido de absolvição pelo MP (com eventual inciso do art. 386 do CPP)
-    m_abs = re.search(
+    ocorrencias_abs = list(re.finditer(
         r"(?:requer(?:eu|endo)?|pugna(?:ndo)?|opina(?:ndo)?|manifesta(?:-se)?|pleiteia(?:ndo)?|postula(?:ndo)?|pede)"
-        r"[^.\n;]{0,80}(?:absolvi[çc][aã]o|improced[êe]ncia\s+da\s+(?:den[úu]ncia|a[çc][aã]o\s+penal|pretens[aã]o\s+punitiva))"
+        r"[^.\n;]{0,80}?(?:absolvi[çc][aã]o|improced[êe]ncia\s+da\s+(?:den[úu]ncia|a[çc][aã]o\s+penal|pretens[aã]o\s+punitiva))"
         r"|absolvi[çc][aã]o\s+do\s+(?:r[ée]u|acusado|denunciado)",
         texto,
         flags=re.IGNORECASE,
-    )
+    ))
     # 2. Pedido de condenação pelo MP (cuidando para não confundir com "não requer condenação" / "impossibilidade de condenação")
-    m_cond = None
+    ocorrencias_cond = []
     for m_cand in re.finditer(
         r"(?:condena[çc][aã]o\s+(?:parcial\s+|integral\s+)?d[oa]\s+(?:r[ée]u|acusad[oa]|denunciad[oa])"
         r"|proced[êe]ncia\s+(?:parcial\s+|integral\s+)?da\s+(?:den[úu]ncia|a[çc][aã]o\s+penal|pretens[aã]o\s+punitiva)"
@@ -291,20 +320,19 @@ def extrair_pedidos_mp_texto(
         prefixo = texto[max(0, m_cand.start() - 45): m_cand.start()].lower()
         if any(neg in prefixo for neg in ("impossibilidade de", "inviável a", "não há prova para", "não requer", "afastar a", "incabível a")):
             continue
-        m_cond = m_cand
-        break
+        ocorrencias_cond.append(m_cand)
 
     # 3. Desclassificação pelo MP
-    m_desc = re.search(
+    ocorrencias_desc = list(re.finditer(
         r"(?:requer(?:eu|endo)?|pugna(?:ndo)?|opina(?:ndo)?|pleiteia(?:ndo)?|postula(?:ndo)?)"
-        r"[^.\n;]{0,70}(?:desclassifica[çc][aã]o|emendatio\s+libelli|art\.?\s*383\s+do\s+cpp)"
+        r"[^.\n;]{0,70}?(?:desclassifica[çc][aã]o|emendatio\s+libelli|art\.?\s*383\s+do\s+cpp)"
         r"|desclassifica[çc][aã]o\s+(?:do\s+delito|da\s+conduta|para\s+o)",
         texto,
         flags=re.IGNORECASE,
-    )
+    ))
 
-    if m_abs:
-        trecho_abs = _recortar_trecho(texto, m_abs.start(), m_abs.end())
+    for m_abs in ocorrencias_abs:
+        trecho_abs = _recortar_ocorrencia(texto, m_abs.start(), m_abs.end())
         janela_abs = texto[max(0, m_abs.start() - 40): min(len(texto), m_abs.end() + 140)]
         m_inc = re.search(r"art\.?\s*386\s*,?\s*(?:inciso\s*)?(I{1,3}V?|VI{0,2})\b", janela_abs, flags=re.IGNORECASE)
         inc_txt = f" (art. 386, {m_inc.group(1).upper()}, CPP)" if m_inc else ""
@@ -316,15 +344,18 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_abs,
+                parte="mp",
+                posicao=m_abs.start(),
+                natureza=natureza_ocorrencia(texto, m_abs.start()),
                 origem=origem,
             )
         )
 
-    if m_cond:
-        trecho_cond = _recortar_trecho(texto, m_cond.start(), m_cond.end())
+    for m_cond in ocorrencias_cond:
+        trecho_cond = _recortar_ocorrencia(texto, m_cond.start(), m_cond.end())
         parcial = bool(
-            m_abs
-            or m_desc
+            ocorrencias_abs
+            or ocorrencias_desc
             or re.search(r"\bparcial(?:mente)?\b", trecho_cond, flags=re.IGNORECASE)
         )
         pedidos.append(
@@ -335,12 +366,15 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_cond,
+                parte="mp",
+                posicao=m_cond.start(),
+                natureza=natureza_ocorrencia(texto, m_cond.start()),
                 origem=origem,
             )
         )
 
-    if m_desc:
-        trecho_desc = _recortar_trecho(texto, m_desc.start(), m_desc.end())
+    for m_desc in ocorrencias_desc:
+        trecho_desc = _recortar_ocorrencia(texto, m_desc.start(), m_desc.end())
         pedidos.append(
             PedidoParteItem(
                 tipo="desclassificacao",
@@ -349,21 +383,27 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_desc,
+                parte="mp",
+                posicao=m_desc.start(),
+                natureza=natureza_ocorrencia(texto, m_desc.start()),
                 origem=origem,
             )
         )
 
     # 4. Dano moral / reparação mínima (art. 387, IV, CPP / Tema 983/STJ)
-    m_dm = re.search(
+    ocorrencias_dm = list(re.finditer(
         r"(?:dano(?:s)?\s+mora(?:l|is)|repara[çc][aã]o\s+(?:m[íi]nima|pelos\s+danos)|valor\s+m[íi]nimo\s+(?:de|para)\s+repara[çc][aã]o|art\.?\s*387\s*,?\s*(?:inciso\s*)?iv)",
         texto,
         flags=re.IGNORECASE,
-    )
-    if m_dm:
-        trecho_dm = _recortar_trecho(texto, m_dm.start(), m_dm.end())
-        # Procura valor R$ no trecho ou na janela próxima
-        janela_dm = texto[max(0, m_dm.start() - 60): min(len(texto), m_dm.end() + 180)]
-        m_val = re.search(r"R\$\s*([\d\.]+,\d{2})", janela_dm, flags=re.IGNORECASE)
+    ))
+    for m_dm in ocorrencias_dm:
+        trecho_dm = _recortar_ocorrencia(texto, m_dm.start(), m_dm.end())
+        if not re.search(
+            r"\b(?:requer\w*|pugn\w*|pleitei\w*|postul\w*|solicit\w*|ped(?:e|em|iu|imos|ido)|"
+            r"fixa[cç][aã]o|seja fixad[oa])\b", trecho_dm, flags=re.IGNORECASE,
+        ):
+            continue
+        m_val = re.search(r"R\$\s*([\d\.]+,\d{2})", trecho_dm, flags=re.IGNORECASE)
         valor_dm: Optional[float] = None
         if m_val:
             try:
@@ -383,19 +423,22 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_dm,
+                parte="mp",
+                posicao=m_dm.start(),
+                natureza=natureza_ocorrencia(texto, m_dm.start()),
                 origem=origem,
                 valor=valor_dm,
             )
         )
 
     # 5. Agravante / qualificadora / exasperação
-    m_agr = re.search(
+    ocorrencias_agr = list(re.finditer(
         r"(?:agravante\s+do\s+art\.?\s*61|art\.?\s*61\s*,?\s*(?:inciso\s*)?ii|reincid[êe]ncia|qualificadora|exaspera[çc][aã]o\s+da\s+pena(?:-base)?|causa\s+de\s+aumento|presen[çc]a\s+d[eo]s?\s+filh[oa]s?\s+menor)",
         texto,
         flags=re.IGNORECASE,
-    )
-    if m_agr:
-        trecho_agr = _recortar_trecho(texto, m_agr.start(), m_agr.end())
+    ))
+    for m_agr in ocorrencias_agr:
+        trecho_agr = _recortar_ocorrencia(texto, m_agr.start(), m_agr.end())
         pedidos.append(
             PedidoParteItem(
                 tipo="agravante_qualificadora",
@@ -404,18 +447,21 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_agr,
+                parte="mp",
+                posicao=m_agr.start(),
+                natureza=natureza_ocorrencia(texto, m_agr.start()),
                 origem=origem,
             )
         )
 
     # 6. Regime inicial
-    m_reg = re.search(
+    ocorrencias_reg = list(re.finditer(
         r"regime\s+(?:inicial\s+)?(?:de\s+cumprimento\s+(?:de\s+pena\s+)?)?(fechado|semiaberto|aberto)",
         texto,
         flags=re.IGNORECASE,
-    )
-    if m_reg:
-        trecho_reg = _recortar_trecho(texto, m_reg.start(), m_reg.end())
+    ))
+    for m_reg in ocorrencias_reg:
+        trecho_reg = _recortar_ocorrencia(texto, m_reg.start(), m_reg.end())
         pedidos.append(
             PedidoParteItem(
                 tipo="regime",
@@ -424,31 +470,39 @@ def extrair_pedidos_mp_texto(
                 fonte_id=fonte_id,
                 folha=folha,
                 trecho=trecho_reg,
+                parte="mp",
+                posicao=m_reg.start(),
+                natureza=natureza_ocorrencia(texto, m_reg.start()),
                 origem=origem,
             )
         )
 
     # 7. Outro pedido expresso (quando nenhum dos tipos acima apareceu, mas há verbo de requerimento claro)
-    if not pedidos:
-        m_outro = re.search(
-            r"\b(?:requer(?:eu)?|pugna|pleiteia|postula)\s+(?:a\s+|o\s+|pela\s+|pelo\s+)?(?:manuten[çc][aã]o|revoga[çc][aã]o|decreta[çc][aã]o|extin[çc][aã]o|prorroga[çc][aã]o|medida\s+protetiva)[^.\n]{0,120}",
-            texto,
-            flags=re.IGNORECASE,
-        )
-        if m_outro:
-            trecho_o = _recortar_trecho(texto, m_outro.start(), m_outro.end())
-            pedidos.append(
-                PedidoParteItem(
-                    tipo="outro",
-                    descricao="outro requerimento ministerial",
-                    crime=_detectar_crime_no_trecho(trecho_o),
-                    fonte_id=fonte_id,
-                    folha=folha,
-                    trecho=trecho_o,
-                    origem=origem,
-                )
+    ocorrencias_outro = re.finditer(
+        r"\b(?:requer(?:eu)?|pugna|pleiteia|postula)\s+(?:a\s+|o\s+|pela\s+|pelo\s+)?(?:manuten[çc][aã]o|revoga[çc][aã]o|decreta[çc][aã]o|extin[çc][aã]o|prorroga[çc][aã]o|medida\s+protetiva)[^.\n]{0,120}",
+        texto,
+        flags=re.IGNORECASE,
+    )
+    for m_outro in ocorrencias_outro:
+        trecho_o = _recortar_ocorrencia(texto, m_outro.start(), m_outro.end())
+        pedidos.append(
+            PedidoParteItem(
+                tipo="outro",
+                descricao="outro requerimento ministerial",
+                crime=_detectar_crime_no_trecho(trecho_o),
+                fonte_id=fonte_id,
+                folha=folha,
+                trecho=trecho_o,
+                parte="mp",
+                posicao=m_outro.start(),
+                natureza=natureza_ocorrencia(texto, m_outro.start()),
+                origem=origem,
             )
+        )
 
+    pedidos.sort(key=lambda pedido: pedido.posicao)
+    for ordem, pedido in enumerate(pedidos, 1):
+        pedido.ordem = ordem
     return pedidos
 
 
@@ -508,9 +562,8 @@ def extrair_pedidos_subsidiarios_defesa_texto(
         return []
     pedidos: List[PedidoParteItem] = []
     for tipo, desc, pat in _REGRAS_PEDIDOS_SUBSIDIARIOS_DEFESA:
-        m = re.search(pat, texto, flags=re.IGNORECASE)
-        if m:
-            trecho = _recortar_trecho(texto, m.start(), m.end())
+        for m in re.finditer(pat, texto, flags=re.IGNORECASE):
+            trecho = _recortar_ocorrencia(texto, m.start(), m.end())
             pedidos.append(
                 PedidoParteItem(
                     tipo=tipo,
@@ -520,8 +573,51 @@ def extrair_pedidos_subsidiarios_defesa_texto(
                     folha=folha,
                     trecho=trecho,
                     origem=origem,
+                    parte="defesa",
+                    posicao=m.start(),
+                    natureza="subsidiario",
                 )
             )
+    pedidos.sort(key=lambda pedido: pedido.posicao)
+    for ordem, pedido in enumerate(pedidos, 1):
+        pedido.ordem = ordem
+    return pedidos
+
+
+_PEDIDOS_EXPLICITOS_DEFESA = (
+    ("absolvicao", "absolvição", r"absolvi[çc][aã]o"),
+    ("desclassificacao", "desclassificação da imputação", r"desclassifica[çc][aã]o"),
+    ("extincao", "extinção da punibilidade", r"extin[çc][aã]o\s+da\s+punibilidade"),
+)
+
+
+def extrair_pedidos_defesa_texto(
+    texto: str, *, fonte_id: str, folha: str = "", origem: str = "memoriais",
+) -> List[PedidoParteItem]:
+    dados_fonte = {"fonte_id": fonte_id, "folha": folha, "origem": origem}
+    pedidos = extrair_pedidos_subsidiarios_defesa_texto(texto, **dados_fonte)
+    for tipo, descricao, alvo in _PEDIDOS_EXPLICITOS_DEFESA:
+        padrao = (
+            r"\b(?:requer\w*|pugn\w*|pleitei\w*|postul\w*|ped(?:e|iu|imos))"
+            r"(?:\s+subsidiariamente\s*,?)?\s+(?:a\s+|pela\s+)?"
+            + alvo
+        )
+        for match in re.finditer(padrao, texto, flags=re.IGNORECASE):
+            imediatamente_antes = texto[max(0, match.start() - 25):match.start()]
+            if re.search(r"\bn[aã]o\s*$", imediatamente_antes, flags=re.IGNORECASE):
+                continue
+            trecho = _recortar_ocorrencia(texto, match.start(), match.end())
+            pedidos.append(PedidoParteItem(
+                tipo=tipo, descricao=descricao, crime=_detectar_crime_no_trecho(trecho),
+                trecho=trecho, parte="defesa", posicao=match.start(),
+                natureza=natureza_ocorrencia(texto, match.start(), subsidiario=bool(
+                    re.search(r"\bsubsidiariamente\b", match.group(), flags=re.IGNORECASE)
+                )),
+                **dados_fonte,
+            ))
+    pedidos.sort(key=lambda pedido: pedido.posicao)
+    for ordem, pedido in enumerate(pedidos, 1):
+        pedido.ordem = ordem
     return pedidos
 
 
@@ -615,7 +711,7 @@ def extrair_alegacoes_orais_ata(
         txt_def = " ".join(trechos_def)
         textos_def_oral.append(txt_def)
         pedidos_def.extend(
-            extrair_pedidos_subsidiarios_defesa_texto(txt_def, fonte_id=fonte_id, folha=folha, origem="oral")
+            extrair_pedidos_defesa_texto(txt_def, fonte_id=fonte_id, folha=folha, origem="oral")
         )
     if trechos_ambiguos and not trechos_mp and not trechos_def:
         alertas.append(
@@ -732,224 +828,83 @@ def _extrair_data_nascimento_reu_ponto(
 
 
 def _extrair_antecedentes_ponto(
-    peca_cac: Optional[PecaClassificada],
-    data_fato: str,
+    certidoes: List[PecaClassificada], data_fato: str,
 ) -> PontoDecisivoItem:
-    """Analisa CAC/FAC separando reincidência (≤ 5 anos, art. 64, I, CP), maus antecedentes (> 5 anos) e em curso (Súmula 444/Tema 129)."""
-    efeito_base = (
-        "Define reincidência (≤ 5 anos do trânsito/extinção — art. 64, I, CP), maus antecedentes (> 5 anos — art. 59 CP) "
-        "ou neutralidade (ações/inquéritos em curso — Súmula 444/STJ e Tema 129/STF)."
-    )
-    if not peca_cac or not (peca_cac.conteudo or "").strip():
-        return PontoDecisivoItem(
-            chave="antecedentes",
-            valor=None,
-            estado="ausente",
-            efeito=efeito_base,
-        )
+    """Apresenta os registros da certidão; a destinação é decidida por imputação."""
+    registros, negativa = ler_certidoes(certidoes)
+    efeito = "Confira cada registro e decida sua destinação por imputação na estação de dosimetria."
+    if not certidoes:
+        return PontoDecisivoItem(chave="antecedentes", estado="ausente", efeito=efeito)
 
-    txt = peca_cac.conteudo
-    low = txt.lower()
-    ref_dt = _parse_data_br_ou_iso(data_fato) or datetime.date.today()
-
-    m_cond = None
-    for m_cand in re.finditer(
-        r"(?:condena[çc][aã]o\s+(?:penal\s+)?(?:definitiva|transitada\s+em\s+julgado)|tr[âa]nsito\s+em\s+julgado|transitada\s+em\s+julgado|senten[çc]a\s+condenat[óo]ria\s+definitiva)",
-        txt,
-        flags=re.IGNORECASE,
-    ):
-        # Negação na mesma oração, mesmo com palavras no meio ("sem denúncia ou sentença transitada em julgado").
-        prefixo = txt[max(0, m_cand.start() - 70): m_cand.start()].lower()
-        if re.search(r"\b(?:sem|n[aã]o\s+h[áa]|inexistem?|aus[êe]ncia\s+de|n[aã]o)\b[^.;\n]{0,50}$", prefixo):
-            continue
-        m_cond = m_cand
-        break
-    tem_nada = any(
-        x in low for x in ("nada consta", "nada existe", "nada existir", "não constam condenações", "sem antecedentes")
-    )
-
-    if m_cond and not tem_nada:
-        janela = txt[max(0, m_cond.start() - 80): min(len(txt), m_cond.end() + 180)]
-        m_dt = re.search(r"(\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}-\d{2}-\d{2})", janela)
-        dt_tr = _parse_data_br_ou_iso(m_dt.group(1)) if m_dt else None
-        trecho = _recortar_trecho(txt, m_cond.start(), m_cond.end())
-        if dt_tr is not None and _parse_data_br_ou_iso(data_fato) is None:
-            # Sem a data do fato não dá para separar reincidência (art. 63) de maus antecedentes: nada se conclui.
-            return PontoDecisivoItem(
-                chave="antecedentes",
-                valor={"classificacao": "verificar_data_do_fato", "data_transito": dt_tr.isoformat()},
-                estado="a_confirmar",
-                fonte_id=peca_cac.doc_id,
-                folha=peca_cac.folha,
-                trecho=trecho,
-                efeito="Condenação definitiva encontrada, mas a data do fato não foi extraída: confira se o fato é posterior ao trânsito em julgado (reincidência, art. 63 do CP) ou anterior (maus antecedentes, art. 59).",
-            )
-        if dt_tr is not None:
-            anos = (ref_dt - dt_tr).days / 365.25
-            if dt_tr > ref_dt:
-                # Trânsito em julgado POSTERIOR ao fato: não há reincidência (art. 63 do CP exige crime cometido
-                # depois do trânsito); a condenação definitiva pode valer como maus antecedentes.
-                return PontoDecisivoItem(
-                    chave="antecedentes",
-                    valor={"classificacao": "maus_antecedentes", "data_transito": dt_tr.isoformat(), "anos_decorridos": round(anos, 2)},
-                    estado="a_confirmar",
-                    fonte_id=peca_cac.doc_id,
-                    folha=peca_cac.folha,
-                    trecho=trecho,
-                    efeito="Condenação com trânsito em julgado posterior ao fato: não gera reincidência (art. 63 do CP), mas pode configurar maus antecedentes na 1ª fase (art. 59 do CP).",
-                )
-            if anos <= 5.0:
-                # O período depurador do art. 64, I, conta do cumprimento ou da extinção da pena, que é posterior ao
-                # trânsito: fato até 5 anos depois do trânsito está, com certeza, dentro do período.
-                return PontoDecisivoItem(
-                    chave="antecedentes",
-                    valor={"classificacao": "reincidencia", "data_transito": dt_tr.isoformat(), "anos_decorridos": round(anos, 2)},
-                    estado="a_confirmar",
-                    fonte_id=peca_cac.doc_id,
-                    folha=peca_cac.folha,
-                    trecho=trecho,
-                    efeito="Agravante da reincidência (arts. 61, I, e 63 do CP): fato praticado até 5 anos após o trânsito em julgado, logo dentro do período depurador do art. 64, I, do CP; reflexos no regime e no sursis.",
-                )
-            return PontoDecisivoItem(
-                chave="antecedentes",
-                valor={"classificacao": "verificar_periodo_depurador", "data_transito": dt_tr.isoformat(), "anos_decorridos": round(anos, 2)},
-                estado="a_confirmar",
-                fonte_id=peca_cac.doc_id,
-                folha=peca_cac.folha,
-                trecho=trecho,
-                efeito="Mais de 5 anos entre o trânsito em julgado e o fato: será reincidência se o fato ocorreu até 5 anos após o cumprimento ou a extinção da pena (art. 64, I, do CP); se não, maus antecedentes (art. 59). Conferir na certidão a data de cumprimento/extinção.",
-            )
-        return PontoDecisivoItem(
-            chave="antecedentes",
-            valor={"classificacao": "condenacao_sem_data"},
-            estado="a_confirmar",
-            fonte_id=peca_cac.doc_id,
-            folha=peca_cac.folha,
-            trecho=trecho,
-            efeito="Condenação definitiva sem data de trânsito/extinção extraída: conferir período depurador de 5 anos (art. 64, I, CP).",
-        )
-
-    m_curso = re.search(
-        r"(?:a[çc][aã]o\s+penal\s+em\s+curso|inqu[ée]rito\s+(?:policial\s+)?em\s+(?:curso|andamento)|processo\s+em\s+andamento|sem\s+tr[âa]nsito\s+em\s+julgado)",
-        txt,
-        flags=re.IGNORECASE,
-    )
-    if m_curso:
-        return PontoDecisivoItem(
-            chave="antecedentes",
-            valor={"classificacao": "neutro_em_curso"},
-            estado="extraido",
-            fonte_id=peca_cac.doc_id,
-            folha=peca_cac.folha,
-            trecho=_recortar_trecho(txt, m_curso.start(), m_curso.end()),
-            efeito="Neutro na dosimetria: inquéritos e ações penais em curso não configuram maus antecedentes nem reincidência (Súmula 444/STJ e Tema 129/STF).",
-        )
+    fonte = registros[0].fontes[0] if registros else negativa
+    classificacao = "certidao_inconclusiva"
+    estado = "a_confirmar"
+    if len(registros) > 1:
+        classificacao = "registros_distintos"
+    elif registros:
+        registro = registros[0]
+        referencia = _parse_data_br_ou_iso(data_fato)
+        fases = fases_admissiveis(registro, referencia, datetime.date.today())
+        if registro.situacao == "em_curso" and not registro.conflito:
+            classificacao = "neutro_em_curso"
+            estado = "extraido"
+            efeito = "Registro em curso, sem valoração (Súmula 444/STJ e Tema 129/STF)."
+        elif registro.situacao == "definitiva" and not registro.conflito:
+            if "reincidencia" in fases:
+                classificacao = "reincidencia"
+            elif not referencia:
+                classificacao = "verificar_data_do_fato"
+            elif not registro.data_transito:
+                classificacao = "condenacao_sem_data"
+            elif registro.data_transito < referencia and not registro.data_cumprimento_extincao:
+                classificacao = "verificar_periodo_depurador"
+                efeito = "Confira o cumprimento ou a extinção da pena para a reincidência (art. 64, I, do CP)."
+            elif "antecedentes" in fases:
+                classificacao = "maus_antecedentes"
+                efeito = "Confira a destinação conforme os arts. 59, 63 e 64 do CP."
+    elif negativa:
+        classificacao = "certidao_negativa"
+        estado = "extraido"
+        efeito = "A certidão contém declaração negativa."
 
     return PontoDecisivoItem(
-        chave="antecedentes",
-        valor={"classificacao": "primario"},
-        estado="extraido",
-        fonte_id=peca_cac.doc_id,
-        folha=peca_cac.folha,
-        trecho=_recortar_trecho(txt, 0, min(len(txt), 200)),
-        efeito="Réu tecnicamente primário e sem maus antecedentes (Súmula 444/STJ).",
+        chave="antecedentes", estado=estado, efeito=efeito,
+        valor={
+            "classificacao": classificacao,
+            "registros": [registro.model_dump(mode="json") for registro in registros],
+        },
+        fonte_id=fonte.fonte_id if fonte else certidoes[0].doc_id,
+        folha=fonte.folha if fonte else certidoes[0].folha,
+        trecho=fonte.trecho if fonte else "",
     )
 
 
-def _extrair_confissao_ponto(
-    pecas: List[PecaClassificada],
-    transcricoes: Optional[List[Dict[str, Any]]] = None,
-) -> PontoDecisivoItem:
-    """Extrai confissão (total, parcial ou qualificada) do interrogatório (transcrição ou termo), sempre ``a_confirmar``."""
-    efeito = "Atenuante da confissão espontânea na 2ª fase (art. 65, III, 'd', do CP e Súmula 545/STJ)."
-    pat_conf = re.compile(
-        r"(?:confess(?:ou|a|o)\s+(?:parcialmente\s+|integralmente\s+|que\s+|ter\s+|o\s+fato|os\s+fatos|a\s+pr[áa]tica)?|admiti(?:u|o)\s+(?:parcialmente\s+|que\s+|ter\s+|a\s+pr[áa]tica)|disse\s+que\s+(?:de\s+fato\s+)?(?:empurrou|bateu|agrediu|amea[çc]ou|foi\s+at[ée]\s+a\s+resid[êe]ncia|sabia\s+da\s+medida))",
-        flags=re.IGNORECASE,
+def _ponto_confissao(registro: SugestaoConfissao) -> PontoDecisivoItem:
+    if registro.tipo == "ausente":
+        return PontoDecisivoItem(chave="confissao", estado="ausente", efeito=EFEITO_CONFISSAO)
+    return PontoDecisivoItem(
+        chave="confissao",
+        valor={"tipo": registro.tipo, "minuto": registro.minuto},
+        estado="a_confirmar", fonte_id=registro.fonte_id, folha=registro.folha,
+        trecho=registro.trecho, efeito=EFEITO_CONFISSAO,
     )
-    pat_qualif = re.compile(
-        r"(?:leg[íi]tima\s+defesa|para\s+se\s+defender|apenas\s+se\s+defendeu|em\s+defesa|s[óo]\s+reagiu|foi\s+provocado|para\s+ver\s+a\s+filha)",
-        flags=re.IGNORECASE,
-    )
-    pat_parcial = re.compile(
-        r"(?:parcialmente|confessou\s+apenas|admitiu\s+apenas|mas\s+neg(?:ou|a)|por[ée]m\s+neg(?:ou|a)|nega\s+a\s+(?:amea[çc]a|les[aã]o|agress[aã]o))",
-        flags=re.IGNORECASE,
-    )
-
-    # 1. Prioriza transcrições de interrogatório (com minuto/timestamp)
-    for tr in transcricoes or []:
-        if not isinstance(tr, dict):
-            continue
-        papel = str(tr.get("papel") or "").upper()
-        arq = str(tr.get("arquivo") or "").lower()
-        if papel != "INTERROGATORIO_REU" and "interrogat" not in arq:
-            continue
-        media_id = str(tr.get("media_id") or tr.get("arquivo") or "INTERROGATORIO")
-        segs = tr.get("segmentos") or tr.get("segmentos_literais") or []
-        for seg in segs:
-            if not isinstance(seg, dict):
-                continue
-            txt_seg = str(seg.get("texto_literal") or seg.get("texto") or "")
-            m = pat_conf.search(txt_seg)
-            if m:
-                minuto = str(seg.get("timestamp") or seg.get("inicio") or "")
-                tipo_conf = "qualificada" if pat_qualif.search(txt_seg) else ("parcial" if pat_parcial.search(txt_seg) else "total")
-                return PontoDecisivoItem(
-                    chave="confissao",
-                    valor={"tipo": tipo_conf, "minuto": minuto},
-                    estado="a_confirmar",
-                    fonte_id=media_id,
-                    trecho=_recortar_trecho(txt_seg, m.start(), m.end()),
-                    efeito=efeito,
-                )
-        txt_full = str(tr.get("texto") or "")
-        m_full = pat_conf.search(txt_full)
-        if m_full:
-            trecho = _recortar_trecho(txt_full, m_full.start(), m_full.end())
-            tipo_conf = "qualificada" if pat_qualif.search(trecho) else ("parcial" if pat_parcial.search(trecho) else "total")
-            return PontoDecisivoItem(
-                chave="confissao",
-                valor={"tipo": tipo_conf, "minuto": ""},
-                estado="a_confirmar",
-                fonte_id=media_id,
-                trecho=trecho,
-                efeito=efeito,
-            )
-
-    # 2. Busca em termos de interrogatório / audiência / APF
-    for p in pecas:
-        if p.categoria not in ("TERMO_AUDIENCIA", "BO") and "interrogat" not in p.titulo.lower():
-            continue
-        txt = p.conteudo or ""
-        m = pat_conf.search(txt)
-        if m:
-            trecho = _recortar_trecho(txt, m.start(), m.end())
-            tipo_conf = "qualificada" if pat_qualif.search(trecho) else ("parcial" if pat_parcial.search(trecho) else "total")
-            m_min = re.search(r"\b(\d{1,2}:\d{2}(?::\d{2})?|\d{2}min\d{2}s)\b", trecho)
-            return PontoDecisivoItem(
-                chave="confissao",
-                valor={"tipo": tipo_conf, "minuto": m_min.group(1) if m_min else ""},
-                estado="a_confirmar",
-                fonte_id=p.doc_id,
-                folha=p.folha,
-                trecho=trecho,
-                efeito=efeito,
-            )
-
-    return PontoDecisivoItem(chave="confissao", valor=None, estado="ausente", efeito=efeito)
 
 
 def extrair_pontos_decisivos(
     pecas: List[PecaClassificada],
     *,
+    pecas_prisao: Optional[List[PecaClassificada]] = None,
     nome_reu: str = "",
     nome_ofendida: str = "",
     data_fato: str = "",
-    peca_cac: Optional[PecaClassificada] = None,
+    certidoes: Optional[List[PecaClassificada]] = None,
     peca_int: Optional[PecaClassificada] = None,
     data_intimacao_mpu: str = "",
     intimidado_mpu: bool = False,
     pedidos_mp: Optional[List[PedidoParteItem]] = None,
     transcricoes: Optional[List[Dict[str, Any]]] = None,
+    confissao: SugestaoConfissao | None = None,
+    custodia: tuple[List[IntervaloCustodia], List[str]] | None = None,
 ) -> List[PontoDecisivoItem]:
     """Extrai os 10 pontos decisivos obrigatórios dos autos, sempre com fonte e estado explícito."""
     pontos: List[PontoDecisivoItem] = []
@@ -958,62 +913,35 @@ def extrair_pontos_decisivos(
     pontos.append(_extrair_data_nascimento_reu_ponto(pecas, nome_reu, nome_ofendida))
 
     # 2. antecedentes
-    pontos.append(_extrair_antecedentes_ponto(peca_cac, data_fato))
+    pontos.append(_extrair_antecedentes_ponto(certidoes or [], data_fato))
 
     # 3. confissao
-    pontos.append(_extrair_confissao_ponto(pecas, transcricoes))
+    if confissao is None:
+        _, confissao = detectar_confissoes(pecas, transcricoes or [], [])
+    pontos.append(_ponto_confissao(confissao))
 
-    # 4. prisao_provisoria (detração — art. 387, § 2º, CPP)
+    # 4. prisao_provisoria
     efeito_detr = "Detração penal (art. 387, § 2º, do CPP) para fins de definição do regime inicial."
-    dt_prisao: Optional[datetime.date] = None
-    dt_soltura: Optional[datetime.date] = None
-    fonte_prisao = ""
-    folha_prisao = ""
-    trecho_prisao = ""
-    for p in pecas:
-        txt = p.conteudo or ""
-        if dt_prisao is None:
-            m_pr = re.search(
-                r"(?:preso\s+em\s+flagrante|pris[aã]o\s+(?:em\s+flagrante|preventiva)|auto\s+de\s+pris[aã]o\s+em\s+flagrante)[^.\n]{0,80}?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}-\d{2}-\d{2})",
-                txt,
-                flags=re.IGNORECASE,
-            )
-            if m_pr:
-                dt_prisao = _parse_data_br_ou_iso(m_pr.group(1))
-                fonte_prisao = p.doc_id
-                folha_prisao = p.folha
-                trecho_prisao = _recortar_trecho(txt, m_pr.start(), m_pr.end())
-        if dt_soltura is None:
-            m_so = re.search(
-                r"(?:alvar[áa]\s+de\s+soltura|liberdade\s+provis[óo]ria|posto\s+em\s+liberdade|solto\s+em)[^.\n]{0,80}?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}-\d{2}-\d{2})",
-                txt,
-                flags=re.IGNORECASE,
-            )
-            if m_so:
-                dt_soltura = _parse_data_br_ou_iso(m_so.group(1))
-                if not fonte_prisao:
-                    fonte_prisao = p.doc_id
-                    folha_prisao = p.folha
-                    trecho_prisao = _recortar_trecho(txt, m_so.start(), m_so.end())
-    if dt_prisao or dt_soltura:
-        dias = max(0, (dt_soltura - dt_prisao).days) if (dt_prisao and dt_soltura and dt_soltura >= dt_prisao) else None
-        pontos.append(
-            PontoDecisivoItem(
-                chave="prisao_provisoria",
-                valor={
-                    "data_prisao": dt_prisao.isoformat() if dt_prisao else "",
-                    "data_soltura": dt_soltura.isoformat() if dt_soltura else "",
-                    "dias": dias,
-                },
-                estado="a_confirmar",
-                fonte_id=fonte_prisao,
-                folha=folha_prisao,
-                trecho=trecho_prisao,
-                efeito=efeito_detr,
-            )
-        )
+    fontes_prisao = pecas if pecas_prisao is None else pecas_prisao
+    intervalos, _ = custodia if custodia is not None else extrair_intervalos_custodia(fontes_prisao)
+    if intervalos:
+        resultado = calcular_detracao(intervalos)
+        primeiro = intervalos[0]
+        fonte = next((p for p in fontes_prisao if p.doc_id == primeiro.fonte_inicio), None)
+        pontos.append(PontoDecisivoItem(
+            chave="prisao_provisoria", estado="a_confirmar",
+            valor={
+                "data_prisao": primeiro.inicio.isoformat(),
+                "data_soltura": primeiro.fim.isoformat() if primeiro.fim else "",
+                "dias": resultado.dias if resultado.periodos else None,
+                "intervalos": [i.model_dump(mode="json") for i in intervalos],
+            },
+            fonte_id=primeiro.fonte_inicio, folha=fonte.folha if fonte else "",
+            trecho=resultado.descricao_periodos or f"Custódia indicada a partir de {primeiro.inicio:%d/%m/%Y}.",
+            efeito=efeito_detr,
+        ))
     else:
-        pontos.append(PontoDecisivoItem(chave="prisao_provisoria", valor=None, estado="ausente", efeito=efeito_detr))
+        pontos.append(PontoDecisivoItem(chave="prisao_provisoria", estado="ausente", efeito=efeito_detr))
 
     # 5. representacao (condição de procedibilidade / decadência)
     efeito_rep = "Condição de procedibilidade para crimes de ação penal pública condicionada e aferição de decadência (art. 38 CPP / art. 103 CP)."
@@ -1135,7 +1063,7 @@ def extrair_pontos_decisivos(
     # 10. reu_preso (direito de recorrer em liberdade — art. 387, § 1º, CPP)
     efeito_rp = "Define o direito de recorrer em liberdade ou a manutenção da prisão preventiva (art. 387, § 1º, do CPP)."
     ponto_rp = PontoDecisivoItem(chave="reu_preso", valor=None, estado="ausente", efeito=efeito_rp)
-    for p in reversed(pecas):
+    for p in reversed(fontes_prisao):
         txt = p.conteudo or ""
         m_solto = re.search(r"alvar[áa]\s+de\s+soltura|liberdade\s+provis[óo]ria|responde(?:u)?\s+em\s+liberdade|posto\s+em\s+liberdade", txt, flags=re.IGNORECASE)
         m_preso = re.search(r"preso\s+preventivamente|pris[aã]o\s+preventiva\s+(?:decretada|mantida|vigente)|recolhido\s+ao\s+sistema\s+prisional", txt, flags=re.IGNORECASE)
@@ -1428,6 +1356,104 @@ def _extrair_entidades_peca(conteudo: str, doc_id: str, data_peca: str, is_demo:
 _RE_CODIGO_LAUDO = re.compile(r"\bun-[a-z0-9]{3,}-\d{3,}\b")
 
 
+# As primeiras regras resolvem espécies específicas antes das categorias mais gerais.
+_PADROES_TITULO = tuple((categoria, re.compile(padrao)) for categoria, padrao in (
+    ("RELATORIO_INQUERITO", r"^relatorio (?:(?:final|de conclusao) (?:do|de) inquerito|policial conclusivo|final$)"),
+    ("LAUDO_PERICIAL", r"^(?:laudos? (?:pericia(?:is|l)?|de pericia|do iml)|exame de corpo de delito|atestado odontologico)\b"),
+    ("RECEBIMENTO_DENUNCIA", r"^(?:(?:decisao (?:de )?)?recebimento (?:da|de) (?:denuncia|queixa)|saneamento art 397)\b"),
+    ("DECISAO_MPU", r"^(?:(?:termo de )?audiencia de custodia|revogacao de medidas protetivas|medidas protetivas de urgencia|decisao (?:de |sobre |concessiva de )?medidas protetivas)\b"),
+    ("CAC_FAC", r"^(?:cac|fac|certidao (?:de antecedentes|estadual de antecedentes|e folha de antecedentes)|folha de antecedentes|antecedentes criminais)\b"),
+    ("CERTIDAO_INTIMACAO_MPU", r"^(?:certidao (?:d[aoe] oficiala? de justica|positiva)|oficiala? de justica|mandado de citacao|intimacao pessoal)\b"),
+    ("DENUNCIA", r"^(?:denuncia|peca acusatoria|exordial acusatoria)\b"),
+    ("RESPOSTA_ACUSACAO", r"^(?:resposta a (?:acusacao|denuncia)|defesa preliminar)\b"),
+    ("TERMO_AUDIENCIA", r"^(?:termo de audiencia|ata(?: da audiencia)?|juntada de midias)\b"),
+    ("ALEGAÇÕES", r"^(?:alegacoes finais|memoriais|razoes finais)\b"),
+    ("SENTENCA", r"^sentenca\b"),
+    ("DESPACHO", r"^(?:despacho|ato ordinatorio|alvara de soltura)\b"),
+    ("DECISAO_INTERLOCUTORIA", r"^decisao\b"),
+    ("PETICAO", r"^(?:peticao|manifestacao do mp|manifestacao do ministerio publico|habilitacao|endereco atualizado|juizo 100 digital)\b"),
+    ("CERTIDAO", r"^certidao\b"),
+    ("BO", r"^(?:boletim de ocorrencia|auto de prisao em flagrante|inquerito policial|diligencias policiais|capa(?: e autuacao)?|termo de declaracoes|avaliacao de risco)\b"),
+))
+
+CATEGORIAS_SEM_FONTE_DE_FATOS = (
+    "DESPACHO", "DECISAO_INTERLOCUTORIA", "SENTENCA", "PETICAO", "CERTIDAO", "RELATORIO_INQUERITO",
+    "NAO_IDENTIFICADA",
+)
+CATEGORIAS_LAYA = tuple(REGRAS_LAYA_SYSTEM1) + CATEGORIAS_SEM_FONTE_DE_FATOS
+_LIMIAR_CORPO = 3
+_SINAIS_FORTES_CORPO = {
+    "BO": (r"\b(?:boletim de ocorrencia|auto de prisao em flagrante|termo de declaracoes)\b",),
+    "LAUDO_PERICIAL": (r"\b(?:laudo pericial|exame de corpo de delito)\b",),
+    "DENUNCIA": (r"\b(?:oferec(?:e|er|eu) denuncia|denuncia ministerial)\b",),
+    "RECEBIMENTO_DENUNCIA": (r"\b(?:recebo a denuncia|recebo a queixa)\b",),
+    "RESPOSTA_ACUSACAO": (r"\b(?:apresenta resposta a acusacao|resposta a acusacao art|art 396 a do cpp)\b",),
+    "TERMO_AUDIENCIA": (r"\b(?:termo de audiencia|declarada aberta a audiencia)\b",),
+    "DECISAO_MPU": (r"\b(?:defiro|concedo) (?:as )?medidas protetivas\b",),
+    "CERTIDAO_INTIMACAO_MPU": (r"\b(?:certifico que intimei pessoalmente|intimei pessoalmente o requerido)\b",),
+    "CAC_FAC": (r"\b(?:folha de antecedentes criminais|certidao de antecedentes criminais)\b",),
+    "CERTIDAO": (r"^certifico (?:a juntada|a remessa|o transcurso)\b",),
+    "SENTENCA": (r"^(?:sentenca\b|relatorio fundamentacao dispositivo\b)|\b(?:julgo improcedente o pedido e absolvo|ante o exposto condeno)\b",),
+    "DESPACHO": (r"^despacho\b",),
+    "RELATORIO_INQUERITO": (r"^relatorio final (?:do|de) inquerito\b",),
+}
+_SINAIS_POLO_TITULO = {
+    "ALEGACOES_FINAIS_MP": r"\b(?:mp|ministerio publico|acusacao)\b",
+    "ALEGACOES_FINAIS_DEFESA": r"\b(?:defesa|defensoria)\b",
+}
+_SINAIS_POLO_CORPO = {
+    "ALEGACOES_FINAIS_MP": r"\b(?:promotor[a]? de justica|(?:requer|pede|pleiteia|pugna) (?:a |pela )?condenacao|procedencia da pretensao punitiva)\b",
+    "ALEGACOES_FINAIS_DEFESA": r"\b(?:defensor[a]?|advogad[oa]|oab|(?:requer|pede|pleiteia|pugna) (?:a |pela )?(?:absolvicao|desclassificacao))\b",
+}
+
+
+def _texto_classificacao(texto: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", normalizar(texto)).strip()
+
+
+def _classificar_por_sinais(titulo: str, corpo: str) -> tuple[str, dict[str, float], list[str], str]:
+    """A primeira regra de título aplicável prevalece. No corpo, cada sinal vale uma vez.
+
+    Expressões específicas valem 3 na abertura (600 caracteres) e 1 depois dela.
+    Indícios auxiliares valem 1 na abertura e 0,25 depois dela. O placar é dividido
+    por sua soma com 3, para exibição. A pontuação não é uma probabilidade.
+    """
+    titulo = _texto_classificacao(titulo)
+    texto = _texto_classificacao(corpo)
+    frente = texto[:600]
+    for categoria, regra in _PADROES_TITULO:
+        if not regra.search(titulo):
+            continue
+        if categoria != "ALEGAÇÕES":
+            return categoria, {categoria: 0.99}, [], ""
+        candidatos = [rotulo for rotulo, sinal in _SINAIS_POLO_TITULO.items() if re.search(sinal, titulo)]
+        if not candidatos:
+            candidatos = [rotulo for rotulo, sinal in _SINAIS_POLO_CORPO.items() if re.search(sinal, texto)]
+        if len(candidatos) == 1:
+            polo = candidatos[0]
+            return polo, {polo: 0.94}, [], ""
+        motivo = "Polo divergente nos memoriais." if candidatos else "Polo dos memoriais não identificado."
+        return "NAO_IDENTIFICADA", {}, candidatos, motivo
+
+    placar: dict[str, float] = {}
+    for categoria in CATEGORIAS_LAYA[:-1]:
+        fortes = _SINAIS_FORTES_CORPO.get(categoria, ())
+        pontos = sum(3 if re.search(sinal, frente) else int(bool(re.search(sinal, texto))) for sinal in fortes)
+        if not pontos:
+            auxiliares = {_texto_classificacao(sinal) for sinal in REGRAS_LAYA_SYSTEM1.get(categoria, ())}
+            pontos = sum(1 if sinal in frente else 0.25 * (sinal in texto) for sinal in auxiliares if sinal)
+        if pontos:
+            placar[categoria] = pontos
+    maior = max(placar.values(), default=0)
+    scores = {categoria: round(pontos / (pontos + 3), 3) for categoria, pontos in placar.items()}
+    candidatas = [categoria for categoria, pontos in placar.items() if pontos == maior]
+    if len(candidatas) > 1:
+        return "NAO_IDENTIFICADA", scores, candidatas, "Empate entre categorias pelos sinais do corpo."
+    if maior < _LIMIAR_CORPO:
+        return "NAO_IDENTIFICADA", scores, candidatas, "Sinal insuficiente para identificar a espécie."
+    return candidatas[0], scores, [], ""
+
+
 def classificar_pecas_autos(raw_docs: List[Dict[str, Any]], is_demo: bool = False) -> List[PecaClassificada]:
     """
     Motor System 1 (Laya Decision Engine): classifica cada peça processual por regras determinísticas,
@@ -1442,70 +1468,12 @@ def classificar_pecas_autos(raw_docs: List[Dict[str, Any]], is_demo: bool = Fals
         conteudo = str(raw.get("conteudo") or "")
         doc_id = str(raw.get("doc_id") or "ID-0000")
         data_peca = str(raw.get("data_peca") or "")
-        texto_full = f"{titulo} {conteudo}".lower()
-        titulo_low = titulo.lower()
-
-        scores: Dict[str, float] = {}
-        for cat, keywords in REGRAS_LAYA_SYSTEM1.items():
-            hits = sum(1 for kw in keywords if kw in texto_full)
-            scores[cat] = round(min(0.99, 0.15 + (hits * 0.24)), 3)
-
-        def _pin(target_cat: str, val: float = 0.99) -> None:
-            for k in scores:
-                scores[k] = min(scores[k], 0.65)
-            scores[target_cat] = val
-
-        # Prioriza sinal forte do título já validado pelo segmentador PJe
-        if "laudo de perícia" in titulo_low or "exame de corpo de delito" in titulo_low or "atestado odontológico" in titulo_low:
-            _pin("LAUDO_PERICIAL", 0.99)
-        elif "denúncia ministerial" in titulo_low:
-            _pin("DENUNCIA", 0.99)
-        elif "recebimento da denúncia" in titulo_low or "saneamento (art. 397" in titulo_low:
-            _pin("RECEBIMENTO_DENUNCIA", 0.99)
-        elif "resposta à acusação" in titulo_low:
-            _pin("RESPOSTA_ACUSACAO", 0.99)
-        elif (
-            "oficial de justiça" in titulo_low
-            or "mandado de citação" in titulo_low
-            or "intimação pessoal" in titulo_low
-            or "certidão positiva" in titulo_low
-            or "endereço atualizado" in titulo_low
-            or "juízo 100% digital" in titulo_low
-            or "habilitação" in titulo_low
-        ):
-            _pin("CERTIDAO_INTIMACAO_MPU", 0.97)
-        elif (
-            "audiência de custódia" in titulo_low
-            or "revogação de medidas protetivas" in titulo_low
-            or "sobre medidas protetivas" in titulo_low
-            or ("decisão" in titulo_low and "medidas protetivas" in titulo_low)
-        ):
-            _pin("DECISAO_MPU", 0.98)
-        elif "termo de audiência" in titulo_low or "ata da audiência" in titulo_low or "juntada de mídias" in titulo_low:
-            _pin("TERMO_AUDIENCIA", 0.99)
-        elif "antecedentes criminais" in titulo_low:
-            _pin("CAC_FAC", 0.99)
-        elif (
-            "memoriais do ministério público" in titulo_low
-            or "alegações finais do ministério público" in titulo_low
-            or "alegações finais (mp)" in titulo_low
-        ):
-            _pin("ALEGACOES_FINAIS_MP", 0.99)
-        elif "memoriais da defesa" in titulo_low or "alegações finais da defesa" in titulo_low:
-            _pin("ALEGACOES_FINAIS_DEFESA", 0.99)
-        elif (
-            "auto de prisão em flagrante" in titulo_low
-            or "inquérito policial" in titulo_low
-            or "diligências policiais" in titulo_low
-            or "capa e autuação" in titulo_low
-        ):
-            _pin("BO", 0.98)
-            if "laudos periciais" in titulo_low or _RE_CODIGO_LAUDO.search(texto_full) or "exame de lesão corporal" in texto_full:
-                scores["LAUDO_PERICIAL"] = 0.95
-
-        melhor_cat = max(scores, key=lambda k: scores[k])
-        # Confiança = pontuação real da regra vencedora (sem piso artificial).
-        conf = scores[melhor_cat]
+        melhor_cat, scores, candidatas, motivo = _classificar_por_sinais(titulo, conteudo)
+        conf = scores.get(melhor_cat, max(scores.values(), default=0.0))
+        override = raw.get("categoria_confirmada")
+        confirmada = isinstance(override, str) and override in CATEGORIAS_LAYA
+        if confirmada:
+            melhor_cat = override
 
         resumo = _gerar_sintese_dinamica_peca(melhor_cat, titulo, conteudo, doc_id, is_demo=is_demo)
         entidades = _extrair_entidades_peca(conteudo, doc_id, data_peca, is_demo=is_demo)
@@ -1519,6 +1487,9 @@ def classificar_pecas_autos(raw_docs: List[Dict[str, Any]], is_demo: bool = Fals
                 categoria=melhor_cat,
                 laya_confidence=conf,
                 laya_scores=scores,
+                laya_candidatas=candidatas,
+                laya_motivo=motivo,
+                categoria_confirmada=confirmada,
                 ocr_aplicado=bool(raw.get("ocr_aplicado", False)),
                 resumo_estruturado=resumo,
                 entidades_extraidas=entidades,
@@ -1711,7 +1682,19 @@ def extrair_metadados_processo(
     from app.generation.adversarial_critic import extrair_teses_defensivas
 
     alertas: List[str] = []
-    texto_unificado = "\n".join(f"[{p.doc_id}] {p.titulo}: {p.conteudo}" for p in pecas)
+    for peca in pecas:
+        if peca.categoria_confirmada:
+            continue
+        if peca.categoria == "NAO_IDENTIFICADA":
+            candidatas = " Candidatas: " + ", ".join(peca.laya_candidatas) + "." if peca.laya_candidatas else ""
+            alertas.append(f"{peca.doc_id}: espécie não identificada. {peca.laya_motivo}{candidatas}")
+        elif peca.laya_confidence < 0.65:
+            alertas.append(f"{peca.doc_id}: pontuação baixa na classificação de {peca.categoria}. Confira a espécie.")
+
+    fontes_fatos = [
+        p for p in pecas if p.categoria not in CATEGORIAS_SEM_FONTE_DE_FATOS and p.categoria != "CAC_FAC"
+    ]
+    texto_unificado = "\n".join(f"[{p.doc_id}] {p.titulo}: {p.conteudo}" for p in fontes_fatos)
     texto_low = texto_unificado.lower()
 
     peca_capa = next((p for p in pecas if p.doc_id == "ID-CAPA-PJE"), None)
@@ -1732,7 +1715,7 @@ def extrair_metadados_processo(
         (p for p in pecas if p.categoria == "DECISAO_MPU" and "revoga" in p.titulo.lower()),
         None,
     )
-    peca_cac = next((p for p in pecas if p.categoria == "CAC_FAC"), None)
+    certidoes = [p for p in pecas if p.categoria == "CAC_FAC"]
     peca_mp_af = next((p for p in pecas if p.categoria == "ALEGACOES_FINAIS_MP"), None)
     peca_def_af = next((p for p in pecas if p.categoria == "ALEGACOES_FINAIS_DEFESA"), None)
 
@@ -1742,7 +1725,22 @@ def extrair_metadados_processo(
         if peca_capa
         else (peca_den.conteudo if peca_den else texto_unificado)
     )
-    m_proc = re.search(r"\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b", source_for_num)
+    padrao_cnj = r"\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b"
+    m_proc = re.search(padrao_cnj, source_for_num)
+    if not m_proc:
+        # O cabeçalho identifica os autos mesmo quando a espécie não foi reconhecida.
+        padrao_cabecalho = re.compile(
+            r"\bprocesso\s*(?:n[º°o]\.?\s*|:\s*)?(" + padrao_cnj + r")",
+            re.IGNORECASE,
+        )
+        numeros_cabecalho = {
+            numero
+            for peca in pecas
+            if peca.categoria not in ("SENTENCA", "CAC_FAC")
+            for numero in padrao_cabecalho.findall((peca.conteudo or "")[:600])
+        }
+        if len(numeros_cabecalho) == 1:
+            m_proc = re.fullmatch(padrao_cnj, next(iter(numeros_cabecalho)))
     if m_proc:
         numero_processo = m_proc.group(0)
     elif is_demo:
@@ -1780,7 +1778,7 @@ def extrair_metadados_processo(
     # padrão de captura; todas as ocorrências de cada peça entram, para que divergências virem alerta
     # (revisão cruzada do CODEX na TASK-071).
     fontes_nomes: List[str] = [p.conteudo for p in (peca_den, peca_mp_af) if p is not None]
-    fontes_nomes += [p.conteudo for p in pecas if p is not peca_den and p is not peca_mp_af]
+    fontes_nomes += [p.conteudo for p in fontes_fatos if p is not peca_den and p is not peca_mp_af]
     if not fontes_nomes:
         fontes_nomes = [texto_unificado]
 
@@ -1909,17 +1907,8 @@ def extrair_metadados_processo(
     intimidado_mpu = bool(
         peca_int and ("intimei pessoalmente" in peca_int.conteudo.lower() or "oficial de justiça" in peca_int.conteudo.lower())
     )
-    if not peca_cac:
-        # Sem prova de maus antecedentes/reincidência prevalece a primariedade (presunção favorável),
-        # mas o juiz é alertado de que a certidão não foi localizada.
-        primario = True
-        if not is_demo:
-            alertas.append("Certidão de antecedentes criminais não localizada nos autos; primariedade presumida.")
-    else:
-        cac_low = peca_cac.conteudo.lower()
-        tem_negativa = any(x in cac_low for x in ("nada constar", "não constam", "primário", "sem antecedentes"))
-        tem_cond_def = ("condenação definitiva" in cac_low or "transitada em julgado" in cac_low) and not tem_negativa
-        primario = not tem_cond_def
+    if not certidoes and not is_demo:
+        alertas.append("Certidão de antecedentes criminais não localizada nos autos. Confira no processo.")
 
     # 6. Pedidos reais do MP e da Defesa (memoriais + alegações finais orais na ata e em transcrições)
     pedidos_mp: List[PedidoParteItem] = []
@@ -1930,11 +1919,14 @@ def extrair_metadados_processo(
     pecas_def_af = [p for p in pecas if p.categoria == "ALEGACOES_FINAIS_DEFESA"]
     pecas_ata = [p for p in pecas if p.categoria == "TERMO_AUDIENCIA"]
 
-    for p_mp in pecas_mp_af:
-        extraidos_mp = extrair_pedidos_mp_texto(p_mp.conteudo, fonte_id=p_mp.doc_id, folha=p_mp.folha, origem="memoriais")
+    for p_mp in pecas:
+        if p_mp.categoria not in ("DENUNCIA", "ALEGACOES_FINAIS_MP"):
+            continue
+        origem = "denuncia" if p_mp.categoria == "DENUNCIA" else "memoriais"
+        extraidos_mp = extrair_pedidos_mp_texto(p_mp.conteudo, fonte_id=p_mp.doc_id, folha=p_mp.folha, origem=origem)
         if extraidos_mp:
             pedidos_mp.extend(extraidos_mp)
-        elif not is_demo:
+        elif not is_demo and origem == "memoriais":
             alertas.append(
                 f"Memoriais do MP ({p_mp.doc_id}): pedidos não identificados automaticamente: conferir a peça."
             )
@@ -1978,7 +1970,7 @@ def extrair_metadados_processo(
             textos_defesa_orais.append(
                 {"categoria": "ALEGACOES_FINAIS_DEFESA", "conteudo": txt_tr, "doc_id": media_id, "folhas": "", "origem": "oral"}
             )
-            pedidos_defesa.extend(extrair_pedidos_subsidiarios_defesa_texto(txt_tr, fonte_id=media_id, folha="", origem="oral"))
+            pedidos_defesa.extend(extrair_pedidos_defesa_texto(txt_tr, fonte_id=media_id, folha="", origem="oral"))
         elif re.search(r"alega[çc][õo]es\s+finais", f"{tr.get('arquivo', '')} {txt_tr[:200]}", flags=re.IGNORECASE):
             mp_o, def_o, txts_o, al_o = extrair_alegacoes_orais_ata(txt_tr, fonte_id=media_id, folha="")
             pedidos_mp.extend(mp_o)
@@ -1999,11 +1991,12 @@ def extrair_metadados_processo(
     pedido_dano_moral = bool(pedidos_dm_mp)
     valor_dm = 0.0
     if pedido_dano_moral:
-        for p_dm in pedidos_dm_mp:
-            if p_dm.valor and p_dm.valor > 0:
-                valor_dm = float(p_dm.valor)
-                break
-        if not valor_dm:
+        valores_pedidos = {p.valor for p in pedidos_dm_mp if p.valor is not None and p.valor > 0}
+        if len(valores_pedidos) == 1:
+            valor_dm = float(next(iter(valores_pedidos)))
+        elif len(valores_pedidos) > 1:
+            alertas.append("Constam pedidos de reparação com valores distintos. Confira cada pedido nos autos.")
+        else:
             if is_demo:
                 valor_dm = 3000.0
             else:
@@ -2143,6 +2136,7 @@ def extrair_metadados_processo(
                     codigo="PREL-01",
                     tipo="PRELIMINAR",
                     titulo="Extinção Parcial da Punibilidade pela Decadência Já Reconhecida nos Autos (Art. 103 e Art. 107, IV, do CP)",
+                    parte="juizo",
                     descricao_defesa=f"Questão preliminar já examinada na decisão de {peca_rec.doc_id} relativamente à imputação de crime contra a honra de ação penal privada.",
                     fonte_id=peca_rec.doc_id,
                     folha=peca_rec.folha,
@@ -2159,44 +2153,65 @@ def extrair_metadados_processo(
                 + "."
             )
 
-    # Consolida pedidos_defesa: teses reconhecidas + pedidos subsidiários reais dos memoriais/alegações orais
-    chaves_def_vistas = {(p.tipo, p.fonte_id) for p in pedidos_defesa}
-    for t in teses_defesa:
-        fonte_t = t.fonte_id or (peca_def_af.doc_id if peca_def_af else "DEFESA")
-        trecho_t = (t.trecho or t.descricao_defesa or t.titulo)[:300]
-        chave = (t.codigo, fonte_t)
-        if chave not in chaves_def_vistas:
-            chaves_def_vistas.add(chave)
-            pedidos_defesa.append(
-                PedidoParteItem(
-                    tipo=t.codigo,
-                    descricao=t.titulo,
-                    crime=_detectar_crime_no_trecho(trecho_t),
-                    fonte_id=fonte_t,
-                    folha=t.folha or (peca_def_af.folha if peca_def_af else ""),
-                    trecho=trecho_t,
-                    origem=t.origem or "memoriais",
-                )
-            )
-    for p_def in pecas_def_af:
-        for pd in extrair_pedidos_subsidiarios_defesa_texto(p_def.conteudo, fonte_id=p_def.doc_id, folha=p_def.folha, origem="memoriais"):
-            chave = (pd.tipo, pd.fonte_id)
-            if chave not in chaves_def_vistas:
-                chaves_def_vistas.add(chave)
-                pedidos_defesa.append(pd)
+    for tese in teses_defesa:
+        if tese.parte != "defesa":
+            continue
+        trecho = (tese.trecho or tese.descricao_defesa or tese.titulo)[:300]
+        pedidos_defesa.append(PedidoParteItem(
+            tipo=tese.codigo, descricao=tese.titulo, crime=_detectar_crime_no_trecho(trecho),
+            fonte_id=tese.fonte_id, folha=tese.folha, trecho=trecho, origem=tese.origem,
+            parte="defesa", posicao=tese.posicao, natureza=tese.natureza,
+        ))
+    for p_def in pecas:
+        if p_def.categoria not in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA"):
+            continue
+        origem = "resposta_acusacao" if p_def.categoria == "RESPOSTA_ACUSACAO" else "memoriais"
+        pedidos_defesa.extend(extrair_pedidos_defesa_texto(
+            p_def.conteudo, fonte_id=p_def.doc_id, folha=p_def.folha, origem=origem,
+        ))
 
+    ordem_pecas = {peca.doc_id: idx for idx, peca in enumerate(pecas)}
+    for idx, transcricao in enumerate(transcricoes or [], len(pecas)):
+        if isinstance(transcricao, dict) and transcricao.get("media_id"):
+            ordem_pecas.setdefault(str(transcricao["media_id"]), idx)
+    for lista in (pedidos_mp, pedidos_defesa, teses_defesa):
+        lista.sort(key=lambda item: (ordem_pecas.get(item.fonte_id, len(ordem_pecas)), item.posicao))
+        for ordem, item in enumerate(lista, 1):
+            item.ordem = ordem
+            vincular_ocorrencia(item, item.trecho, imputacoes, getattr(item, "crime", ""))
+
+    pecas_prisao = [
+        peca
+        for peca in pecas
+        if (peca.categoria not in CATEGORIAS_SEM_FONTE_DE_FATOS and peca.categoria != "CAC_FAC")
+        or (
+            peca.categoria == "DESPACHO"
+            and re.match(r"^alvara de soltura\b", _texto_classificacao(peca.titulo))
+        )
+    ]
+    sugestoes_confissao, confissao_geral = detectar_confissoes(
+        fontes_fatos, transcricoes or [], alvos_confissao(crimes_imputados, imputacoes),
+    )
+    custodia = extrair_intervalos_custodia(pecas)
     pontos_decisivos = extrair_pontos_decisivos(
-        pecas,
+        fontes_fatos,
+        pecas_prisao=pecas_prisao,
         nome_reu=nome_reu,
         nome_ofendida=nome_ofendida,
         data_fato=data_fato,
-        peca_cac=peca_cac,
+        certidoes=certidoes,
         peca_int=peca_int,
         data_intimacao_mpu=data_int,
         intimidado_mpu=intimidado_mpu,
         pedidos_mp=pedidos_mp,
         transcricoes=transcricoes,
+        confissao=confissao_geral,
+        custodia=custodia,
     )
+
+    registro_cac = next(ponto.valor for ponto in pontos_decisivos if ponto.chave == "antecedentes")
+    registros_antecedentes = [RegistroAntecedente.model_validate(item) for item in (registro_cac or {}).get("registros", [])]
+    negativa_expressa = bool(registro_cac and registro_cac.get("classificacao") == "certidao_negativa")
 
     return MetadadosProcesso(
         numero_processo=numero_processo,
@@ -2208,7 +2223,8 @@ def extrair_metadados_processo(
         data_recebimento_denuncia=data_rec,
         data_intimacao_mpu=data_int,
         intimidado_pessoalmente_mpu=intimidado_mpu,
-        reu_primario_sumula444=primario,
+        reu_primario_sumula444=True if negativa_expressa else None,
+        registros_antecedentes=registros_antecedentes,
         pedido_dano_moral_expresso_mp=pedido_dano_moral,
         valor_dano_moral_pedido_mp=valor_dm,
         crimes_imputados=crimes_imputados,
@@ -2217,6 +2233,9 @@ def extrair_metadados_processo(
         teses_defesa=teses_defesa,
         pedidos_mp=pedidos_mp,
         pedidos_defesa=pedidos_defesa,
+        intervalos_custodia=custodia[0],
+        alertas_custodia=custodia[1],
         pontos_decisivos=pontos_decisivos,
+        confissoes_sugeridas=sugestoes_confissao,
         alertas_extracao=alertas,
     )

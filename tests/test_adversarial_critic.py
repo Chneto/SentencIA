@@ -916,7 +916,10 @@ class TestIntegrationSectionalPipeline:
         # Minuta corrigida enfrentando PREL-01
         rascunho_correto = SecaoRascunho(
             secao=SecaoTipo.PRELIMINARES,
-            texto_redigido="Rejeito a preliminar de inépcia da denúncia (PREL-01) suscitada pela Defesa Técnica no ID-100.",
+            texto_redigido=(
+                "Rejeito a preliminar de inépcia da denúncia (PREL-01), pois a acusação em ID-100 "
+                "identifica a conduta, a data e o local do fato."
+            ),
         )
         resultado_correto = gating_fn(SecaoTipo.PRELIMINARES, rascunho_correto, dossie)
         assert resultado_correto.aprovado is True

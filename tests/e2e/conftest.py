@@ -247,12 +247,15 @@ def veredictos_condenatorios(bundle: Dict[str, Any]) -> Dict[str, Any]:
   Na v2 o motor nunca condena por padrão: os cenários de fixture simulam a decisão
   explícita do magistrado (``crimes_config``).
   """
-  crimes = list(obter_contexto(bundle).meta.crimes_imputados) or list(
+  meta = obter_contexto(bundle).meta
+  crimes = list(meta.crimes_imputados) or list(
       bundle.get("crimes_imputados") or []
   )
   assert crimes, "O cenário precisa ter crimes imputados."
+  # O cenário fictício com certidão opta pela neutralidade do vetor na auditoria.
+  usos = [{'id_registro': r.id_registro, 'fase': 'desconsiderar'} for r in meta.registros_antecedentes]
   return {
-      "crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]
+      "crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar", **({"usos_antecedentes": usos} if usos else {})} for c in crimes]
   }
 
 

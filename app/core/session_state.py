@@ -546,13 +546,23 @@ def _caminho_ultimo_caso(cases_dir: Optional[Path] = None) -> Path:
     return (cases_dir or _resolve_cases_dir()).parent / ULTIMO_CASO_FILENAME
 
 
-def _manifestos_registrados(destino: Path) -> Dict[str, Any]:
+def _ler_registro_de_casos(destino: Path) -> Dict[str, Any]:
     try:
         dados = json.loads(destino.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    manifestos = dados.get("manifestos") if isinstance(dados, dict) else None
+    return dados if isinstance(dados, dict) else {}
+
+
+def _manifestos_registrados(destino: Path) -> Dict[str, Any]:
+    manifestos = _ler_registro_de_casos(destino).get("manifestos")
     return manifestos if isinstance(manifestos, dict) else {}
+
+
+def consultar_categorias_pecas(identidade: str, *, cases_dir: Path) -> Dict[str, str]:
+    registro = _ler_registro_de_casos(_caminho_ultimo_caso(cases_dir)).get("categorias_pecas")
+    categorias = registro.get(identidade) if isinstance(registro, dict) else None
+    return categorias if isinstance(categorias, dict) else {}
 
 
 def consultar_manifesto_caso(identidade: str, *, cases_dir: Path) -> Dict[str, Any]:
@@ -575,13 +585,29 @@ def salvar_ultimo_caso_real(
     destino = _caminho_ultimo_caso(cases_dir)
     try:
         destino.parent.mkdir(parents=True, exist_ok=True)
-        manifestos = _manifestos_registrados(destino)
+        registro = _ler_registro_de_casos(destino)
+        manifestos = registro.get("manifestos")
+        manifestos = manifestos if isinstance(manifestos, dict) else {}
+        categorias = registro.get("categorias_pecas")
+        categorias = categorias if isinstance(categorias, dict) else {}
         manifesto = bundle.get("manifesto_caso")
         if isinstance(manifesto, dict):
-            manifestos[manifesto["id"]] = manifesto
+            identidade = manifesto["id"]
+            manifestos[identidade] = manifesto
+            escolhas = {
+                doc["doc_id"]: doc["categoria_confirmada"]
+                for doc in bundle.get("raw_documents") or []
+                if isinstance(doc, dict) and isinstance(doc.get("doc_id"), str)
+                and isinstance(doc.get("categoria_confirmada"), str)
+            }
+            if escolhas:
+                categorias[identidade] = escolhas
+            else:
+                categorias.pop(identidade, None)
         payload = {
             "versao": 1,
             "manifestos": manifestos,
+            "categorias_pecas": categorias,
             "salvo_em": _now_iso(),
             "bundle": bundle,
             "upload_status": dict(upload_status) if isinstance(upload_status, dict) else dict(_UPLOAD_STATUS_VAZIO),

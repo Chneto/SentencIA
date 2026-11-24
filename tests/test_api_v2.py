@@ -1081,7 +1081,9 @@ def test_plano_e_data_do_override_sao_iguais_em_todos_os_modos(client, sandbox, 
         if rota.endswith("build-script"):
             script = dados["script"]["script_json"]
             assert script["data_sentenca"] == "2025-07-08"
-            assert script["dosimetria_calculada"] == local["dosimetria_dados"]
+            memoria_local = dict(local["dosimetria_dados"])
+            assert memoria_local.pop("decisoes_acessorias")
+            assert script["dosimetria_calculada"] == memoria_local
             assert script["prescricao_calculada"] == local["prescricao_dados"]
         else:
             sentenca = dados["sentenca"]

@@ -130,8 +130,11 @@ def _veredictos_condenatorios(bundle: dict) -> dict:
     """
     from app.core.case_context import obter_contexto
 
-    crimes = obter_contexto(bundle).meta.crimes_imputados
-    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar"} for c in crimes]}
+    meta = obter_contexto(bundle).meta
+    crimes = meta.crimes_imputados
+    # O cenário fictício com certidão opta pela neutralidade do vetor na auditoria.
+    usos = [{'id_registro': r.id_registro, 'fase': 'desconsiderar'} for r in meta.registros_antecedentes]
+    return {"crimes_config": [{"codigo": c, **({"enquadramento_ameaca": "caput"} if c == "art_147_cp" else {}), "veredicto": "condenar", **({"usos_antecedentes": usos} if usos else {})} for c in crimes]}
 
 
 def _ids_midias_do_bundle(bundle: dict) -> list:
@@ -389,8 +392,8 @@ class TestCamadaDoisBaseFechada:
     def test_citacao_apocrifa_nao_derruba_auditoria_monolitica_de_caso_limpo(self, demo_bundle):
         """A auditoria monolítica do caso limpo segue 100.0 (não regressão da Camada 2)."""
         sentenca = gerar_sentenca_estruturada(case_bundle=demo_bundle, use_ollama_if_available=False)
-        pecas = classificar_pecas_autos(demo_bundle["raw_documents"])
-        meta = extrair_metadados_processo(pecas)
+        pecas = classificar_pecas_autos(demo_bundle["raw_documents"], is_demo=True)
+        meta = extrair_metadados_processo(pecas, is_demo=True)
         auditoria = auditar_sentenca(sentenca.texto_completo, pecas, meta.teses_defesa)
         assert auditoria.aprovada_sem_alucinacao is True
         assert auditoria.score_confiabilidade == 100.0
@@ -1014,8 +1017,8 @@ class TestIntegracaoSectionalPipeline:
             gating_validator=criar_gating_validator_duplo_crivo(use_ollama=False),
         )
         sentenca = engine.executar_pipeline(demo_bundle)
-        pecas = classificar_pecas_autos(demo_bundle["raw_documents"])
-        meta = extrair_metadados_processo(pecas)
+        pecas = classificar_pecas_autos(demo_bundle["raw_documents"], is_demo=True)
+        meta = extrair_metadados_processo(pecas, is_demo=True)
         ids_midias = [
             str(t.get("media_id", ""))
             for t in demo_bundle.get("transcriptions", [])

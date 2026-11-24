@@ -14,8 +14,13 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, StrictBool, model_validator
 
 from app.generation.date_formatter import parse_qualquer_data
+from app.generation.dispositivo import RegistroAcessorio
 from app.generation.juizo_sobre_provas import DecisaoCautelarSentenca, ElementoProvado
+from app.legal_engine.antecedentes import UsoAntecedente
+from app.legal_engine.detracao import IntervaloCustodia
+from app.legal_engine.condicoes_acao_penal import CondicoesAcaoPenal
 from app.legal_engine.dosimetria_calculator import VETORES_ART_59, ValorUnitarioMulta
+from app.legal_engine.linha_tempo_prescricao import LinhaTempoPrescricao
 from app.legal_engine.penal_types_catalog import list_all_penal_types
 
 _CODIGOS_PENAIS = frozenset(tipo["code"] for tipo in list_all_penal_types())
@@ -86,6 +91,7 @@ class CrimeDosimetriaRequest(BaseModel):
 
     codigo: CodigoPenal | None = Field(default=None, validation_alias=AliasChoices("codigo", "crime_code"))
     id_imputacao: str | None = None
+    linha_tempo_prescricao: LinhaTempoPrescricao | None = None
     data_fato: DataValida | None = None
     veredicto: Annotated[
         Literal["condenar", "absolver", "desclassificar", "extinguir"] | None,
@@ -101,9 +107,12 @@ class CrimeDosimetriaRequest(BaseModel):
     vetores_art59: Annotated[dict[str, VetorArt59Request], AfterValidator(_chaves_vetores_validas)] | None = None
     confissao: BooleanoDecisao | None = None
     reincidente: BooleanoDecisao | None = None
+    usos_antecedentes: list[UsoAntecedente] | None = None
     agravante_art61f: BooleanoDecisao | None = None
     menoridade_relativa_ou_senilidade: BooleanoDecisao | None = None
     violencia_ou_grave_ameaca: BooleanoDecisao | None = None
+    violencia_sexual_contra_mulher: StrictBool | None = None
+    condicoes_acao_penal: CondicoesAcaoPenal | None = None
     tentativa_fracao: FracaoPropria | None = None
     fracao_aumento: FracaoPropria | None = None
     dias_multa: int | None = Field(default=None, strict=True, ge=0, le=360)
@@ -141,7 +150,9 @@ class DosimetriaOverride(BaseModel):
     reu_menor_21_na_data_fato: Optional[BooleanoDecisao] = None
     reu_maior_70_na_sentenca: Optional[BooleanoDecisao] = None
     dias_prisao_cautelar: Optional[int] = Field(default=None, strict=True, ge=0)
+    intervalos_prisao: list[IntervaloCustodia] | None = None
     decisao_cautelar: Optional[DecisaoCautelarSentenca] = None
+    decisoes_acessorias: RegistroAcessorio | None = None
 
 
 class ParametrosDosimetria(DosimetriaOverride):
@@ -291,6 +302,14 @@ class StyleSampleRequest(BaseModel):
     texto_amostra: str
 
 
+class CategoriaPecaRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    doc_id: str = Field(min_length=1, max_length=150)
+    categoria: str | None
+    manifesto_id: str | None = None
+
+
 class MetadataOverrideRequest(BaseModel):
     """Payload de ``POST /api/cases/metadata-override``.
 
@@ -303,6 +322,7 @@ class MetadataOverrideRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metadados: Dict[str, Any] = Field(default_factory=dict)
+    manifesto_id: str | None = None
     substituir: BooleanoDecisao = False
 
 

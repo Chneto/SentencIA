@@ -149,3 +149,42 @@ def test_sem_caso_a_escolha_de_pdf_e_midia_e_explicita(ambiente):
     assert resposta.status_code == 409
     assert not (cases / "gravacao.mp4").exists()
     assert session_state.ACTIVE_CASE_STATE["bundle"] is None
+
+
+def test_categoria_confirmada_persiste_ao_reabrir_autos_ficticios(ambiente, monkeypatch):
+    _, cases = ambiente
+    pdf = cases / "autos-ficticios.pdf"
+    pdf.write_bytes(b"autos ficticios para classificacao")
+    conteudo = "A defesa requer a absolvição. O Promotor de Justiça requer condenação."
+
+    def segmentar(_pdf, **_kwargs):
+        return [{"doc_id": "ID-PECA-FICTICIA", "titulo": "Memoriais", "conteudo": conteudo}]
+
+    monkeypatch.setattr(main_mod, "_segmentar_pdf_seguro", segmentar)
+    client = TestClient(main_mod.app)
+    aberto = client.post("/api/cases/load-from-disk")
+    assert aberto.status_code == 200
+    caso = aberto.json()
+    id_caso = caso["manifesto_caso"]["id"]
+    assert caso["pecas"][0]["categoria"] == "NAO_IDENTIFICADA"
+    assert any("ID-PECA-FICTICIA" in aviso for aviso in caso["alertas_extracao"])
+    dados = {"doc_id": "ID-PECA-FICTICIA", "categoria": "ALEGACOES_FINAIS_DEFESA", "manifesto_id": id_caso}
+    assert client.post("/api/cases/document-category", json={**dados, "manifesto_id": "OUTRO-CASO"}).status_code == 409
+    r = client.post("/api/cases/document-category", json=dados)
+    assert r.status_code == 200
+    peca = r.json()["active_case"]["pecas"][0]
+    assert peca["categoria_confirmada"] and peca["categoria"] == "ALEGACOES_FINAIS_DEFESA"
+    assert peca["conteudo"] == conteudo
+
+    session_state.set_active_bundle(None, explicit_demo=False, upload_status={})
+    assert session_state.restaurar_ultimo_caso_real()
+    assert client.get("/api/cases/active").json()["pecas"][0]["categoria_confirmada"]
+    reprocessado = client.post("/api/cases/load-from-disk")
+    assert reprocessado.status_code == 200
+    assert reprocessado.json()["pecas"][0]["categoria"] == "ALEGACOES_FINAIS_DEFESA"
+    assert reprocessado.json()["pecas"][0]["conteudo"] == conteudo
+
+    automatica = client.post("/api/cases/document-category", json={**dados, "categoria": None})
+    assert automatica.status_code == 200
+    assert automatica.json()["active_case"]["pecas"][0]["categoria"] == "NAO_IDENTIFICADA"
+    assert client.post("/api/cases/load-from-disk").json()["pecas"][0]["categoria"] == "NAO_IDENTIFICADA"

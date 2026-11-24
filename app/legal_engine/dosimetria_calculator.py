@@ -17,9 +17,20 @@ import re
 from fractions import Fraction
 from typing import Annotated, Dict, List, Literal, Tuple
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, StrictBool
 
 from app.core.errors import DadosInsuficientesError
+from app.legal_engine.condicoes_acao_penal import RegraEtaria, estado_beneficio_etario
+from app.legal_engine.detracao import ResultadoDetracao, detracao_por_quantidade
+from app.legal_engine.linha_tempo_prescricao import (
+    EstadoPrescricao,
+    LapsoPrescricional,
+    LinhaTempoPrescricao,
+    calcular_lapsos_prescricionais,
+    intervalos_suspensos,
+    primeiro_dia_consumado,
+    validar_vigencia_marcos,
+)
 from app.legal_engine.penal_types_catalog import (
     PenaAnosMesesDias,
     PenalTypeSpec,
@@ -338,10 +349,16 @@ class CrimeDosimetriaInput(BaseModel):
     data_recebimento_individual: datetime.date | None = None
     recebimento_por_imputacao: bool = False
     reduzir_prescricao_art115: bool | None = None
+    violencia_sexual_contra_mulher: StrictBool | None = None
+    linha_tempo_prescricao: LinhaTempoPrescricao | None = None
     circunstancias_art59: Dict[str, CircunstanciaArt59] = Field(default_factory=dict)
     agravantes_art61_f_violencia_domestica: bool = False
     reincidente: bool = False
+    antecedentes_pendentes: bool = False
+    fontes_reincidencia: list[str] = Field(default_factory=list)
+    registros_valorados: dict[str, list[str]] = Field(default_factory=dict)
     confissao_espontanea: bool = False
+    tipo_confissao: Literal["total", "parcial", "qualificada"] | None = None
     menoridade_relativa_ou_senilidade: bool = False
     fracao_aumento_terceira_fase: Tuple[int, int] | None = None
     fracao_diminuicao_terceira_fase: Tuple[int, int] | None = None
@@ -378,11 +395,16 @@ class CrimeDosimetriaOutput(BaseModel):
     data_recebimento_individual: datetime.date | None = None
     recebimento_por_imputacao: bool = False
     reduzir_prescricao_art115: bool | None = None
+    violencia_sexual_contra_mulher: StrictBool | None = None
+    regra_atenuante_etaria: RegraEtaria = "nao_incidente"
+    linha_tempo_prescricao: LinhaTempoPrescricao | None = None
     vetores_negativos_efetivos: List[str]
     acrescimo_por_vetor_dias: int
     pena_base: PenaAnosMesesDias
     bis_in_idem_art61f_bloqueado: bool
     compensacao_confissao_reincidencia: bool
+    revisao_proporcao_confissao_pendente: bool = False
+    compensacao_multirreincidencia_pendente: bool = False
     sumula_231_aplicada: bool
     pena_intermediaria: PenaAnosMesesDias
     pena_definitiva: PenaAnosMesesDias
@@ -395,6 +417,9 @@ class CrimeDosimetriaOutput(BaseModel):
     desclassificado_de: str = ""
     data_fato: datetime.date | None = None
     reincidente: bool = False
+    antecedentes_pendentes: bool = False
+    fontes_reincidencia: list[str] = Field(default_factory=list)
+    registros_valorados: dict[str, list[str]] = Field(default_factory=dict)
     fracao_aumento_aplicada: Tuple[int, int] | None = None
     fracao_diminuicao_aplicada: Tuple[int, int] | None = None
     aumento_art147a_aplicado: bool = False
@@ -465,6 +490,7 @@ class DosimetriaGlobalOutput(BaseModel):
     dano_moral_arbitramento_pendente: bool = False
     # Detração (art. 387, § 2º, do CPP): o regime é fixado sobre a pena remanescente; guarda-se o
     # regime que resultaria SEM a detração e a pena considerada para o regime.
+    detracao: ResultadoDetracao | None = None
     regime_sem_detracao: Literal["aberto", "semiaberto", "fechado"] | None = None
     pena_considerada_regime: PenaAnosMesesDias | None = None
     # Concurso formal/continuado convertido em cúmulo material por ser mais benéfico (art. 70, p.u.):
@@ -489,6 +515,17 @@ class PrescricaoOutput(BaseModel):
     alertas: List[str] = Field(default_factory=list)
 
 
+class AlvoPrescricaoAbstrata(BaseModel):
+    crime_spec: PenalTypeSpec
+    data_fato: datetime.date
+    data_recebimento: datetime.date | None = None
+    id_imputacao: str = ""
+    referencia_imputacao: str = ""
+    reduzir_metade_art115: bool = False
+    violencia_sexual_contra_mulher: StrictBool | None = None
+    linha_tempo_prescricao: LinhaTempoPrescricao = Field(default_factory=LinhaTempoPrescricao)
+
+
 class PrescricaoCrimeOutput(BaseModel):
     """Prescrição da pretensão punitiva de UM crime (art. 119 do CP)."""
 
@@ -500,18 +537,26 @@ class PrescricaoCrimeOutput(BaseModel):
     data_fato: datetime.date | None = None
     data_recebimento_denuncia: datetime.date | None = None
     data_sentenca: datetime.date
-    pena_concreta: PenaAnosMesesDias
-    pena_maxima_abstrata: PenaAnosMesesDias
+    pena_concreta: PenaAnosMesesDias | None
+    pena_maxima_abstrata: PenaAnosMesesDias | None
     prazo_concreto_anos: int  # art. 109 pela pena aplicada (antes do art. 115)
     prazo_abstrato_anos: int  # art. 109 pela pena máxima cominada (antes do art. 115)
     prazo_concreto_meses_efetivo: int  # após eventual redução do art. 115
     prazo_abstrato_meses_efetivo: int
     reduzido_metade_art115: bool = False
+    regra_reducao_etaria: RegraEtaria = "nao_incidente"
     lei_12234_aplicavel: bool = True
     lapsos_considerados_retroativa: List[str] = Field(default_factory=list)
     prescricao_abstrata_reconhecida: bool = False
     prescricao_retroativa_reconhecida: bool = False
     prescricao_reconhecida: bool = False
+    estado: EstadoPrescricao | None = None
+    indicio_abstrato: bool = False
+    projecao_retroativa: bool = False
+    cronologia: LinhaTempoPrescricao | None = None
+    pena_de_decisao_anterior: bool = False
+    lapsos_abstratos: list[LapsoPrescricional] = Field(default_factory=list)
+    lapsos_concretos: list[LapsoPrescricional] = Field(default_factory=list)
     verificacao_completa: bool = True
     fundamentacao: str = ""
     alertas: List[str] = Field(default_factory=list)
@@ -628,14 +673,40 @@ def calcular_dosimetria_crime(
 
     if entrada.confissao_espontanea:
         atenuantes_ativas.append("confissão espontânea (art. 65, III, 'd', CP - Súmula 545/STJ)")
-    if entrada.menoridade_relativa_ou_senilidade:
+    regra_etaria = estado_beneficio_etario(
+        entrada.data_fato, entrada.menoridade_relativa_ou_senilidade, entrada.violencia_sexual_contra_mulher,
+    )
+    if regra_etaria == "aplicavel":
         atenuantes_ativas.append("menoridade relativa/senilidade (art. 65, I, CP)")
+    elif regra_etaria == "excluida":
+        alertas.append("A Lei 15.160/2025 afasta a atenuante etária nesta imputação por violência sexual contra a mulher.")
+    elif regra_etaria == "pendente":
+        alertas.append("Confirme a incidência da Lei 15.160/2025 antes de concluir a análise da atenuante etária.")
 
-    compensacao = bool(entrada.reincidente and entrada.confissao_espontanea)
+    # Tema 1194/STJ, acórdão publicado em 16/09/2025. Efeitos prejudiciais apenas para fatos posteriores.
+    # https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?cod_tema_final=1194&cod_tema_inicial=1194&novaConsulta=true&tipo_pesquisa=T
+    revisao_proporcao_confissao = (
+        entrada.confissao_espontanea
+        and entrada.tipo_confissao in ("parcial", "qualificada")
+        and entrada.data_fato > datetime.date(2025, 9, 16)
+    )
+    if revisao_proporcao_confissao:
+        alertas.append(
+            "Segunda fase provisória. Confira a hipótese de atenuação em menor proporção e a relação com "
+            "eventuais agravantes (Tema 1194/STJ)."
+        )
+    concurso_confissao_reincidencia = entrada.reincidente and entrada.confissao_espontanea
+    compensacao_pendente = concurso_confissao_reincidencia and len(entrada.fontes_reincidencia) > 1
+    compensacao = concurso_confissao_reincidencia and not (compensacao_pendente or revisao_proporcao_confissao)
+    if compensacao_pendente:
+        alertas.append(
+            "Segunda fase provisória. Confira a multirreincidência e decida sobre a compensação proporcional "
+            "com a confissão (Tema 585/STJ)."
+        )
     sumula_231_aplicada = False
     saldo_2fase = len(agravantes_ativas) - len(atenuantes_ativas)
 
-    if len(agravantes_ativas) > 0 and len(atenuantes_ativas) > 0:
+    if agravantes_ativas and atenuantes_ativas and not (compensacao_pendente or revisao_proporcao_confissao):
         if compensacao:
             # Tema Repetitivo 585/STJ trata EXCLUSIVAMENTE da compensação entre a confissão
             # espontânea e a reincidência.
@@ -786,12 +857,17 @@ def calcular_dosimetria_crime(
         data_recebimento_individual=entrada.data_recebimento_individual,
         recebimento_por_imputacao=entrada.recebimento_por_imputacao,
         reduzir_prescricao_art115=entrada.reduzir_prescricao_art115,
+        violencia_sexual_contra_mulher=entrada.violencia_sexual_contra_mulher,
+        regra_atenuante_etaria=regra_etaria,
+        linha_tempo_prescricao=entrada.linha_tempo_prescricao,
         crime_spec=spec,
         vetores_negativos_efetivos=vetores_negativos,
         acrescimo_por_vetor_dias=passo_vetor,
         pena_base=pena_base,
         bis_in_idem_art61f_bloqueado=bis_in_idem_bloqueado,
         compensacao_confissao_reincidencia=compensacao,
+        revisao_proporcao_confissao_pendente=revisao_proporcao_confissao,
+        compensacao_multirreincidencia_pendente=compensacao_pendente,
         sumula_231_aplicada=sumula_231_aplicada,
         pena_intermediaria=pena_intermediaria,
         pena_definitiva=pena_definitiva,
@@ -804,6 +880,9 @@ def calcular_dosimetria_crime(
         desclassificado_de=entrada.desclassificado_de,
         data_fato=entrada.data_fato,
         reincidente=entrada.reincidente,
+        antecedentes_pendentes=entrada.antecedentes_pendentes,
+        fontes_reincidencia=entrada.fontes_reincidencia,
+        registros_valorados=entrada.registros_valorados,
         fracao_aumento_aplicada=fracao_aumento_aplicada,
         fracao_diminuicao_aplicada=fracao_diminuicao_aplicada,
         aumento_art147a_aplicado=aumento_147a_aplicado,
@@ -856,16 +935,16 @@ def calcular_regime_art33(
         if reincidente:
             regime, regra = "fechado", "réu reincidente com pena superior a 4 anos (art. 33, § 2º, 'b', do CP, a contrario sensu)"
         else:
-            regime, regra = "semiaberto", "réu não reincidente com pena superior a 4 e não excedente a 8 anos (art. 33, § 2º, 'b', do CP)"
+            regime, regra = "semiaberto", "pena superior a 4 e não excedente a 8 anos, sem reincidência reconhecida (art. 33, § 2º, 'b', do CP)"
     elif reincidente:
         if circunstancias_desfavoraveis:
             regime, regra = "fechado", "réu reincidente com pena até 4 anos e circunstâncias judiciais desfavoráveis (Súmula 269/STJ, a contrario sensu)"
         else:
             regime, regra = "semiaberto", "réu reincidente com pena até 4 anos e circunstâncias judiciais favoráveis (Súmula 269/STJ)"
     elif circunstancias_desfavoraveis and anos_pena > 2.0:
-        regime, regra = "semiaberto", "réu não reincidente com pena até 4 anos, mas com circunstâncias judiciais desfavoráveis (art. 33, § 3º, c/c art. 59 do CP)"
+        regime, regra = "semiaberto", "pena até 4 anos, sem reincidência reconhecida e com circunstâncias judiciais desfavoráveis (art. 33, § 3º, c/c art. 59 do CP)"
     else:
-        regime, regra = "aberto", "réu não reincidente com pena não superior a 4 anos (art. 33, § 2º, 'c', do CP)"
+        regime, regra = "aberto", "pena não superior a 4 anos, sem reincidência reconhecida (art. 33, § 2º, 'c', do CP)"
 
     if especie_pena in ("detencao", "prisao_simples") and regime == "fechado":
         regime = "semiaberto"
@@ -885,6 +964,7 @@ def calcular_dosimetria_global(
     dias_prisao_cautelar: int = 0,
     crimes_nao_condenados: List[Dict[str, str]] | None = None,
     *,
+    detracao: ResultadoDetracao | None = None,
     valor_dano_moral_pedido: float | None = None,
     valor_dano_moral_sugerido: float | None = None,
 ) -> DosimetriaGlobalOutput:
@@ -893,6 +973,8 @@ def calcular_dosimetria_global(
     Com pedido expresso, somente o valor decidido pode integrar a condenação.
     Zero registra a decisão de deixar de fixar reparação nesta sentença.
     """
+    quantidade_legada = detracao_por_quantidade(dias_prisao_cautelar)
+    resultado_detracao = detracao if detracao is not None else quantidade_legada
     cfg = config or DosimetriaConfig()
     conc = concurso or ConcursoCrimesConfig(tipo_concurso="material" if len(crimes) > 1 else "nenhum")
     nao_condenados = list(crimes_nao_condenados or [])
@@ -1033,7 +1115,7 @@ def calcular_dosimetria_global(
     # regime inicial — o art. 33 incide sobre a pena REMANESCENTE (pena total menos os dias detraídos).
     # Substituição (art. 44) e sursis (art. 77) continuam aferidos pela pena aplicada (``anos_totais``).
     anos_totais = total_days / 360.0
-    detracao_efetiva = max(0, int(dias_prisao_cautelar))
+    detracao_efetiva = resultado_detracao.dias
     dias_regime = max(0, total_days - detracao_efetiva) if detracao_efetiva > 0 else total_days
     anos_regime = dias_regime / 360.0
     especies_ordenadas = sorted(penas_especie_days.keys(), key=lambda e: {"reclusao": 0, "detencao": 1, "prisao_simples": 2}.get(e, 3))
@@ -1135,7 +1217,7 @@ def calcular_dosimetria_global(
         sursis_cabivel = False
         sursis_negado_circ = True
         fund_sursis = (
-            "Embora a pena aplicada não supere 2 (dois) anos e o réu não seja reincidente em crime doloso, deixo de conceder a suspensão "
+            "Embora a pena aplicada não supere 2 (dois) anos e não haja reincidência reconhecida em crime doloso, deixo de conceder a suspensão "
             f"condicional da pena, pois a valoração negativa das circunstâncias judiciais ({', '.join(rotulos_art77_negativos)}) "
             "não autoriza o benefício (art. 77, II, do Código Penal)."
         )
@@ -1146,7 +1228,7 @@ def calcular_dosimetria_global(
     elif anos_totais <= 2.0 and not algum_reincidente and not subst_cabivel:
         sursis_cabivel = True
         fund_sursis = (
-            "Preenchidos os requisitos objetivos e subjetivos do art. 77 do Código Penal (pena não superior a 2 anos, réu não reincidente em crime doloso, "
+            "Preenchidos os requisitos objetivos e subjetivos do art. 77 do Código Penal (pena não superior a 2 anos, sem reincidência reconhecida em crime doloso, "
             "circunstâncias judiciais do art. 77, II, favoráveis e incabível a substituição do art. 44 do CP), "
             "concedo a suspensão condicional da execução da pena (Sursis Penal) pelo prazo de 2 (dois) anos (arts. 77 a 82 do Código Penal), "
             "nos termos dos arts. 77 e 78 do Código Penal, art. 158 da Lei nº 7.210/1984 (LEP) e art. 45 da Lei nº 11.340/2006."
@@ -1205,6 +1287,7 @@ def calcular_dosimetria_global(
         penas_por_especie=penas_por_especie,
         pena_total_unificada=pena_total,
         detracao_dias=detracao_efetiva,
+        detracao=resultado_detracao,
         pena_remanescente_detracao=pena_remanescente,
         regime_inicial=regime,
         substituicao_art44_cabivel=subst_cabivel,
@@ -1275,7 +1358,7 @@ def prazo_prescricional_art109_anos(pena: PenaAnosMesesDias, data_fato: datetime
 
 def _lapso_consumado(inicio: datetime.date, fim: datetime.date, prazo_meses: int) -> bool:
     """O prazo, contado com inclusão do dia do começo (art. 10 do CP), consuma-se na data-aniversário."""
-    return fim >= somar_meses(inicio, prazo_meses)
+    return fim >= primeiro_dia_consumado(inicio, prazo_meses)
 
 
 def _fmt_data(d: datetime.date | None) -> str:
@@ -1286,20 +1369,26 @@ def _prescricao_um_crime(
     crime_code: str,
     crime_nome: str,
     artigo_formatado: str,
-    pena_concreta: PenaAnosMesesDias,
+    pena_concreta: PenaAnosMesesDias | None,
     pena_maxima_abstrata: PenaAnosMesesDias | None,
     data_fato: datetime.date | None,
     data_recebimento_denuncia: datetime.date | None,
     data_sentenca: datetime.date,
     reduzir_metade_art115: bool,
+    linha_tempo: LinhaTempoPrescricao | None = None,
 ) -> PrescricaoCrimeOutput:
     alertas: List[str] = []
     lei_nova = data_fato is None or data_fato >= DATA_VIGENCIA_LEI_12234_2010
     verificacao_completa = True
 
-    prazo_c_anos = prazo_prescricional_art109_anos(pena_concreta, data_fato)
-    pena_max = pena_maxima_abstrata or pena_concreta
-    prazo_a_anos = prazo_prescricional_art109_anos(pena_max, data_fato)
+    pena_documentada = linha_tempo.pena_documentada if linha_tempo else None
+    if pena_documentada is not None:
+        pena_concreta = PenaAnosMesesDias(
+            anos=pena_documentada.anos, meses=pena_documentada.meses, dias=pena_documentada.dias,
+        )
+    prazo_c_anos = prazo_prescricional_art109_anos(pena_concreta, data_fato) if pena_concreta else 0
+    pena_max = pena_maxima_abstrata or (pena_concreta if linha_tempo is None else None)
+    prazo_a_anos = prazo_prescricional_art109_anos(pena_max, data_fato) if pena_max else 0
     prazo_c_meses = prazo_c_anos * 12 // (2 if reduzir_metade_art115 else 1)
     prazo_a_meses = prazo_a_anos * 12 // (2 if reduzir_metade_art115 else 1)
     rotulo = f"o crime do {artigo_formatado}" if artigo_formatado else "a pena aplicada"
@@ -1325,7 +1414,7 @@ def _prescricao_um_crime(
     # 2) Prescrição pela pena em concreto (retroativa — art. 110, § 1º).
     retroativa = False
     lapsos: List[str] = []
-    if data_recebimento_denuncia:
+    if data_recebimento_denuncia and pena_concreta is not None:
         lapsos.append("recebimento da denúncia → sentença")
         if _lapso_consumado(data_recebimento_denuncia, data_sentenca, prazo_c_meses):
             retroativa = True
@@ -1334,8 +1423,78 @@ def _prescricao_um_crime(
             if _lapso_consumado(data_fato, data_recebimento_denuncia, prazo_c_meses):
                 retroativa = True
 
+    estado = None
+    lapsos_abstratos = []
+    lapsos_concretos = []
+    indicio_abstrato = abstrata
+    projecao_retroativa = retroativa
+    if linha_tempo is not None:
+        inicio = linha_tempo.termo_inicial.data if linha_tempo.termo_inicial else data_fato
+        recebimentos = [m.data for m in linha_tempo.interrupcoes if m.tipo == "recebimento_denuncia_ou_queixa"]
+        recebimento = recebimentos[0] if recebimentos else data_recebimento_denuncia
+        interrupcoes = {m.data for m in linha_tempo.interrupcoes}
+        publicacoes = [m.data for m in linha_tempo.interrupcoes if m.tipo == "publicacao_sentenca_condenatoria"]
+        if pena_documentada is not None:
+            interrupcoes.add(pena_documentada.data)
+            publicacoes.append(pena_documentada.data)
+        if recebimento is not None:
+            interrupcoes.add(recebimento)
+        alertas = validar_vigencia_marcos(linha_tempo, data_fato) if data_fato else []
+        if pena_max is None:
+            alertas.append("Confirme os limites da causa de aumento para determinar a pena máxima em abstrato.")
+        marcos_anteriores = [m.data for m in linha_tempo.suspensoes] + list(interrupcoes)
+        ordem_valida = inicio is not None and inicio <= data_sentenca and all(
+            inicio <= marco <= data_sentenca for marco in marcos_anteriores
+        )
+        verificacao_completa = (
+            ordem_valida and recebimento is not None and not alertas
+            and all(recebimento <= marco for marco in interrupcoes)
+        )
+        if verificacao_completa:
+            suspensoes = intervalos_suspensos(linha_tempo.suspensoes, data_sentenca, prazo_a_meses)
+            if pena_maxima_abstrata is not None:
+                lapsos_abstratos = calcular_lapsos_prescricionais(inicio, data_sentenca, prazo_a_meses, interrupcoes, suspensoes)
+            if pena_concreta is not None:
+                inicio_concreto = recebimento if lei_nova else inicio
+                corte_concreto = pena_documentada.data if pena_documentada else min(publicacoes, default=data_sentenca)
+                lapsos_concretos = calcular_lapsos_prescricionais(inicio_concreto, corte_concreto, prazo_c_meses, interrupcoes, suspensoes)
+        else:
+            alertas.append(f"Confirme o termo inicial e a ordem dos marcos prescricionais para {rotulo}.")
+        indicio_abstrato = any(lapso.consumado for lapso in lapsos_abstratos)
+        projecao_retroativa = any(lapso.consumado for lapso in lapsos_concretos)
+        abstrata = retroativa = False
+        estado = "sem_indicio" if verificacao_completa else "inconclusiva"
+        fim_estabilidade = linha_tempo.estabilidade_acusacao
+        estabilidade = bool(fim_estabilidade and publicacoes and min(publicacoes) <= fim_estabilidade.data <= data_sentenca)
+        if indicio_abstrato:
+            estado = "abstrata"
+        elif projecao_retroativa:
+            estado = "pendente" if estabilidade else "projetada"
+        elif verificacao_completa and any(
+            m.data_fim is None and (
+                m.tipo != "citacao_edital_art366" or primeiro_dia_consumado(m.data, prazo_a_meses) > data_sentenca
+            )
+            for m in linha_tempo.suspensoes
+        ):
+            estado = "pendente"
+        reconhecimento = linha_tempo.reconhecimento
+        if reconhecimento is not None:
+            abstrata = bool(reconhecimento.modalidade == "abstrata" and indicio_abstrato)
+            retroativa = bool(reconhecimento.modalidade == "retroativa" and projecao_retroativa and estabilidade)
+            lapsos_decididos = lapsos_abstratos if abstrata else lapsos_concretos
+            confirmado = (abstrata or retroativa) and reconhecimento.data <= data_sentenca and any(
+                lapso.consumado and lapso.primeiro_dia_consumado <= reconhecimento.data for lapso in lapsos_decididos
+            )
+            if confirmado and (not retroativa or fim_estabilidade.data <= reconhecimento.data):
+                estado = "reconhecida"
+            else:
+                abstrata = retroativa = False
+                alertas.append("O reconhecimento informado depende da conferência da modalidade, dos marcos e da data da decisão.")
+                estado = "inconclusiva"
+        data_recebimento_denuncia = recebimento
+
     reconhecida = abstrata or retroativa
-    if retroativa and not abstrata:
+    if projecao_retroativa and not indicio_abstrato and estado != "reconhecida":
         alertas.append(
             f"Prescrição pela pena em concreto ({rotulo}): seu reconhecimento pressupõe o trânsito em julgado para a acusação "
             "ou o improvimento de seu recurso (art. 110, § 1º, do CP) — verifique o momento processual adequado para declará-la."
@@ -1344,16 +1503,18 @@ def _prescricao_um_crime(
     inciso_c = _INCISO_ART109.get(prazo_c_anos, "")
     inciso_a = _INCISO_ART109.get(prazo_a_anos, "")
     reducao_txt = ", reduzido de metade pelo art. 115 do CP" if reduzir_metade_art115 else ""
-    cabecalho = f"{crime_nome or crime_code} ({artigo_formatado}): a pena aplicada" if artigo_formatado else "A pena aplicada"
-    partes = [
-        f"{cabecalho} de {pena_concreta.format_extenso()} "
-        f"atrai o prazo prescricional de {prazo_c_anos} anos (art. 109, {inciso_c}, do CP){reducao_txt}"
-    ]
+    cabecalho = f"{crime_nome or crime_code} ({artigo_formatado}): " if artigo_formatado else ""
+    partes = [cabecalho]
+    if pena_concreta is not None:
+        partes.append(
+            f"a pena de {pena_concreta.format_extenso()} corresponde ao prazo de {prazo_c_anos} anos "
+            f"em concreto (art. 109, {inciso_c}, do CP){reducao_txt}. "
+        )
     if pena_maxima_abstrata is not None:
         partes.append(
-            f"; a pena máxima cominada de {pena_max.format_extenso()} corresponde ao prazo de {prazo_a_anos} anos em abstrato (art. 109, {inciso_a}, do CP){reducao_txt}"
+            f"A pena máxima cominada de {pena_max.format_extenso()} corresponde ao prazo de {prazo_a_anos} anos "
+            f"em abstrato (art. 109, {inciso_a}, do CP){reducao_txt}. "
         )
-    partes.append(". ")
     if lei_nova:
         partes.append(
             "Tratando-se de fato praticado a partir de 06/05/2010, a prescrição pela pena em concreto não pode ter por termo inicial data anterior "
@@ -1365,11 +1526,32 @@ def _prescricao_um_crime(
             "Tratando-se de fato anterior à Lei nº 12.234/2010 (vigente em 06/05/2010), que não retroage, a prescrição pela pena em concreto "
             "considera também o lapso entre a data do fato e o recebimento da denúncia (redação anterior do art. 110, §§ 1º e 2º, do CP). "
         )
-    partes.append(
-        f"Marcos: fato em {_fmt_data(data_fato)}; recebimento da denúncia em {_fmt_data(data_recebimento_denuncia)} (art. 117, I); "
-        f"sentença em {_fmt_data(data_sentenca)} (art. 117, IV). "
-    )
-    if abstrata:
+    if linha_tempo is not None:
+        partes.append(
+            f"Termo inicial em {_fmt_data(inicio)}. Recebimento em {_fmt_data(data_recebimento_denuncia)}. "
+            f"Data de análise em {_fmt_data(data_sentenca)}. "
+        )
+    else:
+        partes.append(
+            f"Marcos: fato em {_fmt_data(data_fato)}. Recebimento da denúncia em {_fmt_data(data_recebimento_denuncia)} "
+            f"(art. 117, I). Sentença em {_fmt_data(data_sentenca)} (art. 117, IV). "
+        )
+    if linha_tempo is not None and estado == "reconhecida":
+        decisao = linha_tempo.reconhecimento
+        modalidade = "em abstrato" if abstrata else "retroativa"
+        partes.append(
+            f"Prescrição {modalidade} reconhecida pelo juízo em {_fmt_data(decisao.data)}, conforme {decisao.fonte_id}."
+        )
+    elif linha_tempo is not None:
+        explicacoes = {
+            "abstrata": "Os marcos indicam lapso suficiente em abstrato. Submeta a extinção da punibilidade à decisão do juízo.",
+            "projetada": "Projeção em concreto, dependente do trânsito para a acusação ou do improvimento de seu recurso e da decisão do juízo.",
+            "pendente": "A conclusão depende de decisão do juízo ou da retomada do prazo suspenso.",
+            "inconclusiva": "A cronologia informada ainda não permite concluir pela prescrição.",
+            "sem_indicio": "Entre os marcos informados, o cálculo não indica lapso prescricional consumado.",
+        }
+        partes.append(explicacoes[estado])
+    elif abstrata:
         partes.append("Consumou-se a prescrição da pretensão punitiva pela pena máxima em abstrato (art. 107, IV, c/c art. 109 do CP).")
     elif retroativa:
         partes.append(
@@ -1400,23 +1582,49 @@ def _prescricao_um_crime(
         prescricao_abstrata_reconhecida=abstrata,
         prescricao_retroativa_reconhecida=retroativa,
         prescricao_reconhecida=reconhecida,
+        estado=estado,
+        indicio_abstrato=indicio_abstrato,
+        projecao_retroativa=projecao_retroativa,
+        cronologia=linha_tempo,
+        pena_de_decisao_anterior=pena_documentada is not None,
+        lapsos_abstratos=lapsos_abstratos,
+        lapsos_concretos=lapsos_concretos,
         verificacao_completa=verificacao_completa,
         fundamentacao="".join(partes).strip(),
         alertas=alertas,
     )
 
 
-def pena_maxima_abstrata_do_crime(crime: CrimeDosimetriaOutput) -> PenaAnosMesesDias:
-    """Máximo cominado considerando a causa de aumento aplicada (pela fração aplicada).
-
-    Causas de diminuição são desconsideradas no cálculo em abstrato (critério conservador,
-    que nunca antecipa indevidamente a prescrição).
-    """
+def pena_maxima_abstrata_do_crime(crime: CrimeDosimetriaOutput) -> PenaAnosMesesDias | None:
+    """Máximo cominado com os extremos legais das causas identificadas."""
     max_days = crime.crime_spec.max_pena.to_total_days()
-    if crime.fracao_aumento_aplicada:
-        n, d = crime.fracao_aumento_aplicada
+    aumento = (1, 2) if crime.majorante_art24a_p4 else crime.fracao_aumento_aplicada
+    causa_tipificada = crime.majorante_art24a_p4 or crime.aumento_art147a_aplicado or crime.aumento_art141_p3_aplicado
+    if aumento and crime.linha_tempo_prescricao is not None and not causa_tipificada:
+        return None
+    if aumento:
+        n, d = aumento
         max_days = max_days + (max_days * n) // d
+    if crime.fracao_diminuicao_aplicada:
+        # A via de geração usa tentativa_fracao. Para o máximo cominado, incide a redução mínima do art. 14, parágrafo único.
+        max_days -= max_days // 3
     return PenaAnosMesesDias.from_total_days(max_days)
+
+
+def _registrar_regra_etaria(item: PrescricaoCrimeOutput, regra_etaria: RegraEtaria) -> None:
+    item.regra_reducao_etaria = regra_etaria
+    if regra_etaria == "aplicavel":
+        item.alertas.append("Art. 115 do CP: prazo prescricional reduzido de metade nesta imputação.")
+    if regra_etaria == "pendente":
+        item.verificacao_completa = False
+        aviso = "Confirme a hipótese da Lei 15.160/2025 para decidir se o prazo prescricional é reduzido à metade."
+        item.alertas.append(aviso)
+        if not item.prescricao_reconhecida:
+            item.fundamentacao = aviso
+            if item.estado is not None and not item.indicio_abstrato:
+                item.estado = "inconclusiva"
+    elif regra_etaria == "excluida":
+        item.alertas.append("A Lei 15.160/2025 afasta a redução do art. 115 do CP nesta imputação.")
 
 
 def calcular_prescricao_por_crime(
@@ -1426,6 +1634,8 @@ def calcular_prescricao_por_crime(
     data_sentenca: datetime.date | None = None,
     reu_menor_21_na_data_fato: bool = False,
     reu_maior_70_na_sentenca: bool = False,
+    *,
+    imputacoes_sem_pena: List[AlvoPrescricaoAbstrata] | None = None,
 ) -> PrescricaoGlobalOutput:
     """Prescrição da pretensão punitiva verificada isoladamente para cada crime (art. 119 do CP).
 
@@ -1441,7 +1651,7 @@ def calcular_prescricao_por_crime(
     reduz = bool(reu_menor_21_na_data_fato or reu_maior_70_na_sentenca)
     alertas: List[str] = []
 
-    if dosimetria_global.sem_condenacao or not dosimetria_global.crimes_calculados:
+    if not dosimetria_global.crimes_calculados and not imputacoes_sem_pena:
         return PrescricaoGlobalOutput(
             por_crime=[],
             prescricao_reconhecida=False,
@@ -1451,31 +1661,53 @@ def calcular_prescricao_por_crime(
         )
 
     if data_sentenca is None:
-        alertas.append(f"Data da sentença não informada: adotada a data de hoje ({_fmt_data(dt_sent)}) como marco do art. 117, IV, do CP.")
-    if reduz:
-        motivo = "menor de 21 anos na data do fato" if reu_menor_21_na_data_fato else "maior de 70 anos na data da sentença"
-        alertas.append(f"Art. 115 do CP: prazos prescricionais reduzidos de metade (réu {motivo}).")
+        alertas.append(f"Data da sentença não informada. A data {_fmt_data(dt_sent)} serve de referência à análise.")
 
     por_crime: List[PrescricaoCrimeOutput] = []
     for crime in dosimetria_global.crimes_calculados:
         spec = crime.crime_spec
         recebimento = crime.data_recebimento_individual if crime.recebimento_por_imputacao else data_recebimento_denuncia
-        reducao = crime.reduzir_prescricao_art115
+        data_do_crime = crime.data_fato or data_fato
+        requisito_etario = reduz if crime.reduzir_prescricao_art115 is None else crime.reduzir_prescricao_art115
+        regra_etaria = estado_beneficio_etario(data_do_crime, requisito_etario, crime.violencia_sexual_contra_mulher)
         item = _prescricao_um_crime(
             crime_code=spec.code,
             crime_nome=spec.nome,
             artigo_formatado=spec.artigo_formatado,
             pena_concreta=crime.pena_definitiva,
             pena_maxima_abstrata=pena_maxima_abstrata_do_crime(crime),
-            data_fato=crime.data_fato or data_fato,
+            data_fato=data_do_crime,
             data_recebimento_denuncia=recebimento,
             data_sentenca=dt_sent,
-            reduzir_metade_art115=reduz if reducao is None else reducao,
+            reduzir_metade_art115=regra_etaria == "aplicavel",
+            linha_tempo=crime.linha_tempo_prescricao,
         )
+        _registrar_regra_etaria(item, regra_etaria)
         item.id_imputacao = crime.id_imputacao
         item.referencia_imputacao = crime.referencia_imputacao
         if crime.referencia_imputacao:
             item.fundamentacao = f"{crime.referencia_imputacao}. {item.fundamentacao}"
+        por_crime.append(item)
+        alertas.extend(item.alertas)
+
+    for alvo in imputacoes_sem_pena or []:
+        spec = alvo.crime_spec
+        regra_etaria = estado_beneficio_etario(alvo.data_fato, alvo.reduzir_metade_art115, alvo.violencia_sexual_contra_mulher)
+        item = _prescricao_um_crime(
+            crime_code=spec.code,
+            crime_nome=spec.nome,
+            artigo_formatado=spec.artigo_formatado,
+            pena_concreta=None,
+            pena_maxima_abstrata=spec.max_pena,
+            data_fato=alvo.data_fato,
+            data_recebimento_denuncia=alvo.data_recebimento,
+            data_sentenca=dt_sent,
+            reduzir_metade_art115=regra_etaria == "aplicavel",
+            linha_tempo=alvo.linha_tempo_prescricao,
+        )
+        _registrar_regra_etaria(item, regra_etaria)
+        item.id_imputacao = alvo.id_imputacao
+        item.referencia_imputacao = alvo.referencia_imputacao
         por_crime.append(item)
         alertas.extend(item.alertas)
 

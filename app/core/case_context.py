@@ -25,8 +25,8 @@ import logging
 import re
 import threading
 from collections import OrderedDict
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from app.core.case_flags import is_demo_bundle
 
@@ -40,6 +40,7 @@ __all__ = ["CaseContext", "obter_contexto", "limpar_cache_contexto", "calcular_f
 
 _CACHE_MAX = 8
 _CACHE: "OrderedDict[str, CaseContext]" = OrderedDict()
+_CACHE_GERACAO: "OrderedDict[Tuple[Any, ...], Dict[str, Any]]" = OrderedDict()
 _CACHE_LOCK = threading.Lock()
 
 # Campos do bundle que suprem metadados quando a extração não os encontra.
@@ -183,7 +184,7 @@ def _aplicar_confirmacoes_pontos(atual: Dict[str, Any], confirmacoes: Mapping[st
     conf_efetivos = dict(atual.get("pontos_decisivos_confirmados") or {})
 
     for chave, bruto in confirmacoes.items():
-        if bruto is None:
+        if bruto is None or chave == "antecedentes":
             continue
         ponto = por_chave.get(chave)
         if bruto is False:
@@ -199,12 +200,6 @@ def _aplicar_confirmacoes_pontos(atual: Dict[str, Any], confirmacoes: Mapping[st
                 continue
             val_final = dt_norm
             atual["data_nascimento_reu"] = dt_norm
-        elif chave == "antecedentes":
-            cls = val_final.get("classificacao") if isinstance(val_final, Mapping) else str(val_final or "")
-            if cls in ("reincidencia", "maus_antecedentes"):
-                atual["reu_primario_sumula444"] = False
-            elif cls in ("primario", "neutro_em_curso"):
-                atual["reu_primario_sumula444"] = True
 
         conf_efetivos[chave] = val_final
         if ponto is not None:
@@ -224,6 +219,11 @@ def _aplicar_overrides(meta: "MetadadosProcesso", overrides: Mapping[str, Any]) 
     campos = classe.model_fields
     atual = meta.model_dump()
     for campo, bruto in overrides.items():
+        if campo in {
+            "registros_antecedentes", "reu_primario_sumula444", "confissoes_sugeridas",
+            "intervalos_custodia", "alertas_custodia",
+        }:
+            continue
         if campo == "pontos_decisivos_confirmados" and isinstance(bruto, Mapping):
             candidato = _aplicar_confirmacoes_pontos(dict(atual), bruto)
             try:
@@ -350,6 +350,227 @@ def obter_contexto(bundle: dict) -> CaseContext:
         return novo
 
 
+def _extrair_vinculos_decisoes(obj: Any, ids_out: set[str], trechos_out: Dict[str, List[str]]) -> None:
+    if isinstance(obj, Mapping):
+        fid = obj.get("fonte_id") or obj.get("fonte_inicio") or obj.get("fonte_fim")
+        trecho = obj.get("trecho") or obj.get("trecho_literal")
+        if isinstance(fid, str) and fid.strip():
+            fid_limpo = fid.strip()
+            ids_out.add(fid_limpo)
+            if isinstance(trecho, str) and trecho.strip():
+                trechos_out.setdefault(fid_limpo, []).append(trecho.strip())
+        for v in obj.values():
+            if isinstance(v, (Mapping, list, tuple)):
+                _extrair_vinculos_decisoes(v, ids_out, trechos_out)
+    elif isinstance(obj, (list, tuple)):
+        for item in obj:
+            if isinstance(item, (Mapping, list, tuple)):
+                _extrair_vinculos_decisoes(item, ids_out, trechos_out)
+
+
+def _recortar_janela_trecho(conteudo: str, citacoes: Sequence[str], max_chars: int) -> Tuple[str, str]:
+    texto = (conteudo or "").strip()
+    if not texto:
+        return "", "inicio"
+    texto_low = texto.lower()
+    for cit in citacoes:
+        cit_limpa = (cit or "").strip()
+        if not cit_limpa:
+            continue
+        pos = texto_low.find(cit_limpa.lower())
+        if pos >= 0:
+            if len(texto) <= max_chars:
+                return texto, "trecho_vinculado"
+            margem = max(0, (max_chars - len(cit_limpa)) // 2)
+            ini = max(0, pos - margem)
+            fim = min(len(texto), ini + max_chars)
+            if fim == len(texto):
+                ini = max(0, fim - max_chars)
+            return texto[ini:fim], "trecho_vinculado"
+    return texto[:max_chars], "inicio"
+
+
+def recorte_trechos_vinculados(
+    ctx: CaseContext,
+    *,
+    decisoes: Any = None,
+    ids_vinculados: Optional[Sequence[str]] = None,
+    trechos_citados: Optional[Mapping[str, Sequence[str]]] = None,
+    max_chars_por_peca: int = 1200,
+    max_total_chars: int = 8000,
+    oral_literal: bool = False,
+) -> Dict[str, Any]:
+    """Recorta apenas os trechos das peças e mídias vinculadas às decisões/pontos do caso.
+
+    Quando houver trecho citado para a peça, recorta uma janela centrada no trecho
+    (``recorte="trecho_vinculado"``); sem trecho citado localizado, usa o início (``recorte="inicio"``).
+    """
+    vinculados: set[str] = {str(x).strip() for x in (ids_vinculados or []) if str(x).strip()}
+    citacoes_por_id: Dict[str, List[str]] = {}
+    for fid, lista in (trechos_citados or {}).items():
+        fid_limpo = str(fid).strip()
+        if fid_limpo:
+            vinculados.add(fid_limpo)
+            citacoes_por_id.setdefault(fid_limpo, []).extend(str(c).strip() for c in lista if str(c).strip())
+
+    if decisoes is not None:
+        _extrair_vinculos_decisoes(decisoes, vinculados, citacoes_por_id)
+
+    ids_citados = set(citacoes_por_id)
+    for ponto in getattr(ctx.meta, "pontos_decisivos", None) or []:
+        fid = getattr(ponto, "fonte_id", None) if not isinstance(ponto, Mapping) else ponto.get("fonte_id")
+        tr = getattr(ponto, "trecho", None) if not isinstance(ponto, Mapping) else ponto.get("trecho")
+        if fid:
+            fid_s = str(fid).strip()
+            vinculados.add(fid_s)
+            if tr and str(tr).strip():
+                citacoes_por_id.setdefault(fid_s, []).append(str(tr).strip())
+    for reg in getattr(ctx.meta, "registros_antecedentes", None) or []:
+        fid = getattr(reg, "fonte_id", None) if not isinstance(reg, Mapping) else reg.get("fonte_id")
+        if fid:
+            vinculados.add(str(fid).strip())
+    for imp in getattr(ctx.meta, "imputacoes", None) or []:
+        eventos = getattr(imp, "eventos", None) if not isinstance(imp, Mapping) else imp.get("eventos")
+        for ev in eventos or []:
+            fid = getattr(ev, "fonte_id", None) if not isinstance(ev, Mapping) else ev.get("fonte_id")
+            tr = getattr(ev, "trecho", None) if not isinstance(ev, Mapping) else ev.get("trecho")
+            if fid:
+                fid_s = str(fid).strip()
+                vinculados.add(fid_s)
+                if tr and str(tr).strip():
+                    citacoes_por_id.setdefault(fid_s, []).append(str(tr).strip())
+
+    trechos_pecas: List[Dict[str, str]] = []
+    total_chars = 0
+    for peca in sorted(ctx.pecas, key=lambda p: p.doc_id not in ids_citados):
+        if peca.doc_id not in vinculados:
+            continue
+        if total_chars >= max_total_chars:
+            break
+        restante = min(max_chars_por_peca, max_total_chars - total_chars)
+        trecho, modo_recorte = _recortar_janela_trecho(
+            peca.conteudo or "", citacoes_por_id.get(peca.doc_id, ()), restante
+        )
+        total_chars += len(trecho)
+        trechos_pecas.append(
+            {
+                "doc_id": peca.doc_id,
+                "titulo": peca.titulo,
+                "folha": peca.folha,
+                "trecho": trecho,
+                "recorte": modo_recorte,
+            }
+        )
+
+    trechos_orais: List[Dict[str, str]] = []
+    for dep in getattr(ctx.matriz_oral, "depoentes", None) or []:
+        if dep.media_id not in vinculados and vinculados:
+            continue
+        if total_chars >= max_total_chars:
+            break
+        restante = min(max_chars_por_peca, max_total_chars - total_chars)
+        conteudo = dep.discurso_indireto_sentenca or ""
+        if oral_literal:
+            conteudo = "\n".join(
+                s.get("texto_literal") or s.get("texto") or "" for s in dep.segmentos_literais
+            )
+        trecho, modo_recorte = _recortar_janela_trecho(conteudo, citacoes_por_id.get(dep.media_id, ()), restante)
+        total_chars += len(trecho)
+        trechos_orais.append(
+            {
+                "media_id": dep.media_id,
+                "depoente": dep.depoente,
+                "papel": dep.papel,
+                "trecho": trecho,
+                "recorte": modo_recorte,
+            }
+        )
+
+    return {
+        "fingerprint": ctx.fingerprint,
+        "ids_vinculados": sorted(vinculados),
+        "trechos_pecas": trechos_pecas,
+        "trechos_orais": trechos_orais,
+        "total_chars": total_chars,
+    }
+
+
+def obter_contexto_geracao(
+    bundle: dict,
+    *,
+    decisoes: Any = None,
+    ids_vinculados: Optional[Sequence[str]] = None,
+    trechos_citados: Optional[Mapping[str, Sequence[str]]] = None,
+    max_chars_por_peca: int = 1200,
+    max_total_chars: int = 8000,
+    contexto: CaseContext | None = None,
+    exigir_papel_confirmado: bool = False,
+) -> Dict[str, Any]:
+    """Reaproveita o contexto de geração e a vista de prova oral por caso e decisões."""
+    ctx = contexto or obter_contexto(bundle)
+    filtrar_oral = exigir_papel_confirmado and not ctx.is_demo
+    assinatura_decisoes = (
+        hashlib.sha256(
+            json.dumps(decisoes, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=_json_default).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        if decisoes is not None
+        else ""
+    )
+    citacoes_chave = tuple(
+        (str(k).strip(), tuple(str(x).strip() for x in v if str(x).strip()))
+        for k, v in sorted((trechos_citados or {}).items())
+    )
+    chave = (
+        ctx.fingerprint,
+        assinatura_decisoes,
+        tuple(sorted({str(x).strip() for x in (ids_vinculados or []) if str(x).strip()})),
+        citacoes_chave,
+        int(max_chars_por_peca),
+        int(max_total_chars),
+        filtrar_oral,
+    )
+    with _CACHE_LOCK:
+        existente = _CACHE_GERACAO.get(chave)
+        if existente is not None:
+            _CACHE_GERACAO.move_to_end(chave)
+            return existente
+    prova_oral = None
+    if filtrar_oral:
+        from app.generation.prova_oral_confirmada import separar_prova_oral
+        from app.transcription.oral_proof_analyzer import gerar_matriz_corroboracao_oral
+
+        prova_oral = separar_prova_oral(ctx.transcriptions)
+        ctx = replace(
+            ctx, transcriptions=prova_oral.transcricoes,
+            matriz_oral=gerar_matriz_corroboracao_oral(ctx.pecas, prova_oral.transcricoes),
+        )
+    novo = recorte_trechos_vinculados(
+        ctx,
+        decisoes=decisoes,
+        ids_vinculados=ids_vinculados,
+        trechos_citados=trechos_citados,
+        max_chars_por_peca=max_chars_por_peca,
+        max_total_chars=max_total_chars,
+        oral_literal=filtrar_oral,
+    )
+    novo["assinatura_decisoes"] = assinatura_decisoes
+    if filtrar_oral:
+        novo["contexto"] = ctx
+        novo["prova_oral"] = prova_oral
+    with _CACHE_LOCK:
+        existente = _CACHE_GERACAO.get(chave)
+        if existente is not None:
+            _CACHE_GERACAO.move_to_end(chave)
+            return existente
+        _CACHE_GERACAO[chave] = novo
+        while len(_CACHE_GERACAO) > _CACHE_MAX * 2:
+            _CACHE_GERACAO.popitem(last=False)
+        return novo
+
+
 def limpar_cache_contexto() -> None:
     with _CACHE_LOCK:
         _CACHE.clear()
+        _CACHE_GERACAO.clear()

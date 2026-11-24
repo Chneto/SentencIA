@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   construir-artefatos:
     name: Construir .zip, .exe, scripts e SHA256SUMS
@@ -17,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar uv e Python 3.12
         uses: astral-sh/setup-uv@v5
@@ -28,12 +31,12 @@ jobs:
       - name: Verificar sigilo antes de empacotar
         shell: pwsh
         run: |
-          uv run python scripts/verificar_sigilo.py --apenas-padroes
+          uv run --frozen python scripts/verificar_sigilo.py --apenas-padroes
 
       - name: Gerar pacote SentencIA-vX.Y.Z.zip
         shell: pwsh
         run: |
-          uv run python scripts/build_release.py
+          uv run --frozen python scripts/build_release.py
 
       - name: Compilar instalador Windows (.exe via Inno Setup) e preparar scripts
         shell: pwsh
@@ -74,7 +77,7 @@ jobs:
           "
 
       - name: Publicar artefatos da build para os jobs de teste
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: release-dist
           path: dist/*
@@ -88,10 +91,10 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Baixar artefatos gerados
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-dist
           path: dist
@@ -158,10 +161,10 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Baixar artefatos gerados
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-dist
           path: dist
@@ -214,10 +217,10 @@ jobs:
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Baixar artefatos validados
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-dist
           path: dist

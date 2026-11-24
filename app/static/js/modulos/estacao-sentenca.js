@@ -5,6 +5,8 @@ import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError,
 import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.1.0";
 import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.1.0";
 import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.1.0";
+import { renderDecisoesAcessorias } from "./registro-decisoes-acessorias.js?v=2.1.0";
+import { ROTULOS_FONTE, renderSectionalTelemetry } from "./telemetria-sentenca.js?v=2.1.0";
 
 function renderPendenciasPanel() {
   const panel = $("sentencePendenciasPanel");
@@ -26,7 +28,9 @@ function renderPendenciasPanel() {
     (sent.dosimetria_dados && sent.dosimetria_dados.simulacao_presume_condenacao)
   );
   const liberada = payload.exportacao_liberada ?? !!aud.aprovada_sem_alucinacao;
-  const blocos = [];
+  const blocos = [
+    '<div class="alert-banner alert-info" data-revisao-judicial><strong>Revisão judicial necessária</strong></div>',
+  ];
 
   if (presume) {
     blocos.push(`
@@ -74,6 +78,7 @@ function irParaMarcador(i) {
 }
 
 function renderSentenceOnSheet(data) {
+  renderDecisoesAcessorias();
   state.lastSentence = data.sentenca || null;
   state.lastAudit = data.auditoria || null;
   state.lastHtmlPje = data.html_pje || "";
@@ -147,7 +152,7 @@ function badgeStatusCamada(status) {
 const ROTULOS_VERIFICACAO = {
   ids_autos: "IDs de peças e mídias citados existem nos autos",
   citacoes_base_fechada: "Citações jurídicas dentro da base fechada",
-  teses_defensivas: "Teses defensivas enfrentadas",
+  teses_defensivas: "Apreciação das teses defensivas",
   marcadores_completar_pelo_juizo: "Trechos a completar pelo juízo",
   marcadores_pendentes: "Trechos a completar pelo juízo",
   penas_dispositivo_x_dosimetria: "Penas do dispositivo conferidas com a dosimetria",
@@ -160,7 +165,7 @@ function renderAuditDrawer() {
   const badgeText = $("auditScoreBadge");
   const mini = $("badgeAuditMini");
   if (!aud) {
-    badgeText.textContent = "Auditada —";
+    badgeText.textContent = "Verificação pendente";
     badge.className = "badge-tag badge-neutral";
     mini.textContent = "—";
     $("auditDrawerScore").textContent = "Nenhuma auditoria executada";
@@ -172,23 +177,23 @@ function renderAuditDrawer() {
   }
 
   const aprovada = !!aud.aprovada_sem_alucinacao;
-  const scoreNum = Number(aud.score_confiabilidade);
+  const scoreNum = aud.score_confiabilidade;
   const score = Number.isFinite(scoreNum) ? Math.round(scoreNum) : null;
   const scoreTxt = score === null ? "—" : `${score}%`;
-  badgeText.textContent = aprovada ? `Aprovada ${scoreTxt}` : `Pendências ${scoreTxt}`;
+  badgeText.textContent = aprovada ? "Verificação concluída" : "Verificação com pendências";
   badge.className = `badge-tag ${aprovada ? "badge-success" : "badge-warn"}`;
   mini.textContent = scoreTxt;
   const detalhes = aud.detalhes_camadas || [];
-  $("auditDrawerTitle").textContent = `Auditoria Anti-Alucinação (${detalhes.length || "—"} camadas)`;
-  $("auditDrawerScore").textContent = `${aprovada ? "APROVADA SEM ALUCINAÇÃO" : "NÃO APROVADA — ver pendências"} · Score ${scoreTxt}`;
+  $("auditDrawerTitle").textContent = `Auditoria automatizada (${detalhes.length || "—"} camadas)`;
+  $("auditDrawerScore").textContent = aprovada ? "Checagens automáticas concluídas" : "Checagens automáticas com pendências";
 
   const marcadores = aud.marcadores_pendentes || [];
   const penasDiv = aud.penas_divergentes || [];
-  const scoreForma = Number(aud.score_forma);
+  const scoreForma = aud.score_forma;
   $("auditScoreGrid").innerHTML = `
     <div class="score-grid">
-      <div class="inner-tile"><div class="kpi-label">Score de confiabilidade</div><div class="score-value">${escapeHtml(scoreTxt)}</div></div>
-      <div class="inner-tile"><div class="kpi-label">Score de forma</div><div class="score-value">${escapeHtml(Number.isFinite(scoreForma) ? Math.round(scoreForma) + "%" : "—")}</div></div>
+      <div class="inner-tile"><div class="kpi-label">Pontuação da auditoria</div><div class="score-value">${escapeHtml(scoreTxt)}</div></div>
+      <div class="inner-tile"><div class="kpi-label">Pontuação de forma</div><div class="score-value">${escapeHtml(Number.isFinite(scoreForma) ? Math.round(scoreForma) + "%" : "—")}</div></div>
       <div class="inner-tile"><div class="kpi-label">Pendências de conteúdo</div><div class="score-value">${escapeHtml(String(marcadores.length + penasDiv.length))}</div></div>
     </div>`;
 
@@ -225,7 +230,7 @@ function renderAuditDrawer() {
         .join("")
     : `<p class="muted">Este laudo não traz verificações de conteúdo.</p>`;
 
-  const validIds = (aud.ids_citados_verificados || []).map((id) => ({ id, ok: true, obs: "Verificado nos autos/mídias", inspecionavel: true }));
+  const validIds = (aud.ids_citados_verificados || []).map((id) => ({ id, ok: true, obs: "ID localizado nos autos ou mídias", inspecionavel: true }));
   const invalidIds = (aud.ids_inexistentes || []).map((id) => ({ id, ok: false, obs: "ID inexistente nos autos", inspecionavel: true }));
   const citInvalidas = (aud.citacoes_nao_autorizadas || []).map((id) => ({ id, ok: false, obs: "Citação fora da base fechada", inspecionavel: false }));
   const allIds = [...invalidIds, ...citInvalidas, ...validIds];
@@ -245,45 +250,6 @@ function renderAuditDrawer() {
         )
         .join("")
     : `<tr><td colspan="3" class="muted">Nenhum ID citado na minuta.</td></tr>`;
-}
-
-const ROTULOS_FONTE = {
-  llm: "LLM local (Ollama)",
-  deterministico: "Motor determinístico",
-  fallback_deterministico: "FALLBACK determinístico",
-};
-
-function renderSectionalTelemetry(tel) {
-  const grid = $("sectionalTelemetryGrid");
-  if (!grid) return;
-  if (!tel || typeof tel !== "object" || !tel.secoes) {
-    grid.innerHTML = "";
-    return;
-  }
-  const secoes = tel.secoes || {};
-  const ordem = tel.ordem_secoes || Object.keys(secoes);
-  const cabecalho = `<div class="muted" style="font-size:11.5px; margin-bottom:6px;">Modo: <strong>${escapeHtml(tel.modo_geracao || "—")}</strong>${
-    (tel.secoes_fallback || []).length ? ` · Fallback em: ${escapeHtml(tel.secoes_fallback.join(", "))}` : ""
-  }</div>`;
-  grid.innerHTML =
-    cabecalho +
-    ordem
-      .filter((k) => secoes[k])
-      .map((k) => {
-        const s = secoes[k];
-        const fonte = ROTULOS_FONTE[s.fonte] || s.fonte || "—";
-        const cls = s.fallback || s.fonte === "fallback_deterministico" ? "badge-warn" : s.aprovada ? "badge-success" : "badge-neutral";
-        return `<div class="inner-tile" style="margin-bottom:6px; font-size:12px;">
-          <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-            <strong>${escapeHtml(k.toUpperCase())}</strong>
-            <span class="badge-tag ${cls}">${escapeHtml(s.status || "—")}</span>
-          </div>
-          <div class="muted" style="margin-top:3px;">Fonte: ${escapeHtml(fonte)} · Tentativas: ${escapeHtml(s.tentativas ?? 0)} · Score: ${escapeHtml(
-          s.score === null || s.score === undefined ? "não avaliado" : Math.round(s.score)
-        )}${Number(s.marcadores_pendentes || 0) ? ` · ${escapeHtml(s.marcadores_pendentes)} trecho(s) a completar` : ""}</div>
-        </div>`;
-      })
-      .join("");
 }
 
 function nomeDoContentDisposition(cd) {
@@ -492,12 +458,25 @@ function avisarResultadoGeracao(res, mensagemOk) {
   }
 }
 
+function indicarTentativaDeRedacao() {
+  const campo = $("sentenceGenStatus");
+  const mensagem = "Tentativa de redação em andamento";
+  const anterior = campo.textContent;
+  campo.setAttribute("role", "status");
+  campo.textContent = mensagem;
+  return () => {
+    if (campo.textContent === mensagem) campo.textContent = anterior;
+  };
+}
+
 async function gerarSeccional() {
   if (!hooks.garantirDecisaoJudicial(gerarSeccional)) return;
   const botao = $("btnGenerateSectional");
   botao.disabled = true;
+  let encerrarTentativa;
   try {
     const consentimento = await consentirOllamaNaOperacao("redigir e revisar as seções da minuta");
+    encerrarTentativa = indicarTentativaDeRedacao();
     const res = await postJson("/api/sentence/generate-sectional", {
       use_ollama: consentimento !== null,
       ...consentimento,
@@ -511,6 +490,7 @@ async function gerarSeccional() {
   } catch (err) {
     handleApiError(err, { retry: gerarSeccional });
   } finally {
+    encerrarTentativa?.();
     botao.disabled = false;
   }
 }
@@ -518,8 +498,10 @@ async function gerarSeccional() {
 async function regenerarSecao() {
   const botao = $("btnRegenerateSection");
   botao.disabled = true;
+  let encerrarTentativa;
   try {
     const consentimento = await consentirOllamaNaOperacao("regenerar e revisar esta seção");
+    encerrarTentativa = indicarTentativaDeRedacao();
     const res = await postJson("/api/sentence/regenerate-section", {
       secao: $("selRegenSection").value,
       revisao_esperada: state.lastSentence?.revisao_documento,
@@ -539,6 +521,7 @@ async function regenerarSecao() {
   } catch (err) {
     handleApiError(err);
   } finally {
+    encerrarTentativa?.();
     botao.disabled = false;
   }
 }
@@ -572,6 +555,10 @@ async function reauditarEdicao() {
 }
 
 function bindSentencaEvents() {
+  renderDecisoesAcessorias();
+  document.addEventListener("click", (evento) => {
+    if (evento.target.closest('.station-btn[data-station="sentenca"]')) renderDecisoesAcessorias();
+  });
   $("btnGenerateSentence")?.addEventListener("click", gerarSentencaLocal);
   $("btnReauditEdited")?.addEventListener("click", reauditarEdicao);
   $("btnOpenAuditDrawer")?.addEventListener("click", () => openModal("modalAuditDrawer"));

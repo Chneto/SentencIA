@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from app.core.case_context import CaseContext
 from app.core.errors import DadosInsuficientesError
 from app.generation.decisoes_imputacao import resolver_configs_imputacao
+from app.generation.prova_oral_confirmada import MARCADOR_PAPEL, ProvaOralConfirmada
 from app.ingestion.laya_classifier import MetadadosProcesso
 
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -67,11 +68,11 @@ def _comparavel(texto: str) -> str:
     return " ".join(texto.split())
 
 
-def _indice_provas(ctx: CaseContext) -> dict[str, list[str]]:
+def _indice_provas(ctx: CaseContext, *, incluir_oral: bool) -> dict[str, list[str]]:
     fontes: dict[str, list[str]] = {}
     for peca in ctx.pecas:
         fontes.setdefault(peca.doc_id, []).append(_comparavel(peca.conteudo))
-    for transcricao in ctx.transcriptions:
+    for transcricao in ctx.transcriptions if incluir_oral else ():
         fonte = transcricao.get("media_id")
         if not fonte:
             continue
@@ -83,10 +84,19 @@ def _indice_provas(ctx: CaseContext) -> dict[str, list[str]]:
     return fontes
 
 
-def _verificar_provas(referencias: list[ReferenciaProva], fontes: dict[str, list[str]], campo: str) -> None:
+def _verificar_provas(
+    referencias: list[ReferenciaProva], fontes: dict[str, list[str]], campo: str,
+    prova_oral: ProvaOralConfirmada | None,
+) -> bool:
+    pendente = False
     for ref in referencias:
-        if not any(_comparavel(ref.trecho) in texto for texto in fontes.get(ref.fonte_id, [])):
+        if any(_comparavel(ref.trecho) in texto for texto in fontes.get(ref.fonte_id, [])):
+            continue
+        situacao = prova_oral.situacao(ref.fonte_id, ref.trecho) if prova_oral is not None else "ausente"
+        if situacao == "ausente":
             raise DadosInsuficientesError([campo], "Indique um trecho literal de uma fonte do caso ativo.")
+        pendente |= situacao == "pendente"
+    return pendente
 
 
 def _texto_referencias(referencias: list[ReferenciaProva]) -> str:
@@ -97,6 +107,7 @@ def _texto_referencias(referencias: list[ReferenciaProva]) -> str:
 class JuizoSobreProvas:
     por_imputacao: dict[str, dict[str, ElementoProvado]] = field(default_factory=dict)
     cautelar: DecisaoCautelarSentenca | None = None
+    papeis_pendentes: set[tuple[str, str]] = field(default_factory=set)
 
     def merito(self, decisao: dict[str, Any], *, incluir_trechos: bool = True) -> str:
         chave = decisao.get("id_imputacao") or decisao.get("crime_code") or ""
@@ -105,6 +116,9 @@ class JuizoSobreProvas:
         esperados = elementos_por_tipo(codigo)
         linhas = []
         for elemento, rotulo in esperados.items():
+            if (chave, elemento) in self.papeis_pendentes:
+                linhas.append(f"{rotulo}. {MARCADOR_PAPEL}")
+                continue
             registro = registros.get(elemento)
             if registro is None:
                 linhas.append(PENDENCIA.format(f"{rotulo.lower()} da imputação"))
@@ -141,14 +155,15 @@ class JuizoSobreProvas:
 
 
 def resolver_juizo_sobre_provas(
-    ctx: CaseContext, meta: MetadadosProcesso, override: dict[str, Any], decisoes: list[dict[str, Any]]
+    ctx: CaseContext, meta: MetadadosProcesso, override: dict[str, Any], decisoes: list[dict[str, Any]],
+    *, prova_oral: ProvaOralConfirmada | None = None,
 ) -> JuizoSobreProvas:
     """Valida a origem literal das referências e o alvo individual de cada registro."""
     resultado = JuizoSobreProvas()
     itens = [item for item in (override.get("crimes_config") or []) if isinstance(item, dict)]
     if not any("elementos_provados" in item for item in itens) and override.get("decisao_cautelar") is None:
         return resultado
-    fontes = _indice_provas(ctx)
+    fontes = _indice_provas(ctx, incluir_oral=prova_oral is None)
 
     cautelar = override.get("decisao_cautelar")
     if cautelar is not None:
@@ -156,7 +171,8 @@ def resolver_juizo_sobre_provas(
             resultado.cautelar = DecisaoCautelarSentenca.model_validate(cautelar)
         except ValidationError as exc:
             raise DadosInsuficientesError(["decisao_cautelar"], "Informe uma decisão cautelar e seu fundamento.") from exc
-        _verificar_provas(resultado.cautelar.referencias, fontes, "decisao_cautelar.referencias")
+        if _verificar_provas(resultado.cautelar.referencias, fontes, "decisao_cautelar.referencias", prova_oral):
+            resultado.cautelar = None
 
     _, configs, _ = resolver_configs_imputacao(meta, itens)
     for decisao in decisoes:
@@ -176,10 +192,20 @@ def resolver_juizo_sobre_provas(
                 raise DadosInsuficientesError([campo], "Informe o elemento, a conclusão e o seu fundamento.") from exc
             if registro.elemento not in esperados or registro.elemento in por_elemento:
                 raise DadosInsuficientesError([campo], "Confira os elementos da imputação e registre cada um uma única vez.")
+            if (
+                registro.elemento in ELEMENTOS_COMUNS
+                and registro.conclusao == "nao_provado"
+                and decisao.get("veredicto") in {"condenar", "desclassificar"}
+            ):
+                raise DadosInsuficientesError(
+                    [f"{campo}.{registro.elemento}"],
+                    "O veredicto condenatório é incompatível com materialidade ou autoria não provada.",
+                )
             if registro.conclusao == "provado" and not registro.provas_favoraveis:
                 raise DadosInsuficientesError([campo], "A conclusão de que o elemento foi provado exige referência à prova favorável.")
-            _verificar_provas(registro.provas_favoraveis, fontes, campo)
-            _verificar_provas(registro.provas_contrarias, fontes, campo)
+            referencias = [*registro.provas_favoraveis, *registro.provas_contrarias]
+            if _verificar_provas(referencias, fontes, campo, prova_oral):
+                resultado.papeis_pendentes.add((chave, registro.elemento))
             por_elemento[registro.elemento] = registro
         resultado.por_imputacao[chave] = por_elemento
     return resultado

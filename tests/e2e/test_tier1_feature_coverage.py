@@ -547,23 +547,29 @@ class TestF09_F12_AdversarialCriticAndGender:
     meta = extrair_metadados_processo(pecas)
     teses = meta.teses_defesa
 
-    # 1. Sentença enfrentando 100% das teses -> Sem omissões
-    texto_completo = "\n".join(
-        [f"Rejeito a tese {t.codigo} — {t.titulo}" for t in teses]
-        + ["I – RELATÓRIO", "II – FUNDAMENTAÇÃO", "III – DISPOSITIVO"]
-    )
-    auditoria = auditar_sentenca(texto_completo, pecas, teses, [])
-    assert auditoria.teses_omitidas == []
+    def texto_com_apreciacao(teses_respondidas):
+      blocos = ["I – RELATÓRIO", "II – FUNDAMENTAÇÃO"]
+      for tipo, cabecalho in (
+          ("PRELIMINAR", "1. Das Questões Preliminares"),
+          ("MERITO", "2. Do Mérito"),
+          ("SUBSIDIARIA", "3. Da Dosimetria da Pena"),
+      ):
+        blocos.append(cabecalho)
+        for tese in teses_respondidas:
+          if tese.tipo != tipo:
+            continue
+          fato = f"Fato {tese.numero_fato}" if tese.numero_fato else tese.id_imputacao
+          blocos.append(
+              f"{fato}. Rejeito a tese {tese.codigo} — {tese.titulo}, "
+              "pois o registro da audiência confirma a presença da parte e a apresentação de alegações."
+          )
+      return "\n\n".join([*blocos, "III – DISPOSITIVO"])
 
-    # 2. Sentença omitindo a tese PREL-01
-    texto_sem_prel = "\n".join(
-        [
-            f"Rejeito a tese {t.codigo} — {t.titulo}"
-            for t in teses
-            if "PREL" not in t.codigo
-        ]
-        + ["I – RELATÓRIO", "II – FUNDAMENTAÇÃO", "III – DISPOSITIVO"]
-    )
+    texto_completo = texto_com_apreciacao(teses)
+    auditoria = auditar_sentenca(texto_completo, pecas, teses, [])
+    assert auditoria.teses_defesa_enfrentadas and auditoria.teses_omitidas == []
+
+    texto_sem_prel = texto_com_apreciacao([t for t in teses if t.tipo != "PRELIMINAR"])
     auditoria_sem_prel = auditar_sentenca(texto_sem_prel, pecas, teses, [])
     assert any(
         "PREL" in tom for tom in auditoria_sem_prel.teses_omitidas
@@ -579,14 +585,14 @@ class TestF09_F12_AdversarialCriticAndGender:
     auditoria_vazia = auditar_sentenca(texto_vazio, pecas, teses, [])
     assert len(auditoria_vazia.teses_omitidas) == len(teses)
 
-    # 5. Reconhecimento de tese pelo código e título enfrentados
+    # 5. Código isolado fora da seção e sem motivos não comprova apreciação
     texto_enfrentado = (
         f"Quanto à tese {teses[0].codigo}, rejeito a preliminar. "
         f"Quanto à tese {teses[1].codigo}, rejeito o pleito meritório. "
         "I – RELATÓRIO\nII – FUNDAMENTAÇÃO\nIII – DISPOSITIVO"
     )
     auditoria_enf = auditar_sentenca(texto_enfrentado, pecas, teses, [])
-    assert len(auditoria_enf.teses_defesa_enfrentadas) >= 2
+    assert not auditoria_enf.teses_defesa_enfrentadas
 
   def test_f12_crivo_genero_cnj492(self, load_fixture_case):
     """F12: Crivo de Standard Probatório e Perspectiva de Gênero (Res. CNJ 492/2023) (5 casos)."""

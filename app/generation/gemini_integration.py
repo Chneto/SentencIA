@@ -764,6 +764,9 @@ def importar_e_auditar_sentenca_externa(
 
     ids_midias = list(ctx.ids_midias)
     dosimetria_dados = dosimetria_global.model_dump(mode="json")
+    acessorias = motores.plano.decisoes_acessorias
+    if acessorias is not None:
+        dosimetria_dados["decisoes_acessorias"] = acessorias.dados_auditoria()
     if motores.presume_condenacao:
         dosimetria_dados["simulacao_presume_condenacao"] = True
 
@@ -797,6 +800,8 @@ def importar_e_auditar_sentenca_externa(
 
     if not ctx.is_demo:
         _substituir("merito")
+        if not origem_label.startswith("Edição Direta"):
+            _substituir("dosimetria")
         _substituir("dispositivo")
         texto_montado = _montar_texto(secoes)
         auditoria_final = auditar_sentenca(

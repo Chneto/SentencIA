@@ -522,11 +522,15 @@ TABELA_TESES_CANONICAS_JVDFM = [
 ]
 
 
-def _corresponde_tese(padrao: re.Pattern, texto_norm: str, codigo: str) -> Optional[re.Match]:
+def _correspondencias_tese(padrao: re.Pattern, texto_norm: str, codigo: str):
     for match in padrao.finditer(texto_norm):
-        inicio = max(texto_norm.rfind(sep, 0, match.start()) for sep in (". ", ";", "\n")) + 1
-        fins = [texto_norm.find(sep, match.end()) for sep in (". ", ";", "\n")]
-        fim = min((pos for pos in fins if pos >= 0), default=len(texto_norm))
+        inicio_janela = max(0, match.start() - 300)
+        fim_janela = min(len(texto_norm), match.end() + 300)
+        inicio = max(inicio_janela, 1 + max(
+            texto_norm.rfind(sep, inicio_janela, match.start()) for sep in (". ", ";", "\n")
+        ))
+        fins = [texto_norm.find(sep, match.end(), fim_janela) for sep in (". ", ";", "\n")]
+        fim = min((pos for pos in fins if pos >= 0), default=fim_janela)
         frase = texto_norm[inicio:fim]
         if codigo == CODIGO_TESE_VEDADA and (
             _repudio_na_frase(frase)
@@ -541,8 +545,7 @@ def _corresponde_tese(padrao: re.Pattern, texto_norm: str, codigo: str) -> Optio
             frase,
         ):
             continue
-        return match
-    return None
+        yield match
 
 
 def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
@@ -553,7 +556,8 @@ def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
 
     Sem tese reconhecida, retorna lista vazia (nunca injeta MER-01 artificialmente).
     """
-    from app.ingestion.laya_classifier import _recortar_trecho
+    from app.ingestion.laya_classifier import _recortar_ocorrencia
+    from app.ingestion.ocorrencias import natureza_ocorrencia
 
     fontes_defesa: List[Tuple[str, str, str, str]] = []  # (texto, fonte_id, folha, origem)
 
@@ -564,7 +568,8 @@ def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
                 cat = getattr(item, "categoria", "")
                 fid = str(getattr(item, "doc_id", "") or "DEFESA")
                 fls = str(getattr(item, "folha", "") or "")
-                orig = str(getattr(item, "origem", "memoriais") or "memoriais")
+                padrao_origem = "resposta_acusacao" if cat == "RESPOSTA_ACUSACAO" else "memoriais"
+                orig = str(getattr(item, "origem", padrao_origem) or padrao_origem)
                 if cat in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA", "DEFESA_PRELIMINAR") or "DEFESA" in cat:
                     fontes_defesa.append((item.conteudo, fid, fls, orig))
                 elif hasattr(item, "resumo_estruturado") and item.resumo_estruturado:
@@ -575,7 +580,8 @@ def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
                 txt = str(item.get("conteudo", item.get("texto", item.get("raw_text", ""))) or "")
                 fid = str(item.get("doc_id") or item.get("fonte_id") or item.get("id") or "DEFESA")
                 fls = str(item.get("folhas") or item.get("folha") or "")
-                orig = str(item.get("origem") or "memoriais")
+                padrao_origem = "resposta_acusacao" if cat == "RESPOSTA_ACUSACAO" else "memoriais"
+                orig = str(item.get("origem") or padrao_origem)
                 if cat in ("RESPOSTA_ACUSACAO", "ALEGACOES_FINAIS_DEFESA") or "DEFESA" in cat:
                     fontes_defesa.append((txt, fid, fls, orig))
                 elif not cat and re.match(r"^\s*(?:resposta à acusação|memoriais da defesa)\b", txt, re.IGNORECASE):
@@ -592,36 +598,30 @@ def extrair_teses_defensivas(pecas: Any) -> List[TeseDefensivaItem]:
     elif isinstance(pecas, str):
         fontes_defesa.append((pecas, "DEFESA", "", "memoriais"))
 
-    fontes_normalizadas = [(_remover_acentos(txt), txt, fid, fls, orig) for txt, fid, fls, orig in fontes_defesa if txt]
+    regras = [
+        (tese, re.compile(_remover_acentos(tese["regex"]))) for tese in TABELA_TESES_CANONICAS_JVDFM
+    ]
     teses_detectadas: List[TeseDefensivaItem] = []
-    codigos_vistos = set()
-
-    for def_tese in TABELA_TESES_CANONICAS_JVDFM:
-        padrao = re.compile(_remover_acentos(def_tese["regex"]))
-        cod = def_tese["codigo"]
-        if cod in codigos_vistos:
+    for txt_fonte, fid, fls, orig in fontes_defesa:
+        if not txt_fonte:
             continue
-        for texto_norm, txt_fonte, fid, fls, orig in fontes_normalizadas:
-            match = _corresponde_tese(padrao, texto_norm, cod)
-            if match is None:
-                continue
-            trecho = _recortar_trecho(txt_fonte, match.start(), match.end())
-            codigos_vistos.add(cod)
-            teses_detectadas.append(
-                TeseDefensivaItem(
-                    codigo=cod,
-                    tipo=def_tese["tipo"],
-                    titulo=def_tese["titulo"],
-                    descricao_defesa=def_tese["descricao_padrao"],
-                    obrigatorio_enfrentamento_art381=True,
-                    fonte_id=fid,
-                    folha=fls,
-                    trecho=trecho,
-                    origem=orig,
-                )
-            )
-            break
-
+        texto_norm = _remover_acentos(txt_fonte)
+        ocorrencias = [
+            (match.start(), match.end(), def_tese)
+            for def_tese, padrao in regras
+            for match in _correspondencias_tese(padrao, texto_norm, def_tese["codigo"])
+        ]
+        ocorrencias.sort(key=lambda item: item[0])
+        for ini, fim, def_tese in ocorrencias:
+            teses_detectadas.append(TeseDefensivaItem(
+                codigo=def_tese["codigo"],
+                tipo=def_tese["tipo"],
+                titulo=def_tese["titulo"],
+                descricao_defesa=def_tese["descricao_padrao"],
+                fonte_id=fid, folha=fls, trecho=_recortar_ocorrencia(txt_fonte, ini, fim),
+                origem=orig, posicao=ini, ordem=len(teses_detectadas) + 1,
+                natureza=natureza_ocorrencia(txt_fonte, ini, subsidiario=def_tese["tipo"] == "SUBSIDIARIA"),
+            ))
     return teses_detectadas
 
 
@@ -865,7 +865,7 @@ class AdversarialJudicialCritic:
             )
 
         # 2. Trava de Omissão de Teses Defensivas (Feature F11)
-        teses_dossie = dossie.teses_defesa if hasattr(dossie, "teses_defesa") else []
+        teses_dossie = getattr(dossie, "teses_ocorrencias", None) or getattr(dossie, "teses_defesa", [])
         itens_teses = self._crivo_omissao_teses(texto, secao, teses_dossie)
         itens.extend(itens_teses)
 
@@ -911,143 +911,32 @@ class AdversarialJudicialCritic:
         Feature F11: Enforça o art. 381, III, do CPP garantindo que 100% das teses
         aplicáveis à seção foram enfrentadas motivadamente.
         """
-        from app.generation.sectional_pipeline import SecaoTipo
+        from app.generation.hallucination_auditor import (
+            _avaliar_apreciacao, _filtrar_teses_aplicaveis_secao, _normalizar_teses,
+        )
+
         itens: List[ItemCritica] = []
-        if not teses_defesa:
-            return itens
-
-        # Só preliminares, mérito e dosimetria exigem enfrentamento de teses defensivas
-        if secao not in (SecaoTipo.PRELIMINARES, SecaoTipo.MERITO, SecaoTipo.DOSIMETRIA):
-            return itens
-
-        texto_norm = _remover_acentos(texto)
-
-        palavras_decisao = [
-            "rejeit", "rejeic", "afast", "nao assiste razao", "inacolhiv", "improced",
-            "nao prospera", "nao merece acolhida", "resta superad", "desacolh",
-            "acolh", "reconhec", "declar", "absolv", "conden", "inaplicav",
-            "descabid", "sem razao", "desprovid", "inadmissiv"
-        ]
-
-        for item_t in teses_defesa:
-            if tese_vedada_honra(item_t):
+        teses = _filtrar_teses_aplicaveis_secao(secao.value, _normalizar_teses(teses_defesa))
+        for tese in teses:
+            if tese.tipo == "VEDADA":
                 continue
-            # Normalização polimórfica do item
-            if isinstance(item_t, TeseDefensivaItem):
-                codigo = item_t.codigo
-                titulo = item_t.titulo
-                tipo = item_t.tipo
-            elif isinstance(item_t, dict):
-                codigo = item_t.get("codigo", "")
-                titulo = item_t.get("titulo", "")
-                tipo = item_t.get("tipo", "")
-            else:
-                str_val = str(item_t).strip()
-                m_cod = re.match(r"^([A-Za-z]+-\d+)\s*[:—\-]\s*(.*)$", str_val)
-                if m_cod:
-                    codigo = m_cod.group(1).upper()
-                    titulo = m_cod.group(2).strip()
-                else:
-                    partes = re.split(r"[:—]|\s+-\s+", str_val, maxsplit=1)
-                    codigo = partes[0].strip()
-                    titulo = partes[1].strip() if len(partes) > 1 else str_val
-                tipo = ""
-
-            # Inferência de tipo por código se não especificado
-            cod_upper = codigo.upper()
-            if not tipo:
-                if cod_upper.startswith("PREL") or "inépcia" in titulo.lower() or "decadência" in titulo.lower():
-                    tipo = "PRELIMINAR"
-                elif cod_upper.startswith("SUB") or "pena-base" in titulo.lower() or "sursis" in titulo.lower():
-                    tipo = "SUBSIDIARIA"
-                else:
-                    tipo = "MERITO"
-
-            # Pertinência seccional
-            if secao == SecaoTipo.PRELIMINARES and tipo != "PRELIMINAR":
+            estado = _avaliar_apreciacao(texto, tese)
+            if estado in ("apreciada", "pendente"):
                 continue
-            if secao == SecaoTipo.MERITO and tipo != "MERITO":
-                continue
-            if secao == SecaoTipo.DOSIMETRIA and tipo != "SUBSIDIARIA":
-                continue
-
-            codigo_norm = _remover_acentos(codigo)
-            titulo_norm = _remover_acentos(titulo)
-
-            # Busca por código exato com delimitação de palavras ou palavras-chave expressivas do título
-            codigo_presente = bool(re.search(r"\b" + re.escape(codigo_norm) + r"\b", texto_norm)) if codigo_norm else False
-            
-            # Palavras-chave significativas do título (>4 letras, excluindo stopwords)
-            stopwords = {"para", "como", "sobre", "pelo", "pela", "artigo", "codigo", "penal", "crime", "autos", "defesa"}
-            tokens_titulo = [p for p in re.findall(r"\w{4,}", titulo_norm) if p not in stopwords]
-            
-            # Se for legítima defesa, inépcia, etc.
-            titulo_presente = False
-            if tokens_titulo:
-                # Se pelo menos 2 tokens (ou 1 se muito específico) estiverem presentes
-                matches = sum(1 for tok in tokens_titulo if tok in texto_norm)
-                if matches >= min(2, len(tokens_titulo)):
-                    titulo_presente = True
-            
-            # Casos específicos conhecidos
-            if "inepcia" in titulo_norm and ("inepcia" in texto_norm or "justa causa" in texto_norm):
-                titulo_presente = True
-            elif "laudo" in titulo_norm and ("laudo" in texto_norm or "art. 158" in texto_norm or "158 do cpp" in texto_norm):
-                titulo_presente = True
-            elif "decadencia" in titulo_norm and "decadencia" in texto_norm:
-                titulo_presente = True
-            elif "incompetencia" in titulo_norm and "incompetencia" in texto_norm:
-                titulo_presente = True
-            elif "legitima defesa" in titulo_norm and ("legitima defesa" in texto_norm or "agressoes reciprocas" in texto_norm):
-                titulo_presente = True
-            elif "in dubio" in titulo_norm and ("in dubio" in texto_norm or "insuficiencia probatoria" in texto_norm or "fragilidade probatoria" in texto_norm or "falta de provas" in texto_norm):
-                titulo_presente = True
-            elif "negativa" in titulo_norm and ("negativa de autoria" in texto_norm or "nao cometeu" in texto_norm or "nao praticou" in texto_norm or "alibi" in texto_norm):
-                titulo_presente = True
-            elif "animo exaltado" in titulo_norm and ("animo exaltado" in texto_norm or "estado de ira" in texto_norm or "colera" in texto_norm or "sem seriedade" in texto_norm):
-                titulo_presente = True
-            elif "ausencia de dolo" in titulo_norm and ("ausencia de dolo" in texto_norm or "sem intencao" in texto_norm or "autorizacao da vitima" in texto_norm or "chamado pela ofendida" in texto_norm):
-                titulo_presente = True
-            elif "vias de fato" in titulo_norm and ("vias de fato" in texto_norm or "desclassificacao" in texto_norm):
-                titulo_presente = True
-            elif "perseguicao" in titulo_norm and ("perseguicao" in texto_norm or "habitualidade" in texto_norm or "reiteracao" in texto_norm):
-                titulo_presente = True
-            elif "inexigibilidade" in titulo_norm and ("inexigibilidade" in texto_norm or "urgencia medica" in texto_norm or "coacao moral" in texto_norm):
-                titulo_presente = True
-            elif "minimo" in titulo_norm and ("minimo legal" in texto_norm or "pena-base no minimo" in texto_norm or "pena base no minimo" in texto_norm):
-                titulo_presente = True
-            elif "sursis" in titulo_norm and ("sursis" in texto_norm or "restritiva de direitos" in texto_norm or "art. 77" in texto_norm or "dano moral" in texto_norm):
-                titulo_presente = True
-
-            if not (codigo_presente or titulo_presente):
-                # Omissão completa -> CRITICA
-                itens.append(
-                    ItemCritica(
-                        tipo="omissao_tese",
-                        descricao=f"Omissão total de enfrentamento da tese defensiva {codigo} ({titulo}). Violação ao art. 381, III, do CPP.",
-                        paragrafo_afetado="Seção " + secao.value.upper(),
-                        gravidade="critica",
-                        feedback_cirurgico=(
-                            f"O parágrafo correspondente omitiu a tese defensiva {codigo} ({titulo}). "
-                            f"Redija fundamentadamente refutando ou acolhendo a tese nos termos do art. 381, III, do CPP."
-                        ),
-                    )
-                )
-            else:
-                # Se mencionou a tese, verifica se houve julgamento substancial
-                trecho_busca = texto_norm
-                houve_decisao = any(pd in trecho_busca for pd in palavras_decisao)
-                if not houve_decisao:
-                    itens.append(
-                        ItemCritica(
-                            tipo="dialetica",
-                            descricao=f"A tese {codigo} foi tangenciada, mas carece de julgamento explícito e fundamentado (acolhimento ou refutação).",
-                            paragrafo_afetado="Seção " + secao.value.upper(),
-                            gravidade="moderada",
-                            feedback_cirurgico=f"Explicite os motivos fáticos e legais para rejeição ou acolhimento fundamentado da tese {codigo}.",
-                        )
-                    )
-
+            omitida = estado == "omitida"
+            itens.append(ItemCritica(
+                tipo="omissao_tese" if omitida else "dialetica",
+                descricao=(
+                    f"Omissão total de enfrentamento da tese defensiva {tese.referencia}."
+                    if omitida else f"A tese {tese.referencia} foi mencionada e carece de julgamento motivado."
+                ),
+                paragrafo_afetado="Seção " + secao.value.upper(),
+                gravidade="critica" if omitida else "moderada",
+                feedback_cirurgico=(
+                    f"Registre a conclusão e o motivo da apreciação de {tese.referencia} nesta seção "
+                    "e para a imputação pertinente, conforme o art. 381, III, do CPP."
+                ),
+            ))
         return itens
 
     def _crivo_vedacao_honra(self, texto: str, secao: Any, dossie: Any) -> List[ItemCritica]:

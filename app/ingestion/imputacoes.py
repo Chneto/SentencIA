@@ -353,6 +353,8 @@ def extrair_imputacoes(
     if not itens:
         return itens, pendentes
     for peca in pecas:
+        if peca.categoria in ("SENTENCA", "PETICAO", "CERTIDAO", "RELATORIO_INQUERITO", "NAO_IDENTIFICADA"):
+            continue
         titulo = normalizar(peca.titulo)
         if peca.categoria != "RECEBIMENTO_DENUNCIA" and not re.match(r"^(?:decisao|sentenca|despacho)\b", titulo):
             continue

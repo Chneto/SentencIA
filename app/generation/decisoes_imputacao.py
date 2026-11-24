@@ -117,7 +117,7 @@ def resolver_configs_imputacao(
 def serializar_decisoes_imputacao(decisoes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     chaves = (
         "crime_code", "crime_efetivo", "veredicto", "fundamento_legal",
-        "desclassificado_de", "inciso", "id_imputacao", "referencia_imputacao",
+        "desclassificado_de", "inciso", "id_imputacao", "referencia_imputacao", "analise_acao_penal",
     )
     return [
         {k: d[k] for k in chaves if k in d} | {"presumido": bool(d.get("presumido"))}

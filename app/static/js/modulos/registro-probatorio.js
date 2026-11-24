@@ -24,11 +24,66 @@ export function elementosDoCrime(codigo) {
   return grupos ? { ...grupos.comuns, ...grupos.especificos[codigo] } : {};
 }
 
-export function camposConclusoes(cfg, codigo) {
-  if (state.activeCase?.is_demo || !cfg.veredicto || cfg.veredicto === "extinguir") return "";
-  const elementos = Object.entries(elementosDoCrime(codigo));
-  if (!elementos.length) return "";
+function campoRespostaAcao(rotulo, chave, valor) {
   return `
+    <label class="form-label">${rotulo}
+      <select class="form-select" data-condicao-acao="${chave}" data-resposta-acao>
+        <option value="">Pendente</option>
+        <option value="sim" ${valor === true ? "selected" : ""}>Sim</option>
+        <option value="nao" ${valor === false ? "selected" : ""}>Não</option>
+      </select>
+    </label>`;
+}
+
+function campoDataAcao(rotulo, chave, valor) {
+  return `
+    <label class="form-label">${rotulo}
+      <input class="form-control" type="date" data-condicao-acao="${chave}" value="${escapeHtml(valor || "")}">
+    </label>`;
+}
+
+function camposCondicoesAcao(cfg) {
+  const dados = cfg.condicoes_acao_penal || {};
+  return `
+    <details class="inner-tile" data-registro-condicoes>
+      <summary>Condições da ação e regra etária desta imputação</summary>
+      ${campoRespostaAcao("Violência sexual contra a mulher", "violencia_sexual_contra_mulher", cfg.violencia_sexual_contra_mulher)}
+      ${campoRespostaAcao("Violência doméstica e familiar contra a mulher", "violencia_domestica_familiar_contra_mulher", dados.violencia_domestica_familiar_contra_mulher)}
+      <fieldset>
+        <legend>Prazo de representação ou de queixa</legend>
+        ${campoDataAcao("Ciência da autoria", "data_ciencia_autoria", dados.data_ciencia_autoria)}
+        ${campoRespostaAcao("Queixa subsidiária por inércia do MP", "queixa_subsidiaria", dados.queixa_subsidiaria)}
+        ${campoDataAcao("Esgotamento do prazo para o MP denunciar", "data_esgotamento_prazo_denuncia", dados.data_esgotamento_prazo_denuncia)}
+        ${campoRespostaAcao("Direito de representação ou queixa exercido", "direito_exercido", dados.direito_exercido)}
+        ${campoDataAcao("Data da representação ou da queixa", "data_exercicio_direito", dados.data_exercicio_direito)}
+      </fieldset>
+      <fieldset>
+        <legend>Audiência de retratação</legend>
+        ${campoRespostaAcao("Pedido expresso da ofendida", "pedido_expresso_retratacao", dados.pedido_expresso_retratacao)}
+        ${campoDataAcao("Data da manifestação expressa", "data_pedido_retratacao", dados.data_pedido_retratacao)}
+        ${campoRespostaAcao("Denúncia ainda não recebida", "denuncia_ainda_nao_recebida", dados.denuncia_ainda_nao_recebida)}
+        ${campoDataAcao("Recebimento da denúncia desta imputação", "data_recebimento_denuncia", dados.data_recebimento_denuncia)}
+        ${campoDataAcao("Data da audiência, se realizada", "data_audiencia_retratacao", dados.data_audiencia_retratacao)}
+      </fieldset>
+    </details>`;
+}
+
+export function dadosCondicoesAcao(cfg) {
+  const dados = {};
+  if (typeof cfg.violencia_sexual_contra_mulher === "boolean") {
+    dados.violencia_sexual_contra_mulher = cfg.violencia_sexual_contra_mulher;
+  }
+  if (Object.keys(cfg.condicoes_acao_penal || {}).length) dados.condicoes_acao_penal = cfg.condicoes_acao_penal;
+  return dados;
+}
+
+export function camposConclusoes(cfg, codigo) {
+  if (state.activeCase?.is_demo) return "";
+  const condicoes = camposCondicoesAcao(cfg);
+  if (!cfg.veredicto || cfg.veredicto === "extinguir") return condicoes;
+  const elementos = Object.entries(elementosDoCrime(codigo));
+  if (!elementos.length) return condicoes;
+  return `${condicoes}
     <details class="inner-tile">
       <summary>Conclusões sobre a prova desta imputação</summary>
       <p class="muted">Conclusões em branco ficam pendentes na minuta. Use o ID e copie o trecho exato da fonte.</p>
@@ -76,6 +131,16 @@ function lerReferencia(el, chave) {
 }
 
 export function ligarRegistroProbatorio(edEl, cfg) {
+  edEl.querySelectorAll("[data-condicao-acao]").forEach((campo) => {
+    campo.addEventListener("input", () => {
+      const chave = campo.dataset.condicaoAcao;
+      const valor = campo.hasAttribute("data-resposta-acao") ? campo.value === "sim" : campo.value;
+      cfg.condicoes_acao_penal ||= {};
+      const registro = chave === "violencia_sexual_contra_mulher" ? cfg : cfg.condicoes_acao_penal;
+      if (campo.value) registro[chave] = valor;
+      else delete registro[chave];
+    });
+  });
   edEl.querySelectorAll("[data-elemento-probatorio]").forEach((el) => {
     el.addEventListener("input", () => {
       const elemento = el.dataset.elementoProbatorio;

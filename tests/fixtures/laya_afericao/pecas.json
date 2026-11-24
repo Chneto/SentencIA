@@ -1,0 +1,582 @@
+[
+  {
+    "id": "bo-1",
+    "titulo": "Boletim de Ocorrência",
+    "conteudo": "Registrada notícia de fato.",
+    "esperado": "BO"
+  },
+  {
+    "id": "bo-2",
+    "titulo": "BOLETIM DE OCORRENCIA",
+    "conteudo": "Compareceu a comunicante para registrar a ocorrência.",
+    "esperado": "BO"
+  },
+  {
+    "id": "bo-3",
+    "titulo": "Auto de prisão em flagrante",
+    "conteudo": "Foi lavrado o flagrante.",
+    "esperado": "BO"
+  },
+  {
+    "id": "bo-4",
+    "titulo": "Termo de declarações",
+    "conteudo": "A autoridade policial tomou as declarações.",
+    "esperado": "BO"
+  },
+  {
+    "id": "bo-5",
+    "titulo": "Capa e autuação",
+    "conteudo": "Identificação das partes.",
+    "esperado": "BO"
+  },
+  {
+    "id": "laudo_pericial-1",
+    "titulo": "Laudo de perícia",
+    "conteudo": "Foram examinadas as lesões.",
+    "esperado": "LAUDO_PERICIAL"
+  },
+  {
+    "id": "laudo_pericial-2",
+    "titulo": "EXAME DE CORPO DE DELITO",
+    "conteudo": "O perito respondeu aos quesitos.",
+    "esperado": "LAUDO_PERICIAL"
+  },
+  {
+    "id": "laudo_pericial-3",
+    "titulo": "Laudo pericial",
+    "conteudo": "O exame registrou equimose.",
+    "esperado": "LAUDO_PERICIAL"
+  },
+  {
+    "id": "laudo_pericial-4",
+    "titulo": "Atestado odontológico",
+    "conteudo": "Avaliação clínica da lesão.",
+    "esperado": "LAUDO_PERICIAL"
+  },
+  {
+    "id": "laudo_pericial-5",
+    "titulo": "Laudo do IML",
+    "conteudo": "Conclusão do exame médico-legal.",
+    "esperado": "LAUDO_PERICIAL"
+  },
+  {
+    "id": "decisao_mpu-1",
+    "titulo": "Decisão sobre medidas protetivas",
+    "conteudo": "Defiro a proteção.",
+    "esperado": "DECISAO_MPU"
+  },
+  {
+    "id": "decisao_mpu-2",
+    "titulo": "DECISAO DE MEDIDAS PROTETIVAS",
+    "conteudo": "Fica vedado o contato.",
+    "esperado": "DECISAO_MPU"
+  },
+  {
+    "id": "decisao_mpu-3",
+    "titulo": "Audiência de custódia",
+    "conteudo": "Decisão da custódia.",
+    "esperado": "DECISAO_MPU"
+  },
+  {
+    "id": "decisao_mpu-4",
+    "titulo": "Revogação de medidas protetivas",
+    "conteudo": "Revogo a medida anterior.",
+    "esperado": "DECISAO_MPU"
+  },
+  {
+    "id": "decisao_mpu-5",
+    "titulo": "Medidas Protetivas de Urgência",
+    "conteudo": "Concedo a proibição de aproximação.",
+    "esperado": "DECISAO_MPU"
+  },
+  {
+    "id": "certidao_intimacao_mpu-1",
+    "titulo": "Certidão do oficial de justiça",
+    "conteudo": "Certifico que intimei pessoalmente o destinatário.",
+    "esperado": "CERTIDAO_INTIMACAO_MPU"
+  },
+  {
+    "id": "certidao_intimacao_mpu-2",
+    "titulo": "MANDADO DE CITACAO",
+    "conteudo": "Dou ciência ao destinatário.",
+    "esperado": "CERTIDAO_INTIMACAO_MPU"
+  },
+  {
+    "id": "certidao_intimacao_mpu-3",
+    "titulo": "Certidão positiva de intimação",
+    "conteudo": "O requerido tomou ciência pessoal das medidas.",
+    "esperado": "CERTIDAO_INTIMACAO_MPU"
+  },
+  {
+    "id": "certidao_intimacao_mpu-4",
+    "titulo": "Intimação pessoal",
+    "conteudo": "Junto o mandado cumprido.",
+    "esperado": "CERTIDAO_INTIMACAO_MPU"
+  },
+  {
+    "id": "certidao_intimacao_mpu-5",
+    "titulo": "Oficiala de Justiça",
+    "conteudo": "Certifico o cumprimento do mandado.",
+    "esperado": "CERTIDAO_INTIMACAO_MPU"
+  },
+  {
+    "id": "denuncia-1",
+    "titulo": "Denúncia",
+    "conteudo": "O MINISTÉRIO PÚBLICO oferece DENÚNCIA.",
+    "esperado": "DENUNCIA",
+    "sonda": true
+  },
+  {
+    "id": "denuncia-2",
+    "titulo": "DENUNCIA MINISTERIAL",
+    "conteudo": "Vem oferecer denúncia pelos fatos descritos.",
+    "esperado": "DENUNCIA"
+  },
+  {
+    "id": "denuncia-3",
+    "titulo": "Peça acusatória",
+    "conteudo": "O Ministério Público apresenta a denúncia.",
+    "esperado": "DENUNCIA"
+  },
+  {
+    "id": "denuncia-4",
+    "titulo": "Exordial acusatória",
+    "conteudo": "A acusação dá início à ação.",
+    "esperado": "DENUNCIA"
+  },
+  {
+    "id": "denuncia-5",
+    "titulo": "Documento sem título útil",
+    "conteudo": "O Ministério Público vem oferecer denúncia em desfavor do acusado pela prática do fato delituoso.",
+    "esperado": "DENUNCIA"
+  },
+  {
+    "id": "recebimento_denuncia-1",
+    "titulo": "Recebimento da denúncia",
+    "conteudo": "Recebo a denúncia e determino a citação.",
+    "esperado": "RECEBIMENTO_DENUNCIA"
+  },
+  {
+    "id": "recebimento_denuncia-2",
+    "titulo": "Decisão de recebimento de denúncia",
+    "conteudo": "Não há motivo para rejeição.",
+    "esperado": "RECEBIMENTO_DENUNCIA"
+  },
+  {
+    "id": "recebimento_denuncia-3",
+    "titulo": "Saneamento (art. 397 do CPP)",
+    "conteudo": "O feito está em ordem.",
+    "esperado": "RECEBIMENTO_DENUNCIA"
+  },
+  {
+    "id": "recebimento_denuncia-4",
+    "titulo": "Decisão - recebimento da queixa",
+    "conteudo": "Recebo a queixa.",
+    "esperado": "RECEBIMENTO_DENUNCIA"
+  },
+  {
+    "id": "recebimento_denuncia-5",
+    "titulo": "Documento sem título útil",
+    "conteudo": "Recebo a denúncia. Cite-se.",
+    "esperado": "RECEBIMENTO_DENUNCIA"
+  },
+  {
+    "id": "resposta_acusacao-1",
+    "titulo": "Resposta à acusação",
+    "conteudo": "A defesa indica as testemunhas.",
+    "esperado": "RESPOSTA_ACUSACAO"
+  },
+  {
+    "id": "resposta_acusacao-2",
+    "titulo": "RESPOSTA A ACUSACAO",
+    "conteudo": "O acusado apresenta contestação inicial.",
+    "esperado": "RESPOSTA_ACUSACAO"
+  },
+  {
+    "id": "resposta_acusacao-3",
+    "titulo": "Defesa preliminar",
+    "conteudo": "Em resposta inicial, junta documentos.",
+    "esperado": "RESPOSTA_ACUSACAO"
+  },
+  {
+    "id": "resposta_acusacao-4",
+    "titulo": "Resposta à denúncia",
+    "conteudo": "Arrola testemunhas para a instrução.",
+    "esperado": "RESPOSTA_ACUSACAO"
+  },
+  {
+    "id": "resposta_acusacao-5",
+    "titulo": "Documento sem título útil",
+    "conteudo": "O acusado apresenta resposta à acusação, nos termos do art. 396-A do CPP.",
+    "esperado": "RESPOSTA_ACUSACAO"
+  },
+  {
+    "id": "termo_audiencia-1",
+    "titulo": "Termo de audiência",
+    "conteudo": "Foram ouvidas testemunhas.",
+    "esperado": "TERMO_AUDIENCIA"
+  },
+  {
+    "id": "termo_audiencia-2",
+    "titulo": "ATA DA AUDIENCIA",
+    "conteudo": "Encerrada a instrução.",
+    "esperado": "TERMO_AUDIENCIA"
+  },
+  {
+    "id": "termo_audiencia-3",
+    "titulo": "Ata",
+    "conteudo": "Declarada aberta a audiência de instrução.",
+    "esperado": "TERMO_AUDIENCIA"
+  },
+  {
+    "id": "termo_audiencia-4",
+    "titulo": "Juntada de mídias",
+    "conteudo": "Registro audiovisual da audiência.",
+    "esperado": "TERMO_AUDIENCIA"
+  },
+  {
+    "id": "termo_audiencia-5",
+    "titulo": "Termo de audiência de instrução e julgamento",
+    "conteudo": "A gravação fica nos autos.",
+    "esperado": "TERMO_AUDIENCIA"
+  },
+  {
+    "id": "cac_fac-1",
+    "titulo": "Certidão de antecedentes criminais",
+    "conteudo": "Foi consultado o cadastro.",
+    "esperado": "CAC_FAC"
+  },
+  {
+    "id": "cac_fac-2",
+    "titulo": "FOLHA DE ANTECEDENTES",
+    "conteudo": "Resultado de pesquisa.",
+    "esperado": "CAC_FAC"
+  },
+  {
+    "id": "cac_fac-3",
+    "titulo": "Certidão estadual de antecedentes",
+    "conteudo": "Nada consta na consulta.",
+    "esperado": "CAC_FAC"
+  },
+  {
+    "id": "cac_fac-4",
+    "titulo": "CAC",
+    "conteudo": "Pesquisa de antecedentes criminais.",
+    "esperado": "CAC_FAC"
+  },
+  {
+    "id": "cac_fac-5",
+    "titulo": "FAC",
+    "conteudo": "Folha de antecedentes criminais.",
+    "esperado": "CAC_FAC"
+  },
+  {
+    "id": "alegacoes_finais_mp-1",
+    "titulo": "Alegações finais por memoriais - MP",
+    "conteudo": "Foram respeitados contraditório e ampla defesa.",
+    "esperado": "ALEGACOES_FINAIS_MP",
+    "sonda": true
+  },
+  {
+    "id": "alegacoes_finais_mp-2",
+    "titulo": "ALEGACOES FINAIS (MP)",
+    "conteudo": "A acusação conclui suas razões.",
+    "esperado": "ALEGACOES_FINAIS_MP"
+  },
+  {
+    "id": "alegacoes_finais_mp-3",
+    "titulo": "Razões finais do Ministério Público",
+    "conteudo": "Requer o acolhimento da pretensão punitiva.",
+    "esperado": "ALEGACOES_FINAIS_MP"
+  },
+  {
+    "id": "alegacoes_finais_mp-4",
+    "titulo": "Memoriais",
+    "conteudo": "O Promotor de Justiça apresenta suas razões e requer a condenação.",
+    "esperado": "ALEGACOES_FINAIS_MP"
+  },
+  {
+    "id": "alegacoes_finais_mp-5",
+    "titulo": "Alegações finais",
+    "conteudo": "A acusação requer a condenação do acusado.",
+    "esperado": "ALEGACOES_FINAIS_MP"
+  },
+  {
+    "id": "alegacoes_finais_mp-6",
+    "titulo": "Memoriais do Ministério Público",
+    "conteudo": "O MP pede a procedência da denúncia.",
+    "esperado": "ALEGACOES_FINAIS_MP"
+  },
+  {
+    "id": "alegacoes_finais_defesa-1",
+    "titulo": "Alegações Finais",
+    "conteudo": "A defesa requer a absolvição por insuficiência de provas.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA",
+    "sonda": true
+  },
+  {
+    "id": "alegacoes_finais_defesa-2",
+    "titulo": "Alegações finais por memoriais",
+    "conteudo": "Em favor do réu, pede a desclassificação. Defensor Público.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA"
+  },
+  {
+    "id": "alegacoes_finais_defesa-3",
+    "titulo": "RAZOES FINAIS DA DEFESA",
+    "conteudo": "A defesa conclui suas razões.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA"
+  },
+  {
+    "id": "alegacoes_finais_defesa-4",
+    "titulo": "Memoriais da defesa",
+    "conteudo": "Pede o acolhimento da tese.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA"
+  },
+  {
+    "id": "alegacoes_finais_defesa-5",
+    "titulo": "Memoriais",
+    "conteudo": "Requer a absolvição do acusado. Advogada, OAB.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA"
+  },
+  {
+    "id": "alegacoes_finais_defesa-6",
+    "titulo": "Alegações finais da defesa",
+    "conteudo": "Alega que a prova foi insuficiente.",
+    "esperado": "ALEGACOES_FINAIS_DEFESA"
+  },
+  {
+    "id": "despacho-1",
+    "titulo": "Despacho",
+    "conteudo": "Intime-se para oferecer resposta à acusação.",
+    "esperado": "DESPACHO",
+    "sonda": true
+  },
+  {
+    "id": "despacho-2",
+    "titulo": "DESPACHO",
+    "conteudo": "Remetam-se os autos ao Ministério Público.",
+    "esperado": "DESPACHO"
+  },
+  {
+    "id": "despacho-3",
+    "titulo": "Despacho de mero expediente",
+    "conteudo": "Aguarde-se o prazo.",
+    "esperado": "DESPACHO"
+  },
+  {
+    "id": "despacho-4",
+    "titulo": "Ato ordinatório",
+    "conteudo": "Abra-se vista à defesa.",
+    "esperado": "DESPACHO"
+  },
+  {
+    "id": "despacho-5",
+    "titulo": "Despacho de intimação",
+    "conteudo": "Dê-se ciência e prossiga-se.",
+    "esperado": "DESPACHO"
+  },
+  {
+    "id": "decisao_interlocutoria-1",
+    "titulo": "Decisão interlocutória",
+    "conteudo": "Indefiro o pedido de produção de prova.",
+    "esperado": "DECISAO_INTERLOCUTORIA"
+  },
+  {
+    "id": "decisao_interlocutoria-2",
+    "titulo": "DECISAO INTERLOCUTORIA",
+    "conteudo": "Quanto à preliminar, indefiro.",
+    "esperado": "DECISAO_INTERLOCUTORIA"
+  },
+  {
+    "id": "decisao_interlocutoria-3",
+    "titulo": "Decisão",
+    "conteudo": "Defiro a expedição de ofício.",
+    "esperado": "DECISAO_INTERLOCUTORIA"
+  },
+  {
+    "id": "decisao_interlocutoria-4",
+    "titulo": "Decisão incidental",
+    "conteudo": "Afasto a preliminar arguida na resposta à acusação.",
+    "esperado": "DECISAO_INTERLOCUTORIA"
+  },
+  {
+    "id": "decisao_interlocutoria-5",
+    "titulo": "Decisão de saneamento",
+    "conteudo": "Delimito os pontos controvertidos.",
+    "esperado": "DECISAO_INTERLOCUTORIA"
+  },
+  {
+    "id": "sentenca-1",
+    "titulo": "Sentença",
+    "conteudo": "O réu apresentou resposta à acusação. Passo ao julgamento.",
+    "esperado": "SENTENCA",
+    "sonda": true
+  },
+  {
+    "id": "sentenca-2",
+    "titulo": "SENTENCA",
+    "conteudo": "Julgo procedente a pretensão punitiva.",
+    "esperado": "SENTENCA"
+  },
+  {
+    "id": "sentenca-3",
+    "titulo": "Sentença condenatória",
+    "conteudo": "Ante o exposto, condeno o acusado.",
+    "esperado": "SENTENCA"
+  },
+  {
+    "id": "sentenca-4",
+    "titulo": "Sentença absolutória",
+    "conteudo": "Julgo improcedente o pedido e absolvo.",
+    "esperado": "SENTENCA"
+  },
+  {
+    "id": "sentenca-5",
+    "titulo": "Sentença de mérito",
+    "conteudo": "Relatório. Fundamentação. Dispositivo.",
+    "esperado": "SENTENCA"
+  },
+  {
+    "id": "peticao-1",
+    "titulo": "Petição",
+    "conteudo": "Junta comprovante.",
+    "esperado": "PETICAO",
+    "sonda": true
+  },
+  {
+    "id": "peticao-2",
+    "titulo": "PETICAO INTERMEDIARIA",
+    "conteudo": "Requer vista dos autos.",
+    "esperado": "PETICAO"
+  },
+  {
+    "id": "peticao-3",
+    "titulo": "Petição de juntada",
+    "conteudo": "Pede a juntada do documento.",
+    "esperado": "PETICAO"
+  },
+  {
+    "id": "peticao-4",
+    "titulo": "Manifestação do MP",
+    "conteudo": "Ciente da certidão de juntada.",
+    "esperado": "PETICAO"
+  },
+  {
+    "id": "peticao-5",
+    "titulo": "Petição da defesa",
+    "conteudo": "Após a resposta à acusação, requer acesso à mídia.",
+    "esperado": "PETICAO"
+  },
+  {
+    "id": "certidao-1",
+    "titulo": "Certidão",
+    "conteudo": "Certifico a juntada de documentos.",
+    "esperado": "CERTIDAO",
+    "sonda": true
+  },
+  {
+    "id": "certidao-2",
+    "titulo": "CERTIDAO DE JUNTADA",
+    "conteudo": "Junto a folha.",
+    "esperado": "CERTIDAO"
+  },
+  {
+    "id": "certidao-3",
+    "titulo": "Certidão cartorária",
+    "conteudo": "Certifico a remessa.",
+    "esperado": "CERTIDAO"
+  },
+  {
+    "id": "certidao-4",
+    "titulo": "Certidão de decurso de prazo",
+    "conteudo": "Certifico o transcurso do prazo.",
+    "esperado": "CERTIDAO"
+  },
+  {
+    "id": "certidao-5",
+    "titulo": "Certidão de publicação",
+    "conteudo": "Houve publicação da sentença.",
+    "esperado": "CERTIDAO"
+  },
+  {
+    "id": "relatorio_inquerito-1",
+    "titulo": "Relatório Final do Inquérito",
+    "conteudo": "A autoridade policial encaminha os autos.",
+    "esperado": "RELATORIO_INQUERITO",
+    "sonda": true
+  },
+  {
+    "id": "relatorio_inquerito-2",
+    "titulo": "RELATORIO FINAL DO INQUERITO POLICIAL",
+    "conteudo": "Conclusão da investigação.",
+    "esperado": "RELATORIO_INQUERITO"
+  },
+  {
+    "id": "relatorio_inquerito-3",
+    "titulo": "Relatório final",
+    "conteudo": "Após as diligências, encerra-se o inquérito.",
+    "esperado": "RELATORIO_INQUERITO"
+  },
+  {
+    "id": "relatorio_inquerito-4",
+    "titulo": "Relatório policial conclusivo",
+    "conteudo": "Síntese dos atos da investigação.",
+    "esperado": "RELATORIO_INQUERITO"
+  },
+  {
+    "id": "relatorio_inquerito-5",
+    "titulo": "Relatório de conclusão do inquérito",
+    "conteudo": "Remeto os autos à autoridade judiciária.",
+    "esperado": "RELATORIO_INQUERITO"
+  },
+  {
+    "id": "nao_identificada-1",
+    "titulo": "",
+    "conteudo": "Documento digitalizado.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "nao_identificada-2",
+    "titulo": "Documento",
+    "conteudo": "Peça sem indicação do ato.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "nao_identificada-3",
+    "titulo": "Anexo",
+    "conteudo": "Continuação da folha anterior.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "nao_identificada-4",
+    "titulo": "Alegações finais",
+    "conteudo": "O Promotor de Justiça requer condenação. O defensor requer absolvição.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "nao_identificada-5",
+    "titulo": "Memoriais",
+    "conteudo": "Documento sem assinatura ou pedidos.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "nao_identificada-6",
+    "titulo": "",
+    "conteudo": "boletim de ocorrência. laudo pericial.",
+    "esperado": "NAO_IDENTIFICADA"
+  },
+  {
+    "id": "sonda-memoriais-indefinidos",
+    "titulo": "RAZÕES FINAIS",
+    "conteudo": "Registre-se.",
+    "esperado": "NAO_IDENTIFICADA",
+    "sonda": true
+  },
+  {
+    "id": "sonda-certidao-cita-resposta",
+    "titulo": "Certidão de Juntada",
+    "conteudo": "Certifico a juntada da resposta à acusação.",
+    "esperado": "CERTIDAO",
+    "sonda": true
+  }
+]

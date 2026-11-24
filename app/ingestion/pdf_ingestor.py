@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Versão do esquema do cache ``<arquivo>.pdf.pje_cache_v2.json`` (o nome do arquivo é mantido por
 # compatibilidade com a rotina de reset/arquivamento). Caches de esquemas anteriores — validados só
 # pelo tamanho e com ``data_peca`` = data de hoje quando ausente — são simplesmente ignorados.
-PDF_CACHE_SCHEMA = 7
+PDF_CACHE_SCHEMA = 8
 PDF_CACHE_SUFFIX = ".pje_cache_v2.json"
 
 # Limiares de texto "substantivo" abaixo dos quais a página é tratada como digitalizada.
@@ -264,7 +264,7 @@ def _caminho_cache(pdf_path: Path) -> Path:
     return pdf_path.with_name(pdf_path.name + PDF_CACHE_SUFFIX)
 
 
-def _ler_cache(cache_file: Path, sha: str) -> Optional[List[Dict[str, Any]]]:
+def _ler_cache_completo(cache_file: Path, sha: str) -> Optional[Dict[str, Any]]:
     try:
         if not cache_file.exists():
             return None
@@ -277,8 +277,107 @@ def _ler_cache(cache_file: Path, sha: str) -> Optional[List[Dict[str, Any]]]:
         and dados.get("sha256") == sha
         and isinstance(dados.get("pecas"), list)
     ):
-        return dados["pecas"]
+        return dados
     return None
+
+
+def _ler_cache(cache_file: Path, sha: str) -> Optional[List[Dict[str, Any]]]:
+    dados = _ler_cache_completo(cache_file, sha)
+    return dados["pecas"] if dados is not None else None
+
+
+def avaliar_qualidade_ocr_pagina(texto: str) -> Dict[str, Any]:
+    """Avalia a legibilidade do texto OCR de uma página (``vazia``, ``baixa`` ou ``boa``)."""
+    limpo = (texto or "").strip()
+    if not limpo:
+        return {"qualidade": "vazia", "score": 0.0, "motivo": "texto_vazio"}
+    total_nao_espaco = sum(1 for c in limpo if not c.isspace())
+    alnum = sum(1 for c in limpo if c.isalnum())
+    score = round(alnum / max(1, total_nao_espaco), 3)
+    if "\ufffd" in limpo or alnum < 6 or score < 0.45:
+        return {"qualidade": "baixa", "score": score, "motivo": "ruido_ou_insuficiente"}
+    return {"qualidade": "boa", "score": score, "motivo": ""}
+
+
+def _cache_precisa_reprocessamento_seletivo(dados: Dict[str, Any], motor_atual: Optional[str]) -> bool:
+    if dados.get("invalido_parcial"):
+        return True
+    if motor_atual is None:
+        return False
+    ocr_paginas = dados.get("ocr_paginas")
+    if isinstance(ocr_paginas, dict):
+        for info in ocr_paginas.values():
+            if not isinstance(info, dict):
+                continue
+            if info.get("estado") in ("OCR_INDISPONIVEL", "OCR_FALHOU"):
+                return True
+            if info.get("qualidade") in ("baixa", "vazia"):
+                return True
+    for p in dados.get("pecas") or []:
+        if not isinstance(p, dict):
+            continue
+        if (
+            p.get("ocr_pendente")
+            or int(p.get("ocr_indisponivel") or 0) > 0
+            or int(p.get("ocr_falhou") or 0) > 0
+            or int(p.get("ocr_baixa_qualidade") or 0) > 0
+        ):
+            return True
+    return False
+
+
+def _extrair_ocr_cache_valido(dados: Dict[str, Any]) -> Dict[int, str]:
+    ocr_paginas = dados.get("ocr_paginas")
+    if not isinstance(ocr_paginas, dict):
+        return {}
+    validos: Dict[int, str] = {}
+    for k, info in ocr_paginas.items():
+        if not isinstance(info, dict):
+            continue
+        if info.get("estado") == "OCR_CONCLUIDO" and info.get("qualidade") == "boa" and info.get("texto"):
+            try:
+                pno = int(k) - 1
+            except (TypeError, ValueError):
+                continue
+            if pno >= 0:
+                validos[pno] = str(info["texto"])
+    return validos
+
+
+def invalidar_cache_ocr_paginas(pdf_path: Path, paginas: Optional[Sequence[int]] = None) -> int:
+    """Invalida seletivamente páginas do cache de OCR de ``pdf_path`` (base 1).
+
+    Se ``paginas`` for ``None``, remove páginas com OCR falho, indisponível ou de baixa qualidade.
+    Retorna a quantidade de páginas removidas do cache.
+    """
+    cache_file = _caminho_cache(Path(pdf_path))
+    try:
+        if not cache_file.exists():
+            return 0
+        dados = json.loads(cache_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    if not isinstance(dados, dict) or not isinstance(dados.get("ocr_paginas"), dict):
+        return 0
+    ocr_paginas = dados["ocr_paginas"]
+    if paginas is None:
+        alvos = [
+            k
+            for k, v in ocr_paginas.items()
+            if not isinstance(v, dict)
+            or v.get("estado") != "OCR_CONCLUIDO"
+            or v.get("qualidade") != "boa"
+        ]
+    else:
+        chaves = {str(int(p)) for p in paginas}
+        alvos = [k for k in chaves if k in ocr_paginas]
+    if not alvos:
+        return 0
+    for k in alvos:
+        ocr_paginas.pop(k, None)
+    dados["invalido_parcial"] = True
+    gravar_json_atomico(cache_file, dados)
+    return len(alvos)
 
 
 def gravar_json_atomico(destino: Path, dados: Any) -> bool:
@@ -308,28 +407,65 @@ def extrair_texto_pdf_hibrido(
     *,
     ao_progresso: Optional[ProgressoCallback] = None,
     cancelar: Optional[threading.Event] = None,
+    ocr_cache_valido: Optional[Dict[int, str]] = None,
+    ocr_paginas_out: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Lê as páginas de um PDF via PyMuPDF e aplica OCR nativo (quando disponível) nas páginas
     digitalizadas. ``ocr_aplicado`` só é verdadeiro quando o OCR efetivamente devolveu texto.
     """
     falhas_ocr: set[int] = set()
+    cache_valido = ocr_cache_valido or {}
     with contextlib.closing(pymupdf.open(str(pdf_path))) as doc:
         brutos = [doc[i].get_text("text").strip() for i in range(len(doc))]
         precisa_ocr = [i for i, t in enumerate(brutos) if len(_strip_pje_footer(t)) < _LIMIAR_OCR_HIBRIDO]
-        ocr = _ocr_paginas(doc, precisa_ocr, ao_progresso, falhas_out=falhas_ocr, cancelar=cancelar)
+        pendentes_ocr = [i for i in precisa_ocr if i not in cache_valido]
+        ocr = _ocr_paginas(doc, pendentes_ocr, ao_progresso, falhas_out=falhas_ocr, cancelar=cancelar)
+        for idx, txt in cache_valido.items():
+            if idx in precisa_ocr and idx not in ocr:
+                ocr[idx] = txt
     sem_motor = _motor_ocr() is None
     paginas: List[Dict[str, Any]] = []
     for idx, texto in enumerate(brutos):
         ocr_txt = ocr.get(idx, "")
+        ocr_pendente = idx in precisa_ocr and not ocr_txt and sem_motor
+        ocr_falhou = idx in falhas_ocr
+        qualidade_ocr = "nativa"
+        if idx in precisa_ocr:
+            if ocr_txt:
+                q_info = avaliar_qualidade_ocr_pagina(ocr_txt)
+                qualidade_ocr = str(q_info["qualidade"])
+                if ocr_paginas_out is not None:
+                    ocr_paginas_out[str(idx + 1)] = {
+                        "texto": ocr_txt,
+                        "qualidade": qualidade_ocr,
+                        "estado": "OCR_CONCLUIDO",
+                    }
+            elif ocr_falhou:
+                qualidade_ocr = "falhou"
+                if ocr_paginas_out is not None:
+                    ocr_paginas_out[str(idx + 1)] = {"texto": "", "qualidade": "falhou", "estado": "OCR_FALHOU"}
+            elif sem_motor:
+                qualidade_ocr = "indisponivel"
+                if ocr_paginas_out is not None:
+                    ocr_paginas_out[str(idx + 1)] = {
+                        "texto": "",
+                        "qualidade": "indisponivel",
+                        "estado": "OCR_INDISPONIVEL",
+                    }
+            else:
+                qualidade_ocr = "vazia"
+                if ocr_paginas_out is not None:
+                    ocr_paginas_out[str(idx + 1)] = {"texto": "", "qualidade": "vazia", "estado": "OCR_CONCLUIDO"}
         paginas.append(
             {
                 "pagina": idx + 1,
                 "doc_id": f"ID-PDF-{idx + 1:04d}",
                 "folha": f"fl. {idx + 1}",
                 "ocr_aplicado": bool(ocr_txt),
-                "ocr_pendente": idx in precisa_ocr and not ocr_txt and sem_motor,
-                "ocr_falhou": idx in falhas_ocr,
+                "ocr_pendente": ocr_pendente,
+                "ocr_falhou": ocr_falhou,
+                "ocr_qualidade": qualidade_ocr,
                 "conteudo": f"[OCR Página {idx + 1}] {ocr_txt}" if ocr_txt else texto,
             }
         )
@@ -704,16 +840,82 @@ def _classificar_estado_ocr(
     return "NATIVO"
 
 
-def _peca_unica_sem_toc(
-    pdf_path: Path,
-    *,
-    ao_progresso: Optional[ProgressoCallback] = None,
-    cancelar: Optional[threading.Event] = None,
-) -> List[Dict[str, Any]]:
-    paginas = extrair_texto_pdf_hibrido(pdf_path, ao_progresso=ao_progresso, cancelar=cancelar)
+_RE_PJE_NUM_PAG = re.compile(r"\bNum\.\s*(\d{4,})\s*-\s*P[aá]g\.\s*(\d+)\b", re.IGNORECASE)
+
+_PADROES_CABECALHO_SEM_TOC: tuple[tuple[str, str], ...] = (
+    (r"^AUTO DE PRIS[ÃA]O EM FLAGRANTE\b", "Auto de Prisão em Flagrante"),
+    (r"^INQU[ÉE]RITO POLICIAL\b", "Inquérito Policial"),
+    (r"^BOLETIM DE OCORR[ÊE]NCIA\b", "Boletim de Ocorrência"),
+    (r"^TERMO DE QUALIFICA[ÇC][ÃA]O E INTERROGAT[ÓO]RIO\b", "Termo de Qualificação e Interrogatório"),
+    (r"^TERMO DE DECLARA[ÇC][ÕO]ES\b", "Termo de Declarações"),
+    (r"^TERMO DE DEPOIMENTO\b", "Termo de Depoimento"),
+    (r"^LAUDO DE PER[ÍI]CIA CRIMINAL\b", "Laudo de Perícia Criminal"),
+    (r"^EXAME DE CORPO DE DELITO\b", "Exame de Corpo de Delito"),
+    (r"^LAUDO PERICIAL\b", "Laudo Pericial"),
+    (r"^DEN[ÚU]NCIA\b", "Denúncia"),
+    (r"^RESPOSTA [ÀA] ACUSA[ÇC][ÃA]O\b", "Resposta à Acusação"),
+    (r"^ALEGA[ÇC][ÕO]ES FINAIS\b", "Alegações Finais"),
+    (r"^MEMORIAIS\b", "Memoriais"),
+    (r"^ATA DE AUDI[ÊE]NCIA\b", "Ata de Audiência"),
+    (r"^TERMO DE AUDI[ÊE]NCIA\b", "Termo de Audiência"),
+    (r"^CERTID[ÃA]O DE ANTECEDENTES\b", "Certidão de Antecedentes"),
+    (r"^FOLHA DE ANTECEDENTES\b", "Folha de Antecedentes"),
+    (r"^RELAT[ÓO]RIO FINAL\b", "Relatório Final"),
+    (r"^DECIS[ÃA]O\b", "Decisão"),
+    (r"^DESPACHO\b", "Despacho"),
+    (r"^SENTEN[ÇC]A\b", "Sentença"),
+)
+
+
+def _detectar_fronteira_sem_toc(texto_pagina: str) -> Optional[Dict[str, Any]]:
+    """Identifica se uma página abre uma nova peça quando o PDF não tem sumário (TOC).
+
+    Retorna ``{"nova_peca": bool, "doc_id": str | None, "titulo_hint": str}`` ou ``None``.
+    """
+    txt = texto_pagina or ""
+    m_pje = _RE_PJE_NUM_PAG.search(txt)
+    linhas_topo = [ln.strip() for ln in txt.splitlines()[:10] if ln.strip()][:8]
+    # Remove prefixo "[OCR Página N]" da primeira linha antes de casar cabeçalhos.
+    if linhas_topo and linhas_topo[0].startswith("[OCR "):
+        linhas_topo[0] = re.sub(r"^\[OCR[^\]]*\]\s*", "", linhas_topo[0]).strip()
+    titulo_hint = ""
+    for ln in linhas_topo:
+        ln_limpa = re.sub(r"\s+", " ", ln).strip()
+        eh_cabecalho_caixa_alta = (
+            bool(ln_limpa)
+            and len(ln_limpa) <= 80
+            and any(c.isalpha() for c in ln_limpa)
+            and ln_limpa == ln_limpa.upper()
+            and not ln_limpa.endswith((",", ";"))
+            and (not ln_limpa.endswith(".") or len(ln_limpa.split()) <= 3)
+        )
+        if not eh_cabecalho_caixa_alta:
+            continue
+        for padrao, rotulo in _PADROES_CABECALHO_SEM_TOC:
+            if re.match(padrao, ln_limpa):
+                titulo_hint = rotulo
+                break
+        if titulo_hint:
+            break
+
+    if m_pje:
+        num = m_pje.group(1)
+        pag_doc = int(m_pje.group(2))
+        if pag_doc == 1:
+            return {"nova_peca": True, "doc_id": f"ID-{num}", "titulo_hint": titulo_hint}
+        return {"nova_peca": False, "doc_id": f"ID-{num}", "titulo_hint": ""}
+
+    if titulo_hint:
+        return {"nova_peca": True, "doc_id": None, "titulo_hint": titulo_hint}
+    return None
+
+
+def _montar_peca_unica_de_paginas(pdf_path: Path, paginas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     texto_concat = "\n\n".join(str(p.get("conteudo", "")) for p in paginas).strip()
     paginas_falha = [int(p["pagina"]) for p in paginas if p.get("ocr_falhou")]
+    paginas_baixa = [int(p["pagina"]) for p in paginas if p.get("ocr_qualidade") == "baixa"]
     n_falhou = len(paginas_falha)
+    n_baixa = len(paginas_baixa)
     n_indisponivel = sum(1 for p in paginas if p.get("ocr_pendente"))
     n_reconhecidas = sum(1 for p in paginas if p.get("ocr_aplicado"))
     ocr_estado = _classificar_estado_ocr(
@@ -734,14 +936,183 @@ def _peca_unica_sem_toc(
         "ocr_estado": ocr_estado,
         "conteudo": texto_concat,
     }
+    alertas: List[str] = []
     if n_falhou > 0:
         peca["ocr_falhou"] = n_falhou
         peca["ocr_paginas_falha"] = paginas_falha
+    if n_baixa > 0:
+        peca["ocr_baixa_qualidade"] = n_baixa
+        peca["ocr_paginas_baixa_qualidade"] = paginas_baixa
+        alertas.append(f"OCR de baixa qualidade em {n_baixa} página(s) digitalizada(s): confira o texto extraído.")
     if not texto_concat:
-        peca["alertas"] = [
+        alertas.append(
             "Motor de OCR não instalado ou sem texto extraível do PDF. Feche o programa e abra pelo 'Iniciar SentencIA' ou junte PDF pesquisável."
-        ]
+        )
+    if alertas:
+        peca["alertas"] = alertas
     return [peca]
+
+
+def _peca_unica_sem_toc(
+    pdf_path: Path,
+    *,
+    ao_progresso: Optional[ProgressoCallback] = None,
+    cancelar: Optional[threading.Event] = None,
+    ocr_cache_valido: Optional[Dict[int, str]] = None,
+    ocr_paginas_out: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    paginas = extrair_texto_pdf_hibrido(
+        pdf_path,
+        ao_progresso=ao_progresso,
+        cancelar=cancelar,
+        ocr_cache_valido=ocr_cache_valido,
+        ocr_paginas_out=ocr_paginas_out,
+    )
+    return _montar_peca_unica_de_paginas(pdf_path, paginas)
+
+
+def _segmentar_sem_toc(
+    pdf_path: Path,
+    *,
+    ao_progresso: Optional[ProgressoCallback] = None,
+    cancelar: Optional[threading.Event] = None,
+    ocr_cache_valido: Optional[Dict[int, str]] = None,
+    ocr_paginas_out: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Segmenta PDF sem sumário (TOC) usando marcadores PJe ou cabeçalhos judiciais/policiais."""
+    paginas = extrair_texto_pdf_hibrido(
+        pdf_path,
+        ao_progresso=ao_progresso,
+        cancelar=cancelar,
+        ocr_cache_valido=ocr_cache_valido,
+        ocr_paginas_out=ocr_paginas_out,
+    )
+    if len(paginas) < 2:
+        return _montar_peca_unica_de_paginas(pdf_path, paginas)
+
+    grupos: List[Dict[str, Any]] = []
+    atual: Optional[Dict[str, Any]] = None
+    for p in paginas:
+        pno_1b = int(p["pagina"])
+        det = _detectar_fronteira_sem_toc(str(p.get("conteudo", "")))
+        if det and det["nova_peca"]:
+            if atual is not None:
+                grupos.append(atual)
+            atual = {
+                "start_page": pno_1b,
+                "doc_id": det["doc_id"] or f"ID-SEMTOC-{pno_1b:03d}",
+                "titulo_hint": det["titulo_hint"] or "",
+                "paginas": [p],
+            }
+        else:
+            if atual is None:
+                atual = {
+                    "start_page": pno_1b,
+                    "doc_id": (det["doc_id"] if det and det["doc_id"] else f"ID-SEMTOC-{pno_1b:03d}"),
+                    "titulo_hint": "",
+                    "paginas": [p],
+                }
+            else:
+                if det and det["doc_id"] and atual["doc_id"].startswith("ID-SEMTOC-"):
+                    atual["doc_id"] = det["doc_id"]
+                atual["paginas"].append(p)
+
+    if atual is not None:
+        grupos.append(atual)
+
+    if len(grupos) < 2:
+        return _montar_peca_unica_de_paginas(pdf_path, paginas)
+
+    pecas_extraidas: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for grp in grupos:
+        pags_grp = grp["paginas"]
+        start_page = int(grp["start_page"])
+        end_page = int(pags_grp[-1]["pagina"])
+        doc_id = str(grp["doc_id"])
+        if doc_id in seen_ids:
+            doc_id = f"{doc_id}-P{start_page:03d}"
+
+        full_body = "\n\n".join(str(pg.get("conteudo", "")) for pg in pags_grp).strip()
+        paginas_falha = [int(pg["pagina"]) for pg in pags_grp if pg.get("ocr_falhou")]
+        paginas_baixa = [int(pg["pagina"]) for pg in pags_grp if pg.get("ocr_qualidade") == "baixa"]
+        n_falhou = len(paginas_falha)
+        n_baixa = len(paginas_baixa)
+        n_indisponivel = sum(1 for pg in pags_grp if pg.get("ocr_pendente"))
+        n_reconhecidas = sum(1 for pg in pags_grp if pg.get("ocr_aplicado"))
+
+        alertas_peca: List[str] = []
+        if n_baixa > 0:
+            alertas_peca.append(
+                f"OCR de baixa qualidade em {n_baixa} página(s) digitalizada(s): confira o texto extraído."
+            )
+        if not full_body:
+            if n_falhou > 0:
+                alertas_peca.append(f"Falha no motor de OCR em {n_falhou} página(s) digitalizada(s).")
+            elif n_indisponivel > 0:
+                alertas_peca.append(
+                    f"Motor de OCR não instalado: {n_indisponivel} página(s) digitalizada(s) sem texto."
+                )
+            else:
+                continue
+
+        titulo_raw = grp["titulo_hint"] or f"Peça Processual (fls. {start_page:02d}/{end_page:02d})"
+        titulo_fmt, fase_peca, is_relevante = _infer_title_and_phase(titulo_raw, full_body, doc_id)
+        if not is_relevante:
+            hint = str(grp["titulo_hint"] or "")
+            if not hint or hint.upper() == "DESPACHO":
+                continue
+            titulo_fmt = f"{hint} ({doc_id})"
+            fase_peca = (
+                "INQUISITORIAL"
+                if any(
+                    k in hint.upper()
+                    for k in ("FLAGRANTE", "INQUÉRITO", "BOLETIM", "LAUDO", "CORPO DE DELITO", "INTERROGATÓRIO", "DECLARAÇÕES", "DEPOIMENTO", "RELATÓRIO FINAL")
+                )
+                else "JUDICIAL"
+            )
+
+        seen_ids.add(doc_id)
+        ocr_estado = _classificar_estado_ocr(
+            n_indisponivel=n_indisponivel,
+            n_falhou=n_falhou,
+            n_reconhecidas=n_reconhecidas,
+        )
+        peca: Dict[str, Any] = {
+            "doc_id": doc_id,
+            "folha": f"fls. {start_page:02d}/{end_page:02d}",
+            "titulo": titulo_fmt,
+            "data_peca": "",
+            "fase": fase_peca,
+            "ocr_aplicado": n_reconhecidas > 0,
+            "ocr_indisponivel": n_indisponivel,
+            "ocr_paginas_reconhecidas": n_reconhecidas,
+            "ocr_estado": ocr_estado,
+            "conteudo": full_body,
+        }
+        if alertas_peca:
+            peca["alertas"] = alertas_peca
+        if n_indisponivel > 0:
+            peca["ocr_pendente"] = True
+        if n_falhou > 0:
+            peca["ocr_falhou"] = n_falhou
+            peca["ocr_paginas_falha"] = paginas_falha
+        if n_baixa > 0:
+            peca["ocr_baixa_qualidade"] = n_baixa
+            peca["ocr_paginas_baixa_qualidade"] = paginas_baixa
+        pecas_extraidas.append(peca)
+
+        page_entries = [
+            (int(pg["pagina"]), str(pg.get("conteudo", "")), bool(pg.get("ocr_aplicado"))) for pg in pags_grp
+        ]
+        for sp in _subsegmentar_peca_composta(doc_id, titulo_fmt, "", start_page, page_entries):
+            if sp["doc_id"] not in seen_ids:
+                seen_ids.add(sp["doc_id"])
+                pecas_extraidas.append(sp)
+
+    if not pecas_extraidas:
+        return _montar_peca_unica_de_paginas(pdf_path, paginas)
+    return pecas_extraidas
 
 
 def _segmentar_por_toc(
@@ -750,9 +1121,12 @@ def _segmentar_por_toc(
     ao_progresso: Optional[ProgressoCallback] = None,
     *,
     cancelar: Optional[threading.Event] = None,
+    ocr_cache_valido: Optional[Dict[int, str]] = None,
+    ocr_paginas_out: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     n_paginas = len(doc)
     entradas = _normalizar_toc(toc, n_paginas)
+    cache_valido = ocr_cache_valido or {}
 
     # Intervalos (base 0, fim exclusivo) de cada entrada que precisa ser lida.
     intervalos: List[tuple[int, str, int, int]] = []
@@ -777,11 +1151,35 @@ def _segmentar_por_toc(
         if k % 25 == 0 or k == len(ordenadas):
             _notificar(ao_progresso, "texto", k, len(ordenadas))
 
-    # 2) OCR em paralelo das páginas digitalizadas.
+    # 2) OCR em paralelo das páginas digitalizadas (reaproveita páginas válidas do cache).
     precisa_ocr = [p for p in ordenadas if len(_strip_pje_footer(textos[p])) < _LIMIAR_OCR_SEGMENTACAO]
+    pendentes_ocr = [p for p in precisa_ocr if p not in cache_valido]
     falhas_ocr: set[int] = set()
-    ocr = _ocr_paginas(doc, precisa_ocr, ao_progresso, falhas_out=falhas_ocr, cancelar=cancelar)
+    ocr = _ocr_paginas(doc, pendentes_ocr, ao_progresso, falhas_out=falhas_ocr, cancelar=cancelar)
+    for idx, txt in cache_valido.items():
+        if idx in precisa_ocr and idx not in ocr:
+            ocr[idx] = txt
     sem_motor = _motor_ocr() is None
+    if ocr_paginas_out is not None:
+        for pno in precisa_ocr:
+            ocr_txt = ocr.get(pno, "")
+            if ocr_txt:
+                q_info = avaliar_qualidade_ocr_pagina(ocr_txt)
+                ocr_paginas_out[str(pno + 1)] = {
+                    "texto": ocr_txt,
+                    "qualidade": str(q_info["qualidade"]),
+                    "estado": "OCR_CONCLUIDO",
+                }
+            elif pno in falhas_ocr:
+                ocr_paginas_out[str(pno + 1)] = {"texto": "", "qualidade": "falhou", "estado": "OCR_FALHOU"}
+            elif sem_motor:
+                ocr_paginas_out[str(pno + 1)] = {
+                    "texto": "",
+                    "qualidade": "indisponivel",
+                    "estado": "OCR_INDISPONIVEL",
+                }
+            else:
+                ocr_paginas_out[str(pno + 1)] = {"texto": "", "qualidade": "vazia", "estado": "OCR_CONCLUIDO"}
 
     pecas_extraidas: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
@@ -806,12 +1204,15 @@ def _segmentar_por_toc(
         n_reconhecidas_peca = 0
         n_indisponivel_peca = 0
         paginas_falha_peca: List[int] = []
+        paginas_baixa_peca: List[int] = []
 
         for pno in range(start_page - 1, min(end_page, n_paginas)):
             raw_p_txt = textos.get(pno, "")
             if pno in precisa_ocr:
                 ocr_txt = ocr.get(pno, "")
                 if ocr_txt:
+                    if avaliar_qualidade_ocr_pagina(ocr_txt)["qualidade"] == "baixa":
+                        paginas_baixa_peca.append(pno + 1)
                     p_txt_final = f"[Pág. {pno + 1} - OCR] {ocr_txt}"
                     page_texts.append(p_txt_final)
                     page_entries.append((pno + 1, p_txt_final, True))
@@ -830,8 +1231,13 @@ def _segmentar_por_toc(
                 page_entries.append((pno + 1, raw_p_txt, False))
 
         falhas_na_peca = len(paginas_falha_peca)
+        baixas_na_peca = len(paginas_baixa_peca)
         full_body = "\n\n".join(page_texts).strip()
         alertas_peca: List[str] = []
+        if baixas_na_peca > 0:
+            alertas_peca.append(
+                f"OCR de baixa qualidade em {baixas_na_peca} página(s) digitalizada(s): confira o texto extraído."
+            )
         if not full_body:
             if falhas_na_peca > 0:
                 alertas_peca.append(f"Falha no motor de OCR em {falhas_na_peca} página(s) digitalizada(s).")
@@ -871,6 +1277,9 @@ def _segmentar_por_toc(
         if falhas_na_peca > 0:
             peca["ocr_falhou"] = falhas_na_peca
             peca["ocr_paginas_falha"] = paginas_falha_peca
+        if baixas_na_peca > 0:
+            peca["ocr_baixa_qualidade"] = baixas_na_peca
+            peca["ocr_paginas_baixa_qualidade"] = paginas_baixa_peca
         pecas_extraidas.append(peca)
         for sp in _subsegmentar_peca_composta(doc_id, titulo_fmt, data_iso, start_page, page_entries):
             if sp["doc_id"] not in seen_ids:
@@ -898,18 +1307,35 @@ def segmentar_autos_pdf_pje(
     pdf_path = Path(pdf_path)
     sha = sha256_arquivo(pdf_path)
     cache_file = _caminho_cache(pdf_path)
+    ocr_cache_valido: Dict[int, str] = {}
     if usar_cache and sha:
-        cached = _ler_cache(cache_file, sha)
-        if cached is not None:
-            return cached
+        dados_cache = _ler_cache_completo(cache_file, sha)
+        if dados_cache is not None:
+            if not _cache_precisa_reprocessamento_seletivo(dados_cache, _motor_ocr()):
+                return dados_cache["pecas"]
+            ocr_cache_valido = _extrair_ocr_cache_valido(dados_cache)
 
+    ocr_paginas_out: Dict[str, Dict[str, Any]] = {}
     pecas: Optional[List[Dict[str, Any]]] = None
     with contextlib.closing(pymupdf.open(str(pdf_path))) as doc:
         toc = doc.get_toc() or []
         if len(toc) >= 3:
-            pecas = _segmentar_por_toc(doc, toc, ao_progresso, cancelar=cancelar)
+            pecas = _segmentar_por_toc(
+                doc,
+                toc,
+                ao_progresso,
+                cancelar=cancelar,
+                ocr_cache_valido=ocr_cache_valido,
+                ocr_paginas_out=ocr_paginas_out,
+            )
     if pecas is None:
-        pecas = _peca_unica_sem_toc(pdf_path, ao_progresso=ao_progresso, cancelar=cancelar)
+        pecas = _segmentar_sem_toc(
+            pdf_path,
+            ao_progresso=ao_progresso,
+            cancelar=cancelar,
+            ocr_cache_valido=ocr_cache_valido,
+            ocr_paginas_out=ocr_paginas_out,
+        )
 
     if sha and not (cancelar is not None and cancelar.is_set()):
         tamanho = None
@@ -917,6 +1343,12 @@ def segmentar_autos_pdf_pje(
             tamanho = pdf_path.stat().st_size
         gravar_json_atomico(
             cache_file,
-            {"schema_version": PDF_CACHE_SCHEMA, "sha256": sha, "size": tamanho, "pecas": pecas},
+            {
+                "schema_version": PDF_CACHE_SCHEMA,
+                "sha256": sha,
+                "size": tamanho,
+                "ocr_paginas": ocr_paginas_out,
+                "pecas": pecas,
+            },
         )
     return pecas

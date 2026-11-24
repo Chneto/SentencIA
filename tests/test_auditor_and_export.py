@@ -12,8 +12,8 @@ from app.main import app
 def test_auditor_anti_alucinacao_4_camadas():
     """Verifica que o Auditor valida IDs existentes, Súmulas da base fechada, completude das teses defensivas, LC 95/98 e art. 21 da Lei 11.340/06."""
     demo = get_demo_case_bundle()
-    pecas = classificar_pecas_autos(demo["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
+    pecas = classificar_pecas_autos(demo["raw_documents"], is_demo=True)
+    meta = extrair_metadados_processo(pecas, is_demo=True)
 
     sentenca = gerar_sentenca_estruturada(
         case_bundle=demo,

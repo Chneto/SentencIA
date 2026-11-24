@@ -401,7 +401,7 @@ def get_penal_type_for_date(
             has_violence_or_grave_threat=False,
             tem_multa_cumulativa=True,
             admite_aumento_art141_p3=pos_pacote_antifeminicidio,
-            observacao_intertemporal="Delito contra a honra de ação penal privada, com pena de detenção de 3 meses a 1 ano e multa (sujeito ao prazo decadencial de 6 meses — arts. 103 e 107, IV, do CP).",
+            observacao_intertemporal="Delito contra a honra de ação penal privada, com pena de detenção de 3 meses a 1 ano e multa (sujeito ao prazo decadencial aplicável à imputação — arts. 103 e 107, IV, do CP).",
         )
 
     if code == "art_140_cp":
@@ -418,7 +418,7 @@ def get_penal_type_for_date(
             has_violence_or_grave_threat=False,
             tem_multa_alternativa=True,
             admite_aumento_art141_p3=pos_pacote_antifeminicidio,
-            observacao_intertemporal="Delito contra a honra sem violência ou grave ameaça à pessoa (sujeito ao prazo decadencial de 6 meses — art. 103 CP).",
+            observacao_intertemporal="Delito contra a honra sem violência ou grave ameaça à pessoa (sujeito ao prazo decadencial aplicável à imputação — art. 103 CP).",
         )
 
     if code == "art_140_p2_cp":

@@ -8,7 +8,7 @@ import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from app.core.config import KNOWLEDGE_DIR
 
 logger = logging.getLogger(__name__)
@@ -1777,6 +1777,80 @@ def _salvar_acervo_em_disco(forcar: bool = False) -> bool:
         return False
 
 
+VIGENCIAS_VALIDAS = ("vigente", "modulada", "superado", "revogado", "nao_verificada")
+
+_REGRAS_QUESTOES_JURIDICAS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("substituicao_pena", ("substituição", "substituicao", "restritiva de direitos", "súmula 588", "sumula 588")),
+    ("suspensao_condicional", ("suspensão condicional", "suspensao condicional", "transação penal", "9.099", "súmula 536", "sursis")),
+    ("acao_penal", ("ação penal", "acao penal", "incondicionada", "condicionada", "representação", "retratação", "súmula 542", "adi 4.424")),
+    ("insignificancia", ("insignificância", "insignificancia", "bagatela", "súmula 589")),
+    ("reparacao_danos", ("reparação", "reparacao", "dano moral", "valor mínimo", "tema 983", "art. 387, iv")),
+    ("palavra_da_vitima", ("palavra da vítima", "palavra da vitima", "declarações da ofendida", "depoimento da vítima", "especial relevo")),
+    ("medida_protetiva", ("medida protetiva", "medidas protetivas", "24-a", "descumprimento", "urgência")),
+    ("legitima_defesa_honra", ("legítima defesa da honra", "legitima defesa da honra", "adpf 779")),
+    ("perspectiva_de_genero", ("perspectiva de gênero", "perspectiva de genero", "resolução 492", "cnj 492")),
+    ("dosimetria", ("dosimetria", "pena-base", "art. 59", "agravante", "atenuante", "súmula 231", "súmula 444", "61, ii, f")),
+    ("prescricao", ("prescrição", "prescricao", "súmula 497", "art. 109", "art. 119")),
+    ("competencia", ("competência", "competencia", "juizado", "coabitação", "coabitacao", "súmula 600", "âmbito doméstico")),
+    ("violencia_psicologica", ("violência psicológica", "violencia psicologica", "147-b")),
+    ("perseguicao", ("perseguição", "perseguicao", "stalking", "147-a")),
+    ("lesao_corporal", ("lesão corporal", "lesao corporal", "129, § 9", "129, § 13")),
+    ("prisao_preventiva", ("prisão preventiva", "prisao preventiva", "art. 20", "art. 313")),
+)
+
+
+def _normalizar_busca_kb(texto: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", texto or "")
+    limpo = "".join(ch for ch in sem_acento if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", limpo).strip().lower()
+
+
+def _inferir_questoes_juridicas(item: Dict[str, Any]) -> List[str]:
+    base = _normalizar_busca_kb(
+        " ".join(
+            str(item.get(k) or "")
+            for k in ("id", "referencia", "titulo", "materia", "texto_literal", "sintese")
+        )
+    )
+    encontradas = [tag for tag, chaves in _REGRAS_QUESTOES_JURIDICAS if any(_normalizar_busca_kb(c) in base for c in chaves)]
+    if not encontradas:
+        mat = _normalizar_busca_kb(str(item.get("materia") or "violencia_domestica")).replace(" ", "_")
+        encontradas = [mat or "violencia_domestica"]
+    return encontradas
+
+
+def _enriquecer_item_acervo(item: Dict[str, Any]) -> None:
+    """Garante ``proposicao_juridica``, ``proposicao_origem``, ``recorte_fatico``, ``vigencia``, ``data_revisao`` e ``questoes_juridicas``.
+
+    Nunca decide vigência, recorte fático nem data de revisão por padrão: campos ausentes ficam
+    ``"nao_verificada"`` / ``""``.
+    """
+    texto_base = str(item.get("texto_literal") or item.get("sintese") or item.get("titulo") or "").strip()
+    if not item.get("proposicao_juridica"):
+        primeira = re.split(r"(?<=[.!?])\s+", texto_base, maxsplit=1)[0].strip() if texto_base else ""
+        item["proposicao_juridica"] = primeira if len(primeira) >= 15 else texto_base
+        item["proposicao_origem"] = "primeira_frase" if item["proposicao_juridica"] else ""
+    elif not item.get("proposicao_origem"):
+        item["proposicao_origem"] = "revisada"
+    if not item.get("recorte_fatico"):
+        item["recorte_fatico"] = ""
+    vig = str(item.get("vigencia") or "").strip().lower()
+    item["vigencia"] = vig if vig in VIGENCIAS_VALIDAS else "nao_verificada"
+    if not item.get("data_revisao"):
+        verif = item.get("verificacao")
+        data_conf = verif.get("conferido_em") if isinstance(verif, dict) else ""
+        item["data_revisao"] = str(data_conf or "").strip()
+    if not item.get("questoes_juridicas"):
+        item["questoes_juridicas"] = _inferir_questoes_juridicas(item)
+
+
+def _enriquecer_acervo_oficial() -> None:
+    for item in SUMULAS_E_TEMAS_VERIFICADOS:
+        _enriquecer_item_acervo(item)
+
+
+_enriquecer_acervo_oficial()
+
 # Sincroniza o espelho em disco apenas se ausente ou desatualizado (não regrava a cada import).
 _salvar_acervo_em_disco()
 
@@ -1813,11 +1887,15 @@ def _marcar_acervo_alterado() -> None:
     _VERSAO_LOCAL += 1
 
 
-def get_all_knowledge_base(categoria: Optional[str] = None, busca: Optional[str] = None) -> Dict[str, Any]:
+def get_all_knowledge_base(
+    categoria: Optional[str] = None,
+    busca: Optional[str] = None,
+    questao: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Retorna todo o acervo consolidado do gabinete (Súmulas STJ/STF, Temas Repetitivos, STF Vinculante,
     Teses STJ, Enunciados FONAVID, Precedentes TJRN, Doutrina e Precedentes customizados do gabinete).
-    Suporta filtros opcionais por categoria e termo de busca.
+    Suporta filtros opcionais por categoria, termo de busca e questão jurídica.
     """
     custom_items = _ler_custom_items()
 
@@ -1831,6 +1909,16 @@ def get_all_knowledge_base(categoria: Optional[str] = None, busca: Optional[str]
             or it.get("tribunal", "").upper() == categoria.upper()
         ]
 
+    if questao:
+        alvo_q = _normalizar_busca_kb(questao).replace(" ", "_")
+        sumulas_e_temas = [
+            it for it in sumulas_e_temas
+            if alvo_q in {_normalizar_busca_kb(str(q)).replace(" ", "_") for q in (it.get("questoes_juridicas") or [])}
+            or alvo_q.replace("_", " ") in _normalizar_busca_kb(
+                f"{it.get('proposicao_juridica', '')} {it.get('recorte_fatico', '')} {it.get('titulo', '')}"
+            )
+        ]
+
     if busca:
         termo = busca.strip().lower()
         sumulas_e_temas = [
@@ -1839,6 +1927,8 @@ def get_all_knowledge_base(categoria: Optional[str] = None, busca: Optional[str]
             or termo in it.get("titulo", "").lower()
             or termo in it.get("texto_literal", "").lower()
             or termo in it.get("materia", "").lower()
+            or termo in str(it.get("proposicao_juridica", "")).lower()
+            or termo in str(it.get("recorte_fatico", "")).lower()
         ]
 
     return {
@@ -1863,6 +1953,78 @@ def get_all_knowledge_base(categoria: Optional[str] = None, busca: Optional[str]
             "total_gabinete": len(custom_items),
         },
     }
+
+
+def selecionar_por_questao_juridica(
+    questao: str,
+    *,
+    apenas_vigentes: bool = True,
+    incluir_nao_verificadas: bool = False,
+    apenas_citaveis: bool = True,
+    incluir_gabinete: bool = False,
+    palavras_faticas: Optional[Sequence[str]] = None,
+    limite: int = 10,
+) -> List[Dict[str, Any]]:
+    """Seleciona e ordena verbetes do acervo por questão jurídica, vigência e pertinência fática.
+
+    ``nao_verificada`` nunca é tratada como ``vigente``: só entra quando ``incluir_nao_verificadas=True``
+    ou ``apenas_vigentes=False``.
+    """
+    q_norm = _normalizar_busca_kb(questao)
+    q_tag = q_norm.replace(" ", "_")
+    q_frase = q_norm.replace("_", " ")
+    fatos_norm = [_normalizar_busca_kb(p) for p in (palavras_faticas or []) if str(p).strip()]
+
+    candidatos: List[Dict[str, Any]] = list(SUMULAS_E_TEMAS_VERIFICADOS)
+    if incluir_gabinete:
+        candidatos.extend(_ler_custom_items())
+
+    ranqueados: List[tuple[int, str, Dict[str, Any]]] = []
+    for it in candidatos:
+        vigencia = str(it.get("vigencia") or "nao_verificada").strip().lower()
+        if apenas_vigentes:
+            permitidas = {"vigente", "nao_verificada"} if incluir_nao_verificadas else {"vigente"}
+            if vigencia not in permitidas:
+                continue
+        if apenas_citaveis and not item_citavel_automaticamente(it):
+            continue
+
+        score = 0
+        tags = {_normalizar_busca_kb(str(t)).replace(" ", "_") for t in (it.get("questoes_juridicas") or [])}
+        if q_tag and q_tag in tags:
+            score += 10
+        prop = _normalizar_busca_kb(str(it.get("proposicao_juridica") or ""))
+        recorte = _normalizar_busca_kb(str(it.get("recorte_fatico") or ""))
+        titulo = _normalizar_busca_kb(f"{it.get('titulo', '')} {it.get('materia', '')}")
+        texto = _normalizar_busca_kb(str(it.get("texto_literal") or it.get("sintese") or ""))
+
+        if q_frase:
+            if q_frase in prop:
+                score += 5
+            if q_frase in recorte:
+                score += 4
+            if q_frase in titulo:
+                score += 3
+            if q_frase in texto:
+                score += 2
+
+        if score == 0:
+            continue
+
+        for fat in fatos_norm:
+            if fat in recorte:
+                score += 4
+            elif fat in prop or fat in texto:
+                score += 2
+        if vigencia == "vigente":
+            score += 2
+        if it.get("natureza") == "LITERAL":
+            score += 1
+
+        ranqueados.append((score, str(it.get("id", "")), it))
+
+    ranqueados.sort(key=lambda x: (-x[0], x[1]))
+    return [it for _, _, it in ranqueados[: max(1, int(limite))]]
 
 
 def _escrever_bytes_atomico(destino: Path, conteudo: bytes) -> None:
@@ -2160,7 +2322,13 @@ def add_custom_precedente(
     tipo: str = "PRECEDENTE_TJ",
     tribunal: str = "TJRN",
     materia: str = "Violência Doméstica e Familiar",
-) -> Dict[str, str]:
+    *,
+    proposicao_juridica: Optional[str] = None,
+    recorte_fatico: Optional[str] = None,
+    vigencia: Optional[str] = None,
+    data_revisao: Optional[str] = None,
+    questoes_juridicas: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
     """
     Adiciona um precedente ou enunciado customizado pelo magistrado à base JSON fechada.
 
@@ -2194,7 +2362,8 @@ def add_custom_precedente(
         ids_existentes |= {str(it.get("id", "")).upper() for it in SUMULAS_E_TEMAS_VERIFICADOS}
         novo_id = _proximo_id_gabinete(ids_existentes)
 
-        novo = {
+        vig_norm = str(vigencia or "").strip().lower()
+        novo: Dict[str, Any] = {
             "id": novo_id,
             "tipo": validado["tipo"],
             "categoria": "GABINETE",
@@ -2203,7 +2372,15 @@ def add_custom_precedente(
             "titulo": validado["titulo"],
             "texto_literal": validado["texto_literal"],
             "materia": validado["materia"],
+            "proposicao_juridica": (proposicao_juridica or "").strip() or validado["texto_literal"],
+            "proposicao_origem": "revisada" if (proposicao_juridica or "").strip() else "texto_literal",
+            "recorte_fatico": (recorte_fatico or "").strip(),
+            "vigencia": vig_norm if vig_norm in VIGENCIAS_VALIDAS else "nao_verificada",
+            "data_revisao": (data_revisao or "").strip(),
+            "questoes_juridicas": [str(q).strip() for q in (questoes_juridicas or []) if str(q).strip()],
         }
+        if not novo["questoes_juridicas"]:
+            novo["questoes_juridicas"] = _inferir_questoes_juridicas(novo)
         custom_items.append(novo)
         _salvar_custom_items_com_backup(custom_items)
     return novo

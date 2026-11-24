@@ -83,7 +83,10 @@ def test_reu_menor_21_so_entra_no_calculo_apos_confirmacao_do_juiz():
     assert pt_nasc.fonte_id == "ID-DEN-02"
     assert ctx_sem.meta.data_nascimento_reu == ""  # NÃO entra antes da confirmação!
 
-    ov = {"crimes_config": [{"codigo": "art_129_p13_cp", "veredicto": "condenar"}]}
+    ov = {"crimes_config": [{
+        "codigo": "art_129_p13_cp", "veredicto": "condenar",
+        "violencia_sexual_contra_mulher": False,
+    }]}
     dos_sem, presc_sem, _, _, _ = resolver_dosimetria_e_decisoes(
         pecas=ctx_sem.pecas,
         meta=ctx_sem.copia_meta(),
@@ -124,14 +127,14 @@ def test_reu_menor_21_so_entra_no_calculo_apos_confirmacao_do_juiz():
 
 
 def test_antecedentes_reincidencia_maus_antecedentes_e_em_curso():
-    """Critério 3: trânsito há 3 anos → reincidência; há 7 anos → maus antecedentes; em curso → neutro."""
+    """CP arts. 63 e 64, I (Lei 7.209/1984, vigência 13/01/1985). Fonte: https://www.planalto.gov.br/ccivil_03/leis/1980-1988/l7209.htm."""
     # 1. Trânsito em julgado há 3 anos (dentro dos 5 anos do art. 64, I, CP)
     pecas_reinc = classificar_pecas_autos([
         _doc("ID-DEN", "Denúncia Ministerial", "Fato ocorrido em 10/01/2026."),
         _doc(
             "ID-CAC-3A",
             "Certidão de Antecedentes Criminais",
-            "CERTIDÃO DE ANTECEDENTES CRIMINAIS. Consta condenação definitiva com trânsito em julgado em 10/01/2023.",
+            "CERTIDÃO DE ANTECEDENTES CRIMINAIS. Consta condenação definitiva com trânsito em julgado em 10/01/2023. Pena em cumprimento.",
             folha="fls. 40",
         ),
     ])
@@ -163,13 +166,13 @@ def test_antecedentes_reincidencia_maus_antecedentes_e_em_curso():
         _doc(
             "ID-CAC-POST",
             "Certidão de Antecedentes Criminais",
-            "CERTIDÃO DE ANTECEDENTES CRIMINAIS. Consta condenação transitada em julgado em 15/06/2026.",
+            "CERTIDÃO DE ANTECEDENTES CRIMINAIS. Data do fato anterior: 09/01/2026. Consta condenação transitada em julgado em 15/02/2026.",
             folha="fls. 43",
         ),
     ])
     pt_p = _ponto(extrair_metadados_processo(pecas_post), "antecedentes")
     assert pt_p.valor["classificacao"] == "maus_antecedentes"
-    assert "63" in pt_p.efeito
+    assert "63" in pt_p.efeito and pt_p.valor["registros"][0]["data_fato_anterior"] == "2026-01-09"
 
     # 3. Ação penal em curso (Súmula 444/STJ e Tema 129/STF → neutro)
     pecas_curso = classificar_pecas_autos([
@@ -227,7 +230,7 @@ def test_demais_pontos_decisivos_prisao_representacao_vitima_revelia_e_demo():
         _doc(
             "ID-SOL-01",
             "Alvará de Soltura",
-            "Expedido alvará de soltura em 20/01/2026 concedendo liberdade provisória ao acusado.",
+            "Cumprido o alvará de soltura em 20/01/2026 e colocado em liberdade o acusado.",
             folha="fls. 18",
         ),
         _doc(
@@ -240,7 +243,7 @@ def test_demais_pontos_decisivos_prisao_representacao_vitima_revelia_e_demo():
     meta = extrair_metadados_processo(classificar_pecas_autos(raw))
 
     pt_pr = _ponto(meta, "prisao_provisoria")
-    assert pt_pr.estado == "a_confirmar" and pt_pr.valor["dias"] == 10
+    assert pt_pr.estado == "a_confirmar" and pt_pr.valor["dias"] == 11
 
     pt_rep = _ponto(meta, "representacao")
     assert pt_rep.estado == "extraido" and pt_rep.valor["presente"] is True and pt_rep.valor["data"] == "2026-01-10"
@@ -313,4 +316,4 @@ def test_antecedentes_negacao_distante_e_nada_consta():
         ),
     ])
     pt_n = _ponto(extrair_metadados_processo(pecas_nada), "antecedentes")
-    assert pt_n.valor["classificacao"] == "primario"
+    assert pt_n.valor["classificacao"] == "certidao_negativa"

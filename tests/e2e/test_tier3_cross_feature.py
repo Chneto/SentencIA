@@ -172,8 +172,9 @@ class TestCross03_DefenseMiningToOmissionLock:
         meta.teses_defesa + [tese_fantasma],
         ids_midias,
     )
-    # Pendências probatórias podem zerar o score nas duas versões. A camada de teses deve distingui-las.
-    for audit, esperado in ((audit_ok, "APROVADO"), (audit_bad, "REPROVADO")):
+    # A minuta original identifica teses para completar. A segunda omite uma tese.
+    assert audit_ok.teses_pendentes
+    for audit, esperado in ((audit_ok, "PENDENTE"), (audit_bad, "REPROVADO")):
         camada_teses = next(item for item in audit.verificacoes_conteudo if item["verificacao"] == "teses_defensivas")
         assert camada_teses["status"] == esperado
     assert len(audit_bad.teses_omitidas) >= 1

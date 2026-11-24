@@ -190,6 +190,34 @@ function renderDiskBanner() {
   }
 }
 
+function controleCategoria(peca) {
+  const categorias = state.activeCase?.categorias_pecas || [];
+  const escolha = peca.categoria_confirmada ? peca.categoria : "";
+  const automaticaPendente = !escolha && (peca.categoria === "NAO_IDENTIFICADA" || peca.laya_confidence < 0.65);
+  const aviso = peca.laya_motivo || (automaticaPendente ? "Pontuação baixa. Confira a categoria." : "");
+  const rotulo = peca.categoria === "NAO_IDENTIFICADA" ? "Não identificada" : peca.categoria;
+  return `
+    <span class="badge-tag ${automaticaPendente ? "badge-warn" : "badge-neutral"}">${escapeHtml(rotulo)}</span>
+    ${escolha ? '<span class="muted">Confirmada</span>' : ""}
+    ${automaticaPendente ? `<p class="muted">${escapeHtml(aviso)}
+      ${peca.laya_candidatas?.length ? ` Candidatas: ${escapeHtml(peca.laya_candidatas.join(", "))}.` : ""}
+    </p>` : ""}
+    ${categorias.length ? `<details>
+      <summary>Alterar categoria</summary>
+      <form data-classificar-peca="${escapeHtml(peca.doc_id)}">
+        <label class="form-label">Categoria da peça
+          <select class="form-select" name="categoria">
+            <option value="">Classificação automática</option>
+            ${categorias.map((cat) => `<option value="${escapeHtml(cat)}" ${escolha === cat ? "selected" : ""}>
+              ${escapeHtml(cat === "NAO_IDENTIFICADA" ? "Não identificada" : cat.replaceAll("_", " "))}
+            </option>`).join("")}
+          </select>
+        </label>
+        <button class="btn btn-sm" type="submit">Confirmar</button>
+      </form>
+    </details>` : ""}`;
+}
+
 function renderPecasIndice(filterStr = "") {
   const pecas = state.activeCase?.pecas || [];
   const q = filterStr.trim().toLowerCase();
@@ -227,7 +255,7 @@ function renderPecasIndice(filterStr = "") {
                 <div style="font-weight:600;">${escapeHtml(p.titulo)}</div>
                 <div class="muted" style="font-size:11.5px;">${escapeHtml((p.resumo_estruturado || "").slice(0, 140))}</div>
               </td>
-              <td><span class="badge-tag badge-neutral">${escapeHtml(p.categoria)}</span></td>
+              <td>${controleCategoria(p)}</td>
               <td class="mono" style="font-size:12px;">${escapeHtml(fmtDateBr(p.data_peca, "não identificada"))}</td>
               <td>${
                 p.ocr_estado === "OCR_INDISPONIVEL" || p.ocr_pendente
@@ -256,7 +284,7 @@ function renderPecasIndice(filterStr = "") {
       ? `<p class="muted">Carregue um processo para inspecionar a CAC/FAC.</p>`
       : `<div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
         <span class="badge-tag ${meta.reu_primario_sumula444 ? "badge-success" : "badge-warn"}">
-          ${meta.reu_primario_sumula444 ? "Primário / Bons Antecedentes (Súmula 444 STJ)" : "Verificar Certidões de Antecedentes"}
+          ${meta.reu_primario_sumula444 ? "Declaração negativa na certidão" : "Verificar certidões de antecedentes"}
         </span>
         <span class="text-sec">Autos MPU Apenso: <strong class="mono">${escapeHtml(meta.autos_mpu_apenso || "Não identificado")}</strong></span>
         <span class="text-sec">Vínculo: <strong>${escapeHtml(meta.vinculo_domestico || "—")}</strong></span>
@@ -356,6 +384,27 @@ async function refazerOcrPdf(filename, botao) {
 
 function bindAutosEvents() {
   $("searchPecasInput")?.addEventListener("input", (e) => renderPecasIndice(e.target.value));
+
+  $("pecasListContainer")?.addEventListener("submit", async (e) => {
+    const form = e.target.closest("[data-classificar-peca]");
+    if (!form) return;
+    e.preventDefault();
+    const botao = form.querySelector("button");
+    botao.disabled = true;
+    try {
+      const res = await postJson("/api/cases/document-category", {
+        doc_id: form.dataset.classificarPeca,
+        categoria: form.elements.categoria.value || null,
+        manifesto_id: state.activeCase?.manifesto_caso?.id || null,
+      });
+      await hooks.applyActiveCase(res.active_case, { clearSentence: true });
+      showToast("Categoria da peça atualizada.", "success");
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      botao.disabled = false;
+    }
+  });
 
   $("uploadPdfStatusList")?.addEventListener("click", (e) => {
     const btn = e.target?.closest?.("[data-refazer-ocr]");

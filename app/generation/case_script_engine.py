@@ -46,6 +46,7 @@ from app.generation.sentence_generator import (
     texto_regime_dispositivo,
 )
 from app.ingestion.laya_classifier import (
+    CATEGORIAS_SEM_FONTE_DE_FATOS,
     MetadadosProcesso,
     PecaClassificada,
 )
@@ -704,7 +705,7 @@ def executar_motores_completo(
         StatusMotorPy(
             codigo="MOTOR_PY_02_CLASSIFICADOR_LAYA",
             nome="Motor Py 2 — Classificador Laya System 1 e Extrator de Teses",
-            funcao="Classifica peças em 11 categorias forenses e extrai metadados, crimes imputados e catálogo de teses defensivas (Art. 381, III, CPP).",
+            funcao="Classifica peças por espécie forense e extrai metadados, crimes imputados e catálogo de teses defensivas (Art. 381, III, CPP).",
             status="CONCLUIDO",
             resumo_execucao=(
                 f"Processo {meta.numero_processo or 'não identificado'} | {len(meta.crimes_imputados)} crime(s) imputado(s) | "
@@ -837,6 +838,7 @@ def gerar_script_estruturado_caso(
     dosimetria_global = resultado_motores.dosimetria_global
     prescricao = resultado_motores.prescricao
     motores_status = resultado_motores.motores_status
+    recortes = resultado_motores.plano.contexto_geracao
 
     grupos_dedup, dedup_removidas = deduplicar_pecas_equivalentes(pecas)
     ids_pecas = [f"{g['unified_id']} ({g['unified_folha']}) — {g['primary'].titulo}" for g in grupos_dedup]
@@ -846,6 +848,8 @@ def gerar_script_estruturado_caso(
     linhas_pecas_list = []
     for g in grupos_dedup:
         p = g["primary"]
+        if p.categoria in CATEGORIAS_SEM_FONTE_DE_FATOS:
+            continue
         tit_low = p.titulo.lower()
         if densidade_norm == "compacto" and (
             g["is_sub_parent"]
@@ -855,14 +859,20 @@ def gerar_script_estruturado_caso(
         ):
             continue
         ref_id = g["unified_id"]
-        resumo_item = p.resumo_estruturado[:240].strip() if densidade_norm == "compacto" else p.resumo_estruturado
-        linhas_pecas_list.append(
-            f"- **{ref_id}** ({g['unified_folha']} | {p.categoria} | data: {formatar_data_br(p.data_peca) or 'não informada'}): {p.titulo}\n  - *Síntese*: {resumo_item}"
-        )
+        linha = f"- **{ref_id}** ({g['unified_folha']} | {p.categoria} | data: {formatar_data_br(p.data_peca) or 'não informada'}): {p.titulo}"
+        if ctx.is_demo:
+            resumo_item = p.resumo_estruturado[:240].strip() if densidade_norm == "compacto" else p.resumo_estruturado
+            linha += f"\n  - *Síntese*: {resumo_item}"
+        linhas_pecas_list.append(linha)
     linhas_pecas = "\n".join(linhas_pecas_list)
 
-    interlocutores = consolidar_prova_oral_por_interlocutor(matriz_oral.depoentes, pecas=pecas)
-    if interlocutores:
+    interlocutores = consolidar_prova_oral_por_interlocutor(matriz_oral.depoentes, pecas=pecas) if ctx.is_demo else []
+    if not ctx.is_demo:
+        linhas_oral = "\n".join(
+            f"- {item['depoente']} (papel {item['papel']}, mídia {item['media_id']}): {item['trecho']}"
+            for item in recortes.get("trechos_orais", ()) if item["trecho"]
+        ) or "- Sem trecho oral confirmado no recorte vinculado às decisões."
+    elif interlocutores:
         linhas_oral = "\n".join(
             f"- **{it['nome_base']}** (Papel: `{it['papel']}` | Mídia(s): `{', '.join(it['media_ids'])}` | Durações: `{', '.join(it['duracoes'])}` | Coerência: `{it['coerencia']}`):\n"
             f"  - *Síntese Consolidada em Discurso Indireto Forense*: {' '.join(it['sintese_consolidada'])}"
@@ -879,40 +889,47 @@ def gerar_script_estruturado_caso(
     else:
         linhas_oral = "- Nenhuma mídia audiovisual individualizada anexada além do Termo de Audiência."
 
-    excertos_chave: List[str] = []
-    cats_excertos = (
-        "DENUNCIA",
-        "BO",
-        "LAUDO_PERICIAL",
-        "ALEGACOES_FINAIS_MP",
-        "ALEGACOES_FINAIS_DEFESA",
-        "RESPOSTA_ACUSACAO",
-        "RECEBIMENTO_DENUNCIA",
-        "DECISAO_MPU",
-        "TERMO_AUDIENCIA",
-        "CAC_FAC",
-    )
-    cats_prioritarias = {"DENUNCIA", "LAUDO_PERICIAL", "ALEGACOES_FINAIS_MP", "ALEGACOES_FINAIS_DEFESA", "TERMO_AUDIENCIA"}
-    for g in grupos_dedup:
-        if g["is_sub_parent"]:
-            continue
-        p = g["primary"]
-        tit_low = p.titulo.lower()
-        if densidade_norm == "compacto":
-            if p.doc_id == "ID-CAPA-PJE" or "decurso de prazo" in tit_low or "alvará" in tit_low or "juízo 100%" in tit_low:
+    excertos_chave = [
+        f"### [{item['doc_id']}] {item['titulo']}\n{item['trecho']}"
+        for item in recortes.get("trechos_pecas", ()) if item["trecho"]
+    ]
+    if ctx.is_demo:
+        excertos_chave = []
+        cats_excertos = (
+            "DENUNCIA",
+            "BO",
+            "LAUDO_PERICIAL",
+            "ALEGACOES_FINAIS_MP",
+            "ALEGACOES_FINAIS_DEFESA",
+            "RESPOSTA_ACUSACAO",
+            "RECEBIMENTO_DENUNCIA",
+            "DECISAO_MPU",
+            "TERMO_AUDIENCIA",
+            "CAC_FAC",
+        )
+        cats_prioritarias = {"DENUNCIA", "LAUDO_PERICIAL", "ALEGACOES_FINAIS_MP", "ALEGACOES_FINAIS_DEFESA", "TERMO_AUDIENCIA"}
+        for g in grupos_dedup:
+            if g["is_sub_parent"]:
                 continue
-        if p.categoria in cats_excertos or "endereço" in tit_low:
-            trecho_limpo = g["clean_body"]
+            p = g["primary"]
+            if p.categoria in CATEGORIAS_SEM_FONTE_DE_FATOS:
+                continue
+            tit_low = p.titulo.lower()
             if densidade_norm == "compacto":
-                limite = 900 if p.categoria in cats_prioritarias else 340
-            else:
-                limite = 4500
-            trecho_limpo = trecho_limpo[:limite].strip()
-            if trecho_limpo:
-                excertos_chave.append(
-                    f"### [{g['unified_id']}] {p.titulo} ({formatar_data_br(p.data_peca) or 'data não informada'})\n{trecho_limpo}"
-                )
-    bloco_excertos_md = "\n\n".join(excertos_chave) or "Vide sínteses das peças no tópico 2."
+                if p.doc_id == "ID-CAPA-PJE" or "decurso de prazo" in tit_low or "alvará" in tit_low or "juízo 100%" in tit_low:
+                    continue
+            if p.categoria in cats_excertos or "endereço" in tit_low:
+                trecho_limpo = g["clean_body"]
+                if densidade_norm == "compacto":
+                    limite = 900 if p.categoria in cats_prioritarias else 340
+                else:
+                    limite = 4500
+                trecho_limpo = trecho_limpo[:limite].strip()
+                if trecho_limpo:
+                    excertos_chave.append(
+                        f"### [{g['unified_id']}] {p.titulo} ({formatar_data_br(p.data_peca) or 'data não informada'})\n{trecho_limpo}"
+                    )
+    bloco_excertos_md = "\n\n".join(excertos_chave) or "Sem trecho documental vinculado ao recorte."
     linhas_teses = "\n".join(
         f"- **{t.codigo}** (`{t.tipo}`): **{t.titulo}** — {t.descricao_defesa}"
         for t in meta.teses_defesa
@@ -1026,12 +1043,15 @@ def gerar_script_estruturado_caso(
             f"- **Penas por Espécie**: `{ {k: v.format_extenso() for k, v in dosimetria_global.penas_por_especie.items()} }`\n"
             f"- **Detração Penal (Art. 387, § 2º, CPP)**: `{dosimetria_global.detracao_dias} dia(s) de prisão cautelar`\n"
             f"- **Regime Inicial de Cumprimento (Art. 33, §§ 2º e 3º, CP)**: `REGIME INICIAL {dosimetria_global.regime_inicial.upper()}`\n"
-            f"- **Substituição por Restritivas de Direitos (Art. 44 CP c/c Súmula 588/STJ)**: {dosimetria_global.motivo_vedacao_substituicao}\n"
-            f"- **Suspensão Condicional da Pena — Sursis Penal (Art. 77 CP)**: {dosimetria_global.fundamentacao_sursis}\n"
             + (
-                "  - Condições legais obrigatórias do Sursis:\n" + "\n".join(f"    - {cond}" for cond in dosimetria_global.sursis_condicoes_legais) + "\n"
-                if dosimetria_global.sursis_condicoes_legais
-                else ""
+                f"- **Substituição por Restritivas de Direitos (Art. 44 CP c/c Súmula 588/STJ)**: {dosimetria_global.motivo_vedacao_substituicao}\n"
+                f"- **Suspensão Condicional da Pena — Sursis Penal (Art. 77 CP)**: {dosimetria_global.fundamentacao_sursis}\n"
+                if ctx.is_demo else ""
+            )
+            + (
+                "  - Condições legais obrigatórias do Sursis:\n"
+                + "\n".join(f"    - {cond}" for cond in dosimetria_global.sursis_condicoes_legais) + "\n"
+                if ctx.is_demo and dosimetria_global.sursis_condicoes_legais else ""
             )
             + f"- **Reparação Mínima por Danos Morais in re ipsa (Art. 387, IV, CPP e Tema Repetitivo 983/STJ)**: `{dano_str}` (correção pelo IPCA desde a sentença — Súmula 362/STJ; juros pela Selic deduzido o IPCA desde o fato — Súmula 54/STJ e art. 406, § 1º, CC)\n"
             + (f"- **Análise de Prescrição (Arts. 109 e 117, I, CP)**: {prescricao.fundamentacao}\n\n" if prescricao_exige_topico(prescricao) else "- **Prescrição**: não consumada para nenhum crime. NÃO abra tópico nem mencione a prescrição na sentença.\n\n")
@@ -1064,6 +1084,8 @@ def gerar_script_estruturado_caso(
             "Relatos, dados da acusação e o veredicto não autorizam inferir prova de um elemento. "
             "Use apenas as conclusões registradas por imputação e mantenha os marcadores nas lacunas. "
             "A aplicação insere a fundamentação e os trechos literais localmente.",
+            "A aplicação insere localmente as decisões acessórias e seus fundamentos. "
+            "Não redija comandos sobre substituição, sursis, medidas protetivas, cautelares, efeitos ou intimações com base em suposições.",
         ]
         for decisao in resultado_motores.plano.decisoes_crimes:
             if decisao.get("veredicto") == "extinguir":

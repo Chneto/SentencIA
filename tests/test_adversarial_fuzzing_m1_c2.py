@@ -172,10 +172,7 @@ class TestPromptBoundingEscapeAttacks:
         assert any("Omissão de enfrentamento de teses" in e for e in res.erros)
 
     def test_hijacked_output_circumventing_preliminar_with_token(self):
-        """
-        VULNERABILIDADE: Se a LLM sequestrada incluir superficialmente o token 'PREL-01',
-        o validador default aprova porque apenas verifica `c in texto`.
-        """
+        """Uma referência ao código da tese é insuficiente para liberar a preliminar."""
         dossie = DossieRestricaoSecao(
             secao=SecaoTipo.PRELIMINARES,
             folhas_permitidas=["ID-4100101"],
@@ -189,9 +186,9 @@ class TestPromptBoundingEscapeAttacks:
         )
         rascunho = SecaoRascunho(secao=SecaoTipo.PRELIMINARES, texto_redigido=hijacked_with_token)
         res = default_in_flight_gating_validator(SecaoTipo.PRELIMINARES, rascunho, dossie)
-        # O validador default aprova indevidamente porque 'PREL-01' está na string
-        # Isso demonstra a necessidade de crivo semântico/dialético (M2) e validação reforçada
-        assert res.aprovado is True
+        assert res.aprovado is False
+        assert any("Omissão de enfrentamento" in erro for erro in res.erros)
+
 
     def test_dosimetria_parameter_overwrite_attack(self):
         """

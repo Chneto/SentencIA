@@ -250,8 +250,8 @@ def test_abnt_estilos_exportacao_docx_html_e_pdf(tmp_path: Path):
 def test_auditor_camada_4_reprova_violacao_datas_e_abnt():
     """Garante que a Camada 4 do Auditor detecta e reprova datas fora do padrão BR, solecismos ou citações longas com aspas."""
     demo = get_demo_case_bundle()
-    pecas = classificar_pecas_autos(demo["raw_documents"])
-    meta = extrair_metadados_processo(pecas)
+    pecas = classificar_pecas_autos(demo["raw_documents"], is_demo=True)
+    meta = extrair_metadados_processo(pecas, is_demo=True)
     sentenca = gerar_sentenca_estruturada(case_bundle=demo, use_ollama_if_available=False)
 
     # Sentença oficial deve ser 100% aprovada
