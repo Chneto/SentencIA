@@ -10,11 +10,14 @@ from tests.e2e.test_layout_transbordo import _LocalAppServer, _launch_chromium
 def test_indice_confirma_categoria_e_reabre_a_peca(_live_server: _LocalAppServer):
     from playwright.sync_api import sync_playwright
 
+    # Texto nativo acima do limiar de OCR (75 caracteres) em todas as páginas: o teste trata da confirmação de
+    # categoria e não pode depender do motor de OCR do sistema (no macOS do CI o ocrmac reconhecia de novo a página).
+    preenchimento = " Texto fictício de preenchimento para manter a página com texto nativo suficiente."
     with pymupdf.open() as pdf:
         blocos = [
-            ("Capa e Autuação", "9900197", "Processo nº 0001234-56.2024.8.09.0001."),
-            ("Denúncia Ministerial", "9900198", "O Ministério Público oferece denúncia."),
-            ("Memoriais", "9900199", "A defesa requer a absolvição. O Promotor de Justiça requer condenação."),
+            ("Capa e Autuação", "9900197", "Processo nº 0001234-56.2024.8.09.0001." + preenchimento),
+            ("Denúncia Ministerial", "9900198", "O Ministério Público oferece denúncia." + preenchimento),
+            ("Memoriais", "9900199", "A defesa requer a absolvição. O Promotor de Justiça requer condenação." + preenchimento),
         ]
         toc = []
         for numero, (titulo, id_, conteudo) in enumerate(blocos, 1):

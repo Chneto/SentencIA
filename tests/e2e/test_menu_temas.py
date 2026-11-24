@@ -75,11 +75,14 @@ def test_menu_logo_temas_teclado_paleta_e_persistencia(_live_server: _LocalAppSe
 
             page.click("#btnAppMenu")
             page.click("#menuItemTemas")
-            page.click('[data-set-mode="dark"]')
+            # Espera a gravação real em /api/settings (no CI lento, um atraso fixo não bastava).
+            with page.expect_response(
+                lambda r: "/api/settings" in r.url and r.request.method != "GET", timeout=15000
+            ) as gravacao:
+                page.click('[data-set-mode="dark"]')
+            assert gravacao.value.ok
             assert page.get_attribute("html", "data-theme") == "dark"
 
-            # Aguarda persistência assíncrona em /api/settings e recarrega a página
-            page.wait_for_timeout(400)
             page.reload(wait_until="networkidle")
             assert page.get_attribute("html", "data-design") == "classico"
             assert page.get_attribute("html", "data-theme") == "dark"
