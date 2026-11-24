@@ -28,6 +28,18 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
+      - name: Conferir versão da tag com o pyproject.toml
+        id: versao
+        shell: pwsh
+        run: |
+          $m = [regex]::Match((Get-Content pyproject.toml -Raw -Encoding UTF8), '(?m)^version\s*=\s*"([^"]+)"')
+          if (-not $m.Success) { throw "Versão não encontrada no pyproject.toml." }
+          $versao = $m.Groups[1].Value
+          if ("$env:GITHUB_REF_TYPE" -eq "tag" -and "$env:GITHUB_REF_NAME" -ne "v$versao") {
+            throw "A tag $env:GITHUB_REF_NAME não corresponde à versão v$versao do pyproject.toml."
+          }
+          "versao=$versao" >> $env:GITHUB_OUTPUT
+
       - name: Verificar sigilo antes de empacotar
         shell: pwsh
         run: |
@@ -58,7 +70,7 @@ jobs:
             }
             $isccCmd = Get-Command iscc -ErrorAction SilentlyContinue
             $isccExe = if ($isccCmd) { $isccCmd.Source } else { "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
-            & $isccExe $issPath
+            & $isccExe "/DMyAppVersion=${{ steps.versao.outputs.versao }}" $issPath
             if ($LASTEXITCODE -ne 0) {
               throw "Falha ao compilar $issPath com Inno Setup (código $LASTEXITCODE)."
             }

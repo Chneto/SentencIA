@@ -43,7 +43,7 @@ function Get-VersaoInstalada([string]$Pasta) {
         $m = [regex]::Match((Get-Content -LiteralPath $pyproj -Raw -Encoding UTF8), '(?m)^version\s*=\s*"([^"]+)"')
         if ($m.Success) { return $m.Groups[1].Value }
     }
-    return '2.1.0'
+    return '2.2.0'
 }
 
 function Invoke-DownloadSeguro([string]$Url, [string]$Saida) {

@@ -1,5 +1,5 @@
 // Persistência do rascunho de decisões por caso (servidor + fallback sessionStorage) — TASK-068.
-import { apiFetch } from "./api.js?v=2.1.0";
+import { apiFetch } from "./api.js?v=2.2.0";
 
 export const CHAVE_DECISOES_SESSAO = "sentencia.decisoes.v1";
 const CHAVE_DECISOES_LEGADO = "jvdfm.decisoes.v1";
@@ -19,9 +19,11 @@ export function salvarRascunhoDecisoes(payload) {
       crime_configs: payload.crimeConfigs,
       extras: payload.extras || {},
     }),
-  }).catch(() => {
-    /* falha de rede silenciosa: sessionStorage preserva o rascunho local */
-  });
+  })
+    .then((res) => (res && typeof res.text === "function" ? res.text() : null))
+    .catch(() => {
+      /* falha de rede silenciosa: sessionStorage preserva o rascunho local */
+    });
 }
 
 export function lerRascunhoDecisoes(caseKey, caseData = null) {

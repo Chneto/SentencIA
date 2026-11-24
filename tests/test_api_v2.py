@@ -205,7 +205,7 @@ class TestSegurancaToken:
     def test_health_publico_e_minimo(self, client_sem_token: TestClient):
         resp = client_sem_token.get("/api/health")
         assert resp.status_code == 200
-        assert resp.json() == {"status": "ok", "versao": "2.1.0"}
+        assert resp.json() == {"status": "ok", "versao": security.ler_versao_app()}
 
     def test_index_injeta_meta_com_token(self, client_sem_token: TestClient):
         resp = client_sem_token.get("/")
@@ -220,11 +220,16 @@ class TestSegurancaToken:
         assert 'content="abc"' in saida
         assert security.injetar_token_html("<p>sem head</p>", "abc").startswith('<meta name="sentencia-token" content="abc">')
 
-    def test_token_em_query_so_para_get_de_download_e_progresso(self, client_sem_token: TestClient):
+    def test_token_em_query_so_para_get_de_download_nativo(self, client_sem_token: TestClient):
         q = {TOKEN_QUERY_PARAM: get_session_token()}
-        assert client_sem_token.get("/api/cases/upload-progress", params=q).status_code == 200
+        # Rotas consumidas via fetch() não aceitam token em query string (exigem header).
+        assert client_sem_token.get("/api/cases/upload-progress", params=q).status_code == 401
+        assert client_sem_token.get("/api/jobs/inexistente", params=q).status_code == 401
+        assert client_sem_token.get("/api/export/pje", params=q).status_code == 401
         assert client_sem_token.get("/api/cases/active", params=q).status_code == 401
         assert client_sem_token.post("/api/cases/load-demo", params=q).status_code == 401
+        # Download nativo de arquivo continua aceitando token na query (400/404 = passou da autenticação 401).
+        assert client_sem_token.get("/api/export/pdf", params=q).status_code != 401
 
     def test_desativacao_por_env_somente_sob_pytest(self, client_sem_token: TestClient, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv("SENTENCIA_DISABLE_TOKEN", "1")

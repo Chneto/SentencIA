@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: assistente.js (TASK-033: Assistente de Primeira Execução)
-import { hooks, state } from "./estado.js?v=2.1.0";
-import { $, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.1.0";
-import { apiJson, handleApiError, postJson } from "./api.js?v=2.1.0";
+import { hooks, state } from "./estado.js?v=2.2.0";
+import { $, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.2.0";
+import { apiJson, handleApiError, postJson } from "./api.js?v=2.2.0";
 
 let _pullTimer = null;
 let _pullAcompanhado = false;

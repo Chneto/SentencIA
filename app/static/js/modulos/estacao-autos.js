@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: estacao-autos.js (TASK-015)
-import { hooks, state } from "./estado.js?v=2.1.0";
-import { $, envioExternoPermitido, escapeHtml, fmtDateBr, openModal, showToast } from "./dom.js?v=2.1.0";
-import { ApiError, acompanharJob, apiFetch, atualizarBarraProgresso, esconderProgresso, handleApiError, lerJson, mostrarProgresso, postJson, startProgressPolling, stopProgressPolling } from "./api.js?v=2.1.0";
+import { hooks, state } from "./estado.js?v=2.2.0";
+import { $, envioExternoPermitido, escapeHtml, fmtDateBr, openModal, showToast } from "./dom.js?v=2.2.0";
+import { ApiError, acompanharJob, apiFetch, atualizarBarraProgresso, esconderProgresso, handleApiError, lerJson, mostrarProgresso, postJson, startProgressPolling, stopProgressPolling } from "./api.js?v=2.2.0";
 
 function realcarTrecho(texto, trecho) {
   const termos = String(trecho || "").trim().replace(/\.\.\.$/, "").split(/\s+/).filter(Boolean);

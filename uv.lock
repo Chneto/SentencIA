@@ -2008,8 +2008,8 @@ wheels = [
 ]
 
 [[package]]
-name = "sentenca-jvdfm"
-version = "2.1.0"
+name = "sentencia"
+version = "2.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },

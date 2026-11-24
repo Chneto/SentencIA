@@ -3,6 +3,28 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.2.0] — 2026-11-24
+
+Ciclo 7 completo e identidade técnica unificada como **SentencIA**.
+
+- **Sentença mais segura:** registro dos elementos provados pelo juízo por imputação (a minuta só afirma o
+  registrado); decisões explícitas na dosimetria (majorante do art. 147-A, § 1º, II, multa e reparação);
+  Leis 15.160/2025, 15.380/2026 e 15.438/2026 por imputação; linha do tempo da prescrição; confissão
+  (Tema 1194/STJ), antecedentes sem dupla valoração e detração única com intervalos documentados; decisões
+  acessórias com fundamento próprio; todas as teses e pedidos apreciados.
+- **Leitura dos autos:** LAYA com espécie "não identificada" em vez de palpite (aferição 95/95); OCR por página;
+  segmentação de PDF sem sumário.
+- **Transcrição:** nomes das partes reconhecidos em toda a audiência; modelo turbo automático na GPU; papel de
+  cada trecho com confirmação humana.
+- **Correções:** o aviso "Modelo … baixado com sucesso" não se repete mais (também no macOS); nome completo das
+  partes; "Apreciação" no lugar de "Enfrentamento" das teses; tópico de prescrição só quando houver.
+- **Segurança:** respostas da API sem cache (`no-store`) e política de conteúdo (CSP); envio externo autorizado
+  por operação; verificador de sigilo falha fechado.
+- **Nome técnico:** variáveis `SENTENCIA_*` (as `JVDFM_*` seguem aceitas com aviso), pasta de dados e cofre
+  migrados para "SentencIA" sem perda; pacote `sentencia`. "JVDFM" permanece só como sigla do juizado.
+- **Instaladores:** a versão vem do `pyproject.toml`; o release confere a tag e passa a versão ao instalador
+  do Windows.
+
 ## [2.1.0] — 2026-11-21
 
 Consolidação dos ciclos 1, 2 e 3: **correção crítica da integração com o Gemini (modelos descontinuados)**,

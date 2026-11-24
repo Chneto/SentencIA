@@ -1,6 +1,6 @@
 // Registro probatório e decisão cautelar do juízo.
-import { state } from "./estado.js?v=2.1.0";
-import { escapeHtml } from "./dom.js?v=2.1.0";
+import { state } from "./estado.js?v=2.2.0";
+import { escapeHtml } from "./dom.js?v=2.2.0";
 
 function camposProva(rotulo, chave, ref = {}) {
   return `

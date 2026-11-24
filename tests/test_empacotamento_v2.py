@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import plistlib
+import re
 import shutil
 import socket
 import subprocess
@@ -47,7 +48,7 @@ conftest_raiz = _carregar_modulo("sentencia_conftest_raiz", RAIZ / "tests" / "co
 def test_pyproject_versao_extras_e_grupos():
     dados = tomllib.loads((RAIZ / "pyproject.toml").read_text(encoding="utf-8"))
     projeto = dados["project"]
-    assert projeto["version"] == "2.1.0"
+    assert projeto["version"] == build_release.ler_versao(RAIZ)
     assert projeto["requires-python"] == ">=3.11,<3.15"
     assert projeto["readme"] == "README.md"
     extras = projeto["optional-dependencies"]
@@ -74,10 +75,10 @@ def test_pyproject_versao_extras_e_grupos():
 def test_uv_lock_cobre_windows_e_macos():
     lock = tomllib.loads((RAIZ / "uv.lock").read_text(encoding="utf-8"))
     nomes = {p["name"] for p in lock["package"]}
-    for pacote in ("sentenca-jvdfm", "faster-whisper", "winocr", "ocrmac", "keyring", "google-genai"):
+    for pacote in ("sentencia", "faster-whisper", "winocr", "ocrmac", "keyring", "google-genai"):
         assert pacote in nomes
-    projeto = next(p for p in lock["package"] if p["name"] == "sentenca-jvdfm")
-    assert projeto["version"] == "2.1.0"
+    projeto = next(p for p in lock["package"] if p["name"] == "sentencia")
+    assert projeto["version"] == build_release.ler_versao(RAIZ)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -126,8 +127,8 @@ def test_iniciadores_apontam_para_o_bootstrap():
 def test_info_plist_do_app():
     info = plistlib.loads((RAIZ / "SentencIA.app/Contents/Info.plist").read_bytes())
     assert info["CFBundlePackageType"] == "APPL"
-    assert info["CFBundleShortVersionString"] == "2.1.0"
-    assert info["CFBundleVersion"] == "2.1.0"
+    assert info["CFBundleShortVersionString"] == build_release.ler_versao(RAIZ)
+    assert info["CFBundleVersion"] == build_release.ler_versao(RAIZ)
     assert (RAIZ / "SentencIA.app/Contents/MacOS" / info["CFBundleExecutable"]).is_file()
 
 
@@ -555,7 +556,7 @@ def test_versao_unica_consistente_no_repositorio():
     from app.api import security
 
     versao = build_release.ler_versao(RAIZ)
-    assert versao == "2.1.0"
+    assert re.fullmatch(r"\d+\.\d+\.\d+", versao), versao
     assert security.VERSAO_APP == versao
     assert security.ler_versao_app(RAIZ) == versao
     assert launcher.VERSAO_ESPERADA == versao

@@ -41,7 +41,7 @@ def test_ocr_ui_progresso_travamento_motor_ausente_e_quatro_estados(_live_server
             # 2) Os 4 estados em badgeStatusArquivo + ausência total de "OCR PENDENTE" + Refazer OCR desabilitado sem motor
             badges = page.evaluate(
                 """async () => {
-                  const { badgeStatusArquivo, renderUploadStatusTables } = await import('/static/js/modulos/estacao-autos.js?v=2.1.0');
+                  const { badgeStatusArquivo, renderUploadStatusTables } = await import('/static/js/modulos/estacao-autos.js?v=2.2.0');
                   const rows = [
                     { filename: 'andamento.pdf', status: 'PROCESSADO', ocr_estado: 'OCR_EM_ANDAMENTO' },
                     { filename: 'concluido.pdf', status: 'PROCESSADO', ocr_estado: 'OCR_CONCLUIDO', ocr_paginas_reconhecidas: 5 },
@@ -68,8 +68,8 @@ def test_ocr_ui_progresso_travamento_motor_ausente_e_quatro_estados(_live_server
             estado_status["motor"] = "winocr"
             page.evaluate(
                 """async () => {
-                  const { refreshStatus } = await import('/static/js/modulos/telemetria.js?v=2.1.0');
-                  const { state } = await import('/static/js/modulos/estado.js?v=2.1.0');
+                  const { refreshStatus } = await import('/static/js/modulos/telemetria.js?v=2.2.0');
+                  const { state } = await import('/static/js/modulos/estado.js?v=2.2.0');
                   state.activeCase = {
                     upload_status: {
                       pdfs_processo: [
@@ -87,7 +87,7 @@ def test_ocr_ui_progresso_travamento_motor_ausente_e_quatro_estados(_live_server
             # 4) Barra de progresso ao vivo com página X de Y e tempo decorrido + aviso de sem avanço (> 60s com relógio simulado)
             progresso_res = page.evaluate(
                 """async () => {
-                  const { mostrarProgresso, atualizarBarraProgresso } = await import('/static/js/modulos/api.js?v=2.1.0');
+                  const { mostrarProgresso, atualizarBarraProgresso } = await import('/static/js/modulos/api.js?v=2.2.0');
                   mostrarProgresso('Iniciando OCR...');
                   const agora = Date.now();
                   // 72s decorridos (1 min 12 s), último avanço há 5s -> sem aviso de travamento

@@ -83,7 +83,7 @@ class TestTokenECabecalhos:
             r_legado = client.get("/api/status", headers={sec.TOKEN_HEADER_LEGADO: token})
             assert r_legado.status_code == 200
 
-    def test_query_param_novo_e_legado_aceitos_em_rota_stream_download(
+    def test_query_param_novo_e_legado_aceitos_em_rota_download_nativo(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from app.main import app
@@ -93,14 +93,14 @@ class TestTokenECabecalhos:
         token = sec._SESSION_TOKEN
 
         with TestClient(app, base_url="http://127.0.0.1:8000") as client:
-            # Job inexistente devolve 404 (prova que passou da autenticação 401)
-            r_novo = client.get(f"/api/jobs/inexistente?{sec.TOKEN_QUERY_PARAM}={token}")
-            assert r_novo.status_code == 404
+            # Sem sentença gerada devolve 400/404 (prova que passou da autenticação 401)
+            r_novo = client.get(f"/api/export/pdf?{sec.TOKEN_QUERY_PARAM}={token}")
+            assert r_novo.status_code != 401
 
-            r_legado = client.get(f"/api/jobs/inexistente?{sec.TOKEN_QUERY_PARAM_LEGADO}={token}")
-            assert r_legado.status_code == 404
+            r_legado = client.get(f"/api/export/pdf?{sec.TOKEN_QUERY_PARAM_LEGADO}={token}")
+            assert r_legado.status_code != 401
 
-            r_sem = client.get("/api/jobs/inexistente")
+            r_sem = client.get("/api/export/pdf")
             assert r_sem.status_code == 401
 
 

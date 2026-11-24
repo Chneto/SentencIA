@@ -54,8 +54,8 @@ def test_dois_fatos_do_mesmo_artigo_da_tela_ate_a_minuta(_live_server: _LocalApp
             page.goto(_live_server.base_url, wait_until="networkidle")
             ids = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { chaveCaso, CHAVE_DECISOES_SESSAO } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { chaveCaso, CHAVE_DECISOES_SESSAO } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append("files", new Blob([bytes], {type: "application/pdf"}), "autos-ficticios.pdf");
@@ -88,8 +88,8 @@ def test_dois_fatos_do_mesmo_artigo_da_tela_ate_a_minuta(_live_server: _LocalApp
 
             resultado = page.evaluate(
                 """async () => {
-                    const { apiFetch, postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { apiFetch, postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const legado = await apiFetch('/api/dosimetria/simulate', {
                       method: 'POST', headers: {'Content-Type': 'application/json'},
                       body: JSON.stringify({crimes_config: [{codigo: "art_147_cp", veredicto: "condenar"}]})
@@ -140,8 +140,8 @@ def test_arbitramentos_e_majorante_da_tela_ate_a_api(_live_server: _LocalAppServ
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson, postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { chaveCaso, CHAVE_DECISOES_SESSAO } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { apiJson, postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { chaveCaso, CHAVE_DECISOES_SESSAO } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append("files", new Blob([bytes], {type: "application/pdf"}), "autos-ficticios.pdf");
@@ -171,7 +171,7 @@ def test_arbitramentos_e_majorante_da_tela_ate_a_api(_live_server: _LocalAppServ
             page.locator("#inputCrimeMultaUnidade").fill("1/15")
             payload_inicial = page.evaluate(
                 """async () => {
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     return buildDosimetryPayload();
                 }"""
             )
@@ -179,8 +179,8 @@ def test_arbitramentos_e_majorante_da_tela_ate_a_api(_live_server: _LocalAppServ
             majorante.check()
             resultado = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = buildDosimetryPayload();
                     const simulacao = await postJson('/api/dosimetria/simulate', payload);
                     return {payload, dosimetria: simulacao.dosimetria};
@@ -218,7 +218,7 @@ def test_registros_da_acao_ficam_na_imputacao_selecionada(_live_server: _LocalAp
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append("files", new Blob([bytes], {type: "application/pdf"}), "autos-ficticios.pdf");
@@ -245,8 +245,8 @@ def test_registros_da_acao_ficam_na_imputacao_selecionada(_live_server: _LocalAp
 
             resultados = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = {...buildDosimetryPayload(), data_sentenca: "2024-05-30"};
                     const sim = await postJson('/api/dosimetria/simulate', payload);
                     return {payload, decisoes: sim.decisoes_crimes};
@@ -279,7 +279,7 @@ def test_marco_de_recebimento_na_tela_fica_na_imputacao_com_fonte(_live_server: 
             page.goto(_live_server.base_url, wait_until="networkidle")
             fonte = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append("files", new Blob([bytes], {type: "application/pdf"}), "autos-ficticios.pdf");
@@ -303,8 +303,8 @@ def test_marco_de_recebimento_na_tela_fica_na_imputacao_com_fonte(_live_server: 
             assert not page.locator('[data-presc-linha="interrupcoes"]').count()
             resultado = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = {...buildDosimetryPayload(), data_sentenca: "2024-05-30"};
                     const sim = await postJson('/api/dosimetria/simulate', payload);
                     return {payload, prescricao: sim.prescricao.por_crime};
@@ -339,7 +339,7 @@ def test_antecedentes_da_tela_ate_o_calculo_por_imputacao(_live_server: _LocalAp
             page.goto(_live_server.base_url, wait_until="networkidle")
             ids = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), c => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([bytes], {type: 'application/pdf'}), 'autos-antecedentes-ficticios.pdf');
@@ -366,8 +366,8 @@ def test_antecedentes_da_tela_ate_o_calculo_por_imputacao(_live_server: _LocalAp
             page.select_option(f"#uso-{ids[0]}", "antecedentes")
             saida = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = {...buildDosimetryPayload(), data_sentenca: '2024-05-30'};
                     const calculo = await postJson('/api/dosimetria/simulate', payload);
                     return {payload, crimes: calculo.dosimetria.crimes_calculados};
@@ -398,7 +398,7 @@ def test_confissao_confirmada_na_analise_altera_somente_a_imputacao_escolhida(_l
             page.goto(_live_server.base_url, wait_until="networkidle")
             ids = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const form = new FormData();
                     const bytes = Uint8Array.from(atob(pdf), c => c.charCodeAt(0));
                     form.append('files', new Blob([bytes], {type: 'application/pdf'}), 'autos-confissao-ficticios.pdf');
@@ -416,7 +416,7 @@ def test_confissao_confirmada_na_analise_altera_somente_a_imputacao_escolhida(_l
             expect(primeiro).to_contain_text("Indício: Confissão integral")
             expect(segundo).to_contain_text("Indício: Negativa do fato")
             simular = """async (ids) => {
-                const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                 const crimes_config = ids.map(id_imputacao => ({
                     id_imputacao, codigo: 'art_147_cp', veredicto: 'condenar',
                     vetores_art59: { culpabilidade: { desfavoravel: true, fundamentacao: 'Fundamento fictício.' } },
@@ -457,7 +457,7 @@ def test_intervalo_de_custodia_da_tela_usa_o_mesmo_total_e_periodo(_live_server:
             page.goto(_live_server.base_url, wait_until="networkidle")
             fontes = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const bytes = Uint8Array.from(atob(pdf), c => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([bytes], {type: 'application/pdf'}), 'autos-custodia-ficticios.pdf');
@@ -483,8 +483,8 @@ def test_intervalo_de_custodia_da_tela_usa_o_mesmo_total_e_periodo(_live_server:
             linha.locator('[name="fonte_fim"]').select_option(fontes[1])
             saida = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = {...buildDosimetryPayload(), data_sentenca: "2024-05-30"};
                     const res = await postJson('/api/dosimetria/simulate', payload);
                     return {payload, detra: res.dosimetria.detracao, dias: res.dosimetria.detracao_dias, texto: res.detracao_periodo};

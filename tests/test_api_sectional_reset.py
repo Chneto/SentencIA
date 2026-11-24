@@ -943,7 +943,7 @@ class TestAntiPoluicao:
 class TestStatusESessao:
     def test_health_minimo_e_status_com_bloco_session(self, client: TestClient):
         health = client.get("/api/health").json()
-        assert health == {"status": "ok", "versao": "2.1.0"}
+        assert health == {"status": "ok", "versao": __import__("app.api.security", fromlist=["ler_versao_app"]).ler_versao_app()}
 
         response = client.get("/api/status")
         assert response.status_code == 200

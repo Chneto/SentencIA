@@ -14,7 +14,7 @@ def test_sentenca_consumida_com_decisao_acessoria_da_tela(_live_server: _LocalAp
             page.goto(_live_server.base_url, wait_until="networkidle")
             fonte = page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.1.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.2.0');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([dados], {type: 'application/pdf'}), 'autos-ficticios.pdf');
@@ -41,8 +41,8 @@ def test_sentenca_consumida_com_decisao_acessoria_da_tela(_live_server: _LocalAp
             mpu.locator(f'[data-fonte-acessoria][value="{fonte}"]').check()
             envio = page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.1.0');
-                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.1.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.2.0');
+                    const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.2.0');
                     const payload = {...buildDosimetryPayload(), data_sentenca: '2024-05-30', use_ollama: false};
                     return {payload, geracao: await postJson('/api/sentence/generate', payload)};
                 }"""

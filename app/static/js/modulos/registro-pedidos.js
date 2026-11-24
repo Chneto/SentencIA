@@ -1,4 +1,4 @@
-import { escapeHtml, rotuloCrime } from "./dom.js?v=2.1.0";
+import { escapeHtml, rotuloCrime } from "./dom.js?v=2.2.0";
 
 const ROTULO_PEDIDO = {
   condenacao_total: "Condenação total",

@@ -67,11 +67,29 @@ VERSAO_APP = ler_versao_app()
 TOKEN_HEADER = "X-SentencIA-Token"
 TOKEN_HEADER_LEGADO = "X-JVDFM-Token"
 TOKEN_META_NAME = "sentencia-token"
-#: Parâmetro de query aceito SOMENTE em GET de download/stream (``<a href>``/``EventSource`` não
-#: conseguem enviar headers customizados).
+#: Parâmetro de query aceito SOMENTE nos GET/HEAD de download nativo de arquivo
+#: (``<a href>`` / navegação direta não conseguem enviar headers customizados).
+#: Rotas consumidas via ``fetch()`` (``/api/cases/upload-progress``, ``/api/jobs/*``,
+#: ``/api/export/pje``) exigem exclusivamente o header ``X-SentencIA-Token``.
 TOKEN_QUERY_PARAM = "sentencia_token"
 TOKEN_QUERY_PARAM_LEGADO = "jvdfm_token"
-PREFIXOS_TOKEN_EM_QUERY = ("/api/export/", "/api/cases/upload-progress", "/api/jobs/")
+PREFIXOS_TOKEN_EM_QUERY = ("/api/export/docx", "/api/export/pdf", "/api/export/html")
+
+#: Política de segurança de conteúdo (CSP) aplicada às respostas locais.
+#: Sem ``'unsafe-inline'`` em ``script-src``; estilos inline continuam permitidos para o editor rico.
+CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "font-src 'self' data:; "
+    "connect-src 'self'; "
+    "media-src 'self' blob:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
 
 PORTA_PADRAO = 8000
 HOSTS_LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -117,8 +135,8 @@ def _comparar(fornecido: Optional[str]) -> bool:
 def token_valido(request: Request) -> bool:
     if _comparar(request.headers.get(TOKEN_HEADER)) or _comparar(request.headers.get(TOKEN_HEADER_LEGADO)):
         return True
-    path = request.url.path
-    if request.method in ("GET", "HEAD") and path.startswith(PREFIXOS_TOKEN_EM_QUERY):
+    path = (request.url.path or "").rstrip("/") or "/"
+    if request.method in ("GET", "HEAD") and path in PREFIXOS_TOKEN_EM_QUERY:
         return _comparar(request.query_params.get(TOKEN_QUERY_PARAM)) or _comparar(
             request.query_params.get(TOKEN_QUERY_PARAM_LEGADO)
         )
@@ -224,8 +242,23 @@ def get_port(valor: Optional[str] = None) -> int:
 # ----------------------------------------------------------------------------------------------
 # Middleware
 # ----------------------------------------------------------------------------------------------
+def _aplicar_cabecalhos_seguranca(response: Response, *, sem_cache: bool) -> Response:
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+    if sem_cache:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 def _erro(status: int, detail: str, erro: str) -> JSONResponse:
-    return JSONResponse(status_code=status, content={"detail": detail, "erro": erro})
+    return _aplicar_cabecalhos_seguranca(
+        JSONResponse(status_code=status, content={"detail": detail, "erro": erro}),
+        sem_cache=True,
+    )
 
 
 async def middleware_seguranca(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -241,7 +274,8 @@ async def middleware_seguranca(request: Request, call_next: Callable[[Request], 
         return _erro(403, "Origem não permitida.", "origem_nao_permitida")
 
     path = request.url.path or ""
-    if path.startswith("/api/") or path == "/api":
+    eh_api = path.startswith("/api/") or path == "/api"
+    if eh_api:
         if (request.method.upper(), path.rstrip("/") or path) not in ROTAS_PUBLICAS:
             if not origem_permitida(request.headers.get("origin")):
                 logger.warning("Requisição recusada: Origin não permitida (%r).", request.headers.get("origin"))
@@ -255,14 +289,10 @@ async def middleware_seguranca(request: Request, call_next: Callable[[Request], 
                 )
 
     response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "no-referrer")
-    if path == "/" or path.startswith("/static/"):
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
+    return _aplicar_cabecalhos_seguranca(
+        response,
+        sem_cache=(eh_api or path == "/" or path.startswith("/static/")),
+    )
 
 
 # ----------------------------------------------------------------------------------------------

@@ -22,6 +22,12 @@ MD_PADRAO = RAIZ / "docs" / "INSTALACAO.md"
 PDF_PADRAO = RAIZ / "docs" / "INSTALACAO.pdf"
 
 
+def _versao_projeto() -> str:
+    """Versão declarada em ``pyproject.toml`` (fonte única da versão)."""
+    m = re.search(r'(?m)^version\s*=\s*"([^"]+)"', (RAIZ / "pyproject.toml").read_text(encoding="utf-8"))
+    return m.group(1) if m else ""
+
+
 def _formatar_inline(texto: str) -> str:
     s = escape(texto)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
@@ -133,7 +139,7 @@ def gerar_pdf_instalacao(origem_md: Path = MD_PADRAO, destino_pdf: Path = PDF_PA
         rightMargin=2.0 * cm,
         topMargin=2.0 * cm,
         bottomMargin=2.0 * cm,
-        title="Guia de Instalação — SentencIA 2.1.0",
+        title=f"Guia de Instalação — SentencIA {_versao_projeto()}",
         author="FChNeto",
     )
     doc.build(story)
