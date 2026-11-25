@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 import re
 
@@ -54,6 +55,9 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
             try:
                 context = browser.new_context(viewport={"width": 1366, "height": 768})
                 page = context.new_page()
+                # O selo do cabeçalho muda com a hora (pug depois das 18h, rottweiler de dia): relógio fixo
+                # torna o teste independente do fuso e do horário em que a CI roda.
+                page.clock.set_fixed_time(datetime(2026, 3, 10, 20, 0))
 
                 csp_violations = []
                 external_urls = []

@@ -40,15 +40,20 @@ def test_rascunho_restaura_so_o_caso_certo_e_marca_minuta_desatualizada(_live_se
             mpu.locator("[data-decisao-acessoria]").select_option("manter")
             mpu.locator("[data-fundamento-acessorio] textarea").fill(FUNDAMENTO)
 
-            with page.expect_request(lambda req: "/api/cases/rascunho-decisoes" in req.url and req.method == "POST"):
-                pass
-            salvo = page.evaluate(
-                """async () => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.3.0');
-                    return (await apiJson('/api/cases/rascunho-decisoes')).rascunho.extras.acessorias;
-                }"""
-            )
-            assert FUNDAMENTO in salvo["medidas_protetivas"]
+            # A gravação é agrupada (~1,5 s): espera o servidor ter o rascunho com o fundamento digitado.
+            salvo = []
+            for _ in range(30):
+                salvo = page.evaluate(
+                    """async () => {
+                        const { apiJson } = await import('/static/js/modulos/api.js?v=2.3.0');
+                        const r = (await apiJson('/api/cases/rascunho-decisoes')).rascunho;
+                        return r?.extras?.acessorias?.medidas_protetivas || [];
+                    }"""
+                )
+                if FUNDAMENTO in salvo:
+                    break
+                page.wait_for_timeout(500)
+            assert FUNDAMENTO in salvo
 
             page.reload(wait_until="networkidle")
             mpu = _abrir_editor(page)
