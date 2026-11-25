@@ -165,6 +165,8 @@ EXTENSOES_TEXTO = {
     ".bat", ".cmd", ".vbs", ".ps1", ".plist", ".cfg", ".ini", ".yml", ".yaml", ".lock", ".gitignore",
 }
 BOM_UTF8 = b"\xef\xbb\xbf"
+# .ps1 executados por "irm ... | iex": o PowerShell 5.1 não honra o BOM no texto baixado (ASCII puro, sem BOM).
+PS1_SEM_BOM = {"instalador/instalar.ps1"}
 
 # Caminhos absolutos de perfil de usuário (vazamento de nome/estrutura da máquina do autor).
 _RE_CAMINHO_PESSOAL = re.compile(
@@ -347,7 +349,9 @@ def conteudo_normalizado(item: ItemPacote) -> bytes:
         return dados.replace(b"\r\n", b"\n")
     if sufixo in EXTENSOES_CRLF:
         dados = dados.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-        if sufixo == ".ps1" and not dados.startswith(BOM_UTF8):
+        if item.relativo in PS1_SEM_BOM:
+            dados = dados[len(BOM_UTF8):] if dados.startswith(BOM_UTF8) else dados
+        elif sufixo == ".ps1" and not dados.startswith(BOM_UTF8):
             dados = BOM_UTF8 + dados
         return dados
     return dados

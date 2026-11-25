@@ -581,3 +581,16 @@ def test_versao_unica_consistente_no_repositorio():
     incluidos = {i.relativo for i in plano.itens}
     assert "docs/GUIA_DO_USUARIO.md" in incluidos
     assert not [a for a in plano.alertas if a.startswith(("PROIBIDO", "ESSENCIAL"))]
+
+def test_build_release_instalar_ps1_sem_bom_e_bootstrap_com_bom(tmp_path):
+    """instalar.ps1 é baixado e executado por irm | iex (sem honrar BOM); os demais .ps1 rodam como arquivo."""
+    for rel, conteudo, com_bom in (
+        ("instalador/instalar.ps1", b"<#\nAjuda\n#>\nWrite-Host oi\n", False),
+        ("instalador/bootstrap.ps1", "Write-Host 'Instalação'\n".encode("utf-8"), True),
+    ):
+        origem = tmp_path / rel.replace("/", "_")
+        origem.write_bytes(conteudo)
+        item = build_release.ItemPacote(relativo=rel, origem=origem, executavel=False, tamanho=len(conteudo))
+        dados = build_release.conteudo_normalizado(item)
+        assert dados.startswith(b"\xef\xbb\xbf") is com_bom, rel
+        assert b"\n" not in dados.replace(b"\r\n", b""), rel

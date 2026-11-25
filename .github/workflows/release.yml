@@ -126,13 +126,20 @@ jobs:
           New-Item -ItemType Directory -Force -Path $destData | Out-Null
 
           if (Test-Path "dist/instalar.ps1") {
-            & powershell -NoProfile -ExecutionPolicy Bypass -File "dist/instalar.ps1" `
-              -PacoteLocal $zipFile.FullName `
-              -Sha256Local (Resolve-Path "dist/SHA256SUMS.txt").Path `
-              -Destino $destRoot `
-              -Dados $destData `
-              -SemPerguntas `
-              -SemIniciar
+            # Mesmo caminho do "irm .../instalar.ps1 | iex": Windows PowerShell 5.1 lê o asset baixado como
+            # texto (sem honrar BOM) e executa como scriptblock. "-File" escondia a falha da 2.3.1.
+            $env:SENTENCIA_CI_PS1 = (Resolve-Path "dist/instalar.ps1").Path
+            $env:SENTENCIA_CI_ZIP = $zipFile.FullName
+            $env:SENTENCIA_CI_SHA = (Resolve-Path "dist/SHA256SUMS.txt").Path
+            $env:SENTENCIA_CI_DEST = $destRoot
+            $env:SENTENCIA_CI_DADOS = $destData
+            & powershell -NoProfile -ExecutionPolicy Bypass -Command @'
+          $ErrorActionPreference = "Stop"
+          $s = [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($env:SENTENCIA_CI_PS1))
+          & ([scriptblock]::Create($s)) -PacoteLocal $env:SENTENCIA_CI_ZIP -Sha256Local $env:SENTENCIA_CI_SHA `
+            -Destino $env:SENTENCIA_CI_DEST -Dados $env:SENTENCIA_CI_DADOS -SemPerguntas -SemIniciar
+          '@
+            if ($LASTEXITCODE -ne 0) { throw "Instalador no modo irm | iex falhou (código $LASTEXITCODE)." }
             $appDir = $destRoot
           } else {
             Expand-Archive -Path $zipFile.FullName -DestinationPath $destRoot -Force

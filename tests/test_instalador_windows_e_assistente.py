@@ -29,10 +29,39 @@ def _powershell_exe() -> Path | None:
     return ps if ps.is_file() else None
 
 
+def test_instalar_ps1_ascii_sem_bom_para_irm_iex():
+    """``irm .../instalar.ps1 | iex``: o PowerShell 5.1 decodifica o asset baixado sem honrar o BOM.
+
+    Os bytes EF BB BF viravam "ï»¿" colados ao ``<#`` e o bloco de comentário era lido como código
+    (falha relatada na 2.3.1). O instalador da linha única precisa ser ASCII puro, sem BOM.
+    """
+    dados = (RAIZ / "instalador/instalar.ps1").read_bytes()
+    assert not dados.startswith(b"\xef\xbb\xbf"), "instalar.ps1 não pode ter BOM (quebra irm | iex)"
+    dados.decode("ascii")  # mesma leitura com qualquer codificação que o irm escolha
+    assert b"\n" not in dados.replace(b"\r\n", b""), "instalar.ps1 precisa de CRLF"
+
+
+def test_instalar_ps1_analisa_sem_erros_como_texto_baixado():
+    """Simula o ``iex``: analisa o texto (decodificado como o irm faz com application/octet-stream)."""
+    ps = _powershell_exe()
+    if ps is None:
+        pytest.skip("Windows PowerShell indisponível")
+    env = dict(os.environ, SENTENCIA_PS1_ALVO=str(RAIZ / "instalador/instalar.ps1"))
+    cmd = (
+        "$s=[Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes($env:SENTENCIA_PS1_ALVO));"
+        "$t=$null; $e=$null; [void][System.Management.Automation.Language.Parser]::ParseInput($s, [ref]$t, [ref]$e);"
+        "$e.Count"
+    )
+    r = subprocess.run([str(ps), "-NoProfile", "-NonInteractive", "-Command", cmd], env=env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip().splitlines()[-1] == "0", f"instalar.ps1 não analisa como texto baixado: {r.stdout}"
+
+
 @pytest.mark.parametrize("rel", ["instalador/instalar.ps1", "instalador/desinstalar.ps1"])
 def test_scripts_ps1_bom_crlf_e_sintaxe(rel: str):
     dados = (RAIZ / rel).read_bytes()
-    assert dados.startswith(b"\xef\xbb\xbf"), f"{rel} precisa de BOM UTF-8 (PowerShell 5.1)"
+    if rel.endswith("desinstalar.ps1"):
+        assert dados.startswith(b"\xef\xbb\xbf"), f"{rel} precisa de BOM UTF-8 (PowerShell 5.1)"
     assert b"\n" not in dados.replace(b"\r\n", b""), f"{rel} precisa de CRLF"
 
     ps = _powershell_exe()

@@ -133,6 +133,10 @@ def test_publicacao_listar_e_exportar_em_pasta_temporaria(tmp_path: Path, capsys
     assert b"\r\n" not in sh_bytes
     ps1_bytes = (destino / "instalador" / "bootstrap.ps1").read_bytes()
     assert ps1_bytes.startswith(b"\xef\xbb\xbf") and b"\r\n" in ps1_bytes
+    # O instalador da linha única (irm | iex) sai sem BOM: o PowerShell 5.1 não o honra no texto baixado.
+    instalar = (destino / "instalador" / "instalar.ps1").read_bytes()
+    assert not instalar.startswith(b"\xef\xbb\xbf") and b"\r\n" in instalar
+    instalar.decode("ascii")
 
 
 def test_verificador_sigilo_acusa_nomes_cpf_cnj_segredos_plantados_sem_vazar_texto(tmp_path: Path, capsys):

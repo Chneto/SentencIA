@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Instalador do SentencIA para Windows (sem certificado, sem administrador).
 .DESCRIPTION

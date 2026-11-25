@@ -146,6 +146,9 @@ EXECUTAVEIS_UNIX: Set[str] = {
 EXTENSOES_LF: Set[str] = {".sh", ".command"}
 EXTENSOES_CRLF: Set[str] = {".bat", ".cmd", ".vbs", ".ps1"}
 BOM_UTF8 = b"\xef\xbb\xbf"
+#: .ps1 executados por ``irm ... | iex``: o PowerShell 5.1 não honra o BOM no texto baixado e o leria como
+#: caracteres soltos antes do ``<#``. Ficam sem BOM (são ASCII puro).
+PS1_SEM_BOM: Set[str] = {"instalador/instalar.ps1"}
 ACERVO_REL = "data/knowledge_base/acervo_completo.json"
 
 
@@ -246,7 +249,7 @@ def _normalizar_conteudo(caminho_origem: Path, rel_posix: str) -> bytes:
     if ext in EXTENSOES_LF or eh_exec_unix:
         return texto_lf.encode("utf-8")
     texto_crlf = texto_lf.replace("\n", "\r\n")
-    if ext == ".ps1":
+    if ext == ".ps1" and rel_posix not in PS1_SEM_BOM:
         return BOM_UTF8 + texto_crlf.encode("utf-8")
     return texto_crlf.encode("utf-8")
 
