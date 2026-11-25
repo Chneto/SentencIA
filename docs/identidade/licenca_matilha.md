@@ -1,7 +1,12 @@
 # Licença e Procedência das Ilustrações — Tema "Matilha"
 
-As ilustrações presentes em `app/static/img/matilha/*.webp` (personagens **Pug** e **Rottweiler** em poses originais, além das cenas de estado vazio nos modos claro e escuro) foram geradas de forma original exclusivamente para o projeto **SentencIA** (TASK-099), sem uso de personagens protegidos, marcas comerciais ou fotografias de terceiros.
+Desde a versão Matilha 2.0 (TASK-103), o **Pug** e o **Rottweiler** são desenhos vetoriais (SVG) escritos em código,
+originais e exclusivos do projeto **SentencIA**: `app/static/js/modulos/matilha-caes-svg.js` (formas) e
+`app/static/css/temas/matilha-caes.css` (cores das variantes e animações). Não há personagens protegidos, marcas
+comerciais nem fotografias de terceiros. Os únicos arquivos de imagem do tema são os fundos
+`app/static/img/matilha/pattern-matilha-*.webp`, também originais (TASK-099).
 
-- **Direitos e uso:** distribuídas sob a mesma licença do repositório SentencIA (`LICENSE` na raiz do projeto).
-- **Privacidade e CSP:** todos os arquivos são servidos localmente em `/static/img/matilha/`; nenhuma imagem é carregada de servidores externos.
-- **Uso restrito à interface:** as ilustrações são estritamente decorativas (`aria-hidden="true"`) e jamais entram na folha da sentença, no editor ou nos arquivos exportados (DOCX, PDF, HTML, PJe).
+- **Direitos e uso:** distribuídos sob a mesma licença do repositório SentencIA (`LICENSE` na raiz do projeto).
+- **Privacidade e CSP:** tudo é servido localmente; nenhum desenho, fonte ou imagem é carregado de servidores externos.
+- **Uso restrito à interface:** os cães são decorativos (`aria-hidden="true"`) e jamais entram na folha da sentença, no
+  editor ou nos arquivos exportados (DOCX, PDF, HTML, PJe).

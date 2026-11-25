@@ -1,6 +1,6 @@
 // SentencIA — Módulo ES: api.js (TASK-015)
-import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.4.0";
-import { $, showToast, sleep } from "./dom.js?v=2.4.0";
+import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.5.0";
+import { $, showToast, sleep } from "./dom.js?v=2.5.0";
 
 function lerTokenSessao() {
   const el = document.querySelector('meta[name="sentencia-token"]');

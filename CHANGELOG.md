@@ -3,6 +3,22 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.5.0] — 2026-11-25
+
+Matilha 2.0: os cães do tema ganham vida pela tela inteira.
+
+- **Cães vetoriais animados:** o pug e o rottweiler agora são desenhos vetoriais com 16 poses (andar, correr, sentar,
+  deitar, dormir, beber, comer, pular, farejar, latir...) e substituem todas as ilustrações do tema.
+- **Pela tela inteira:** seguem o mouse; enquanto você digita, sentam no canto e esperam; bebem, comem, fazem cocô
+  (um clique limpa) e dormem juntinhos quando o mouse fica parado. O pug é curioso e meio desastrado; o rottweiler,
+  sério e protetor. De vez em quando, um persegue o outro.
+- **Brincadeiras:** duplo clique em área vazia joga a bolinha e eles vão buscá-la; clique no cão faz carinho; dá para
+  arrastá-lo e soltá-lo em outro lugar. Com o mouse em cima, o cão para e olha para você.
+- **Reagem ao programa:** comemoram a auditoria 100% aprovada e o sucesso; o rottweiler late em caso de erro.
+- Sempre animados, mesmo com "reduzir movimento" do Windows; não atrapalham cliques nos botões, não saem na impressão
+  e podem ser desligados em Configurações › Aparência ("Mascotes").
+- Ferramenta interna para subir a versão só nos pontos conhecidos, e testes sem tempos fixos de espera.
+
 ## [2.4.0] — 2026-11-25
 
 Mascotes do tema Matilha e instalador de uma linha corrigido.

@@ -1,4 +1,4 @@
-# SentencIA 2.4.0
+# SentencIA 2.5.0
 
 ![SentencIA — A inteligência que auxilia. A decisão que é sua.](docs/identidade/banner.png)
 
@@ -30,7 +30,7 @@ cópia/HTML para o PJe.
   curl -fsSL https://github.com/Chneto/SentencIA/releases/latest/download/instalar-mac.sh | bash
   ```
 
-Também disponível como instalador gráfico **`SentencIA-Setup-2.4.0.exe`** e pacote portátil **`.zip`** em [Releases](https://github.com/Chneto/SentencIA/releases).
+Também disponível como instalador gráfico **`SentencIA-Setup-2.5.0.exe`** e pacote portátil **`.zip`** em [Releases](https://github.com/Chneto/SentencIA/releases).
 Consulte o **[Guia Completo de Instalação](docs/INSTALACAO.md)** ([versão em PDF](docs/INSTALACAO.pdf)) e o **[Guia do Usuário](docs/GUIA_DO_USUARIO.md)**.
 
 ---
@@ -58,7 +58,7 @@ transcrição roda no processador.
 
 ### Windows
 
-1. Extraia o arquivo `SentencIA-v2.4.0.zip` (botão direito → **Extrair Tudo...**).
+1. Extraia o arquivo `SentencIA-v2.5.0.zip` (botão direito → **Extrair Tudo...**).
    Prefira uma pasta **fora do OneDrive**, por exemplo `C:\SentencIA` ou `Documentos`: os autos
    são sigilosos e não devem ser sincronizados com a nuvem. O iniciador avisa se a pasta estiver no
    OneDrive.
@@ -89,7 +89,7 @@ janela quando a instalação já existe.
    - Alternativa pelo Terminal (remove a quarentena da pasta inteira de uma só vez):
 
      ```bash
-     xattr -dr com.apple.quarantine ~/Documents/SentencIA-v2.4.0
+     xattr -dr com.apple.quarantine ~/Documents/SentencIA-v2.5.0
      ```
 3. O Terminal abre e mostra as etapas (iguais às do Windows). No Mac o Ollama é instalado pelo
    Homebrew, se você o tiver; caso contrário, o iniciador abre a página oficial de download.
@@ -183,8 +183,9 @@ esquerdo que concentra temas, jurisprudência, pré-análise em lote, configura�
   Tudo isso entra no rascunho do caso e a reauditoria aponta comandos contraditórios em qualquer seção da minuta.
 - **Leitura dos autos mais fiel:** o OCR não substitui texto nativo legível e as peças sem espécie reconhecida
   continuam no índice como "não identificada".
-- **Tema Matilha:** o pug e o rottweiler acompanham o trabalho (estados vazios, auditoria, avisos) e, na 2.4, passeiam
-  no rodapé da tela: seguem o mouse, bebem água, comem, fazem cocô no canto (um clique limpa) e dormem. Há
+- **Tema Matilha:** o pug e o rottweiler acompanham o trabalho (estados vazios, auditoria, avisos) e, na 2.5, viram
+  desenhos animados pela tela inteira: seguem o mouse, bebem, comem, fazem cocô (um clique limpa), dormem juntinhos,
+  buscam a bolinha (duplo clique em área vazia) e podem ser arrastados. Há
   variantes à escolha e easter eggs. Sons desligados por padrão; a folha da sentença e as exportações
   continuam formais em qualquer tema.
 

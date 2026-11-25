@@ -1,16 +1,16 @@
-// SentencIA — Módulo ES sob demanda: tema-matilha.js — Fase B2 (TASK-099)
+// SentencIA — Módulo ES sob demanda: tema-matilha.js — Matilha 2.0 (TASK-099, TASK-103: cães vetoriais)
 // Carregado exclusivamente quando data-design="matilha". Zero recursos externos; CSP-safe.
-import { postJson } from "./api.js?v=2.4.0";
-import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.4.0";
-import { state } from "./estado.js?v=2.4.0";
-import { acaoMascote, iniciarMascotes, pararMascotes } from "./matilha-mascotes.js?v=2.4.0";
+import { postJson } from "./api.js?v=2.5.0";
+import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.5.0";
+import { state } from "./estado.js?v=2.5.0";
+import { criarCao } from "./matilha-caes-svg.js?v=2.5.0";
+import { acaoMascote, iniciarMascotes, pararMascotes, reagirMascotes } from "./matilha-mascotes.js?v=2.5.0";
 
 const KEY_EASTER_EGGS = "sentencia_matilha_easter_eggs";
 const KEY_SONS = "sentencia_matilha_sons";
 const KEY_PUG = "sentencia_matilha_pug";
 const KEY_ROTT = "sentencia_matilha_rott";
 const KEY_MASCOTES = "sentencia_matilha_mascotes";
-const IMG_BASE = "/static/img/matilha";
 const KONAMI_SEQ = [
   "arrowup", "arrowup", "arrowdown", "arrowdown",
   "arrowleft", "arrowright", "arrowleft", "arrowright",
@@ -25,6 +25,8 @@ let _konamiBuf = [];
 let _overlayAtual = null;
 let _overlayTimer = null;
 let _idleTimer = null;
+let _auditoriaAprovada = false;
+const _caesEstaticos = new Set();
 
 function _reducedMotion() {
   return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -44,7 +46,7 @@ function _sincronizarMascotes() {
     return;
   }
   iniciarMascotes({
-    imgPug: _imgPug, imgRott: _imgRott, reducedMotion: _reducedMotion(), sons: _sonsAtivos, tocarSom: _tocarSom,
+    variantes: obterVariantesMatilha, sons: _sonsAtivos, tocarSom: _tocarSom,
     aoLimpar: () => showToast("Obrigado por limpar! O gabinete agradece.", "success"),
   });
 }
@@ -63,14 +65,13 @@ export function obterVariantesMatilha() {
   };
 }
 
-function _imgPug(pose) {
-  const { pug } = obterVariantesMatilha();
-  return pug === "branco_bege" ? `pug-branco-${pose}.webp` : `pug-${pose}.webp`;
-}
-
-function _imgRott(pose) {
-  const { rott } = obterVariantesMatilha();
-  return rott === "atletico_feliz" ? `rott-feliz-${pose}.webp` : `rott-${pose}.webp`;
+// Cão vetorial parado numa pose (selos, estado vazio, auditoria, easter eggs), na variante escolhida.
+function _cao(tipo, pose, tamanho = 36) {
+  const api = criarCao(tipo, obterVariantesMatilha()[tipo], { tamanho });
+  api.definirPose(pose);
+  api.el.classList.add("matilha-cao-estatico");
+  _caesEstaticos.add(api);
+  return api.el;
 }
 
 // Gravações agrupadas e em série: duas trocas seguidas (pug e rottweiler) não podem chegar fora de ordem ao
@@ -150,55 +151,27 @@ function _mostrarOverlay(conteudoBuilder, duracaoMs = 2400) {
   _overlayTimer = setTimeout(_fecharOverlay, duracaoMs);
 }
 
-function _imgDecorativa(arquivo, { idle = false } = {}) {
-  const img = document.createElement("img");
-  img.src = `${IMG_BASE}/${arquivo}`;
-  img.alt = "";
-  img.loading = "lazy";
-  img.decoding = "async";
-  img.setAttribute("aria-hidden", "true");
-  if (idle && !_reducedMotion() && _easterEggsAtivos()) img.classList.add("matilha-idle-alive");
-  return img;
-}
-
-function _spriteCorrendo(tipo) {
-  const el = document.createElement("span");
-  el.className = `matilha-sprite matilha-sprite-${tipo}`;
-  el.setAttribute("aria-hidden", "true");
-  return el;
-}
-
-// Encadeia troca de poses com transição suave (ex.: sentado -> carimbando -> feliz)
-function _encadearPoses(imgEl, sequenciaArquivos, intervaloMs = 520) {
-  if (!imgEl || !sequenciaArquivos.length) return;
-  let passo = 0;
-  const aplicar = () => {
-    if (!_ativo || !imgEl.isConnected) return;
-    imgEl.src = `${IMG_BASE}/${sequenciaArquivos[passo]}`;
-    imgEl.classList.remove("matilha-pose-swap");
-    void imgEl.offsetWidth;
-    imgEl.classList.add("matilha-pose-swap");
-    passo += 1;
-    if (passo < sequenciaArquivos.length && !_reducedMotion()) {
-      setTimeout(aplicar, intervaloMs);
-    }
-  };
-  aplicar();
-}
-
-// Idle vivo: piscar aleatório a cada 3,5–6,5 s nos mascotes visíveis
+// Idle vivo: os cães dos selos piscam a cada 3,5–6,5 s.
 function _agendarPiscarIdle() {
   if (_idleTimer !== null) clearTimeout(_idleTimer);
-  if (!_ativo || _reducedMotion() || !_easterEggsAtivos()) return;
+  if (!_ativo || !_easterEggsAtivos()) return;
   const espera = 3500 + Math.floor(Math.random() * 3000);
   _idleTimer = setTimeout(() => {
     if (!_ativo) return;
-    document.querySelectorAll(".matilha-idle-alive").forEach((el) => {
-      el.classList.add("matilha-blink");
-      setTimeout(() => el.classList.remove("matilha-blink"), 240);
+    _caesEstaticos.forEach((api) => {
+      if (api.el.isConnected) api.piscar();
+      else _caesEstaticos.delete(api);
     });
     _agendarPiscarIdle();
   }, espera);
+}
+
+function _corredores(root, egg) {
+  const runner = document.createElement("div");
+  runner.className = "matilha-zoomies-runner";
+  runner.dataset.matilhaEgg = egg;
+  runner.append(_cao("pug", "correndo", 56), _cao("rott", "correndo", 56));
+  root.appendChild(runner);
 }
 
 // Easter egg #1: 3 cliques na logo -> pug inclina cabeça; 7 cliques -> zoomies com sprite sheet (2,2s)
@@ -214,9 +187,7 @@ function _acionarLogoClick() {
       const b = document.createElement("div");
       b.className = "matilha-fx-banner";
       b.dataset.matilhaEgg = "logo-3";
-      const img = _imgDecorativa(_imgPug("feliz"));
-      b.appendChild(img);
-      _encadearPoses(img, [_imgPug("feliz"), _imgPug("ouvindo")], 380);
+      b.appendChild(_cao("pug", "atento", 44));
       const txt = document.createElement("span");
       txt.textContent = "O pug inclinou a cabeça curioso com o seu clique!";
       b.appendChild(txt);
@@ -226,18 +197,11 @@ function _acionarLogoClick() {
     _logoClicks = 0;
     _tocarSom("bark");
     _mostrarOverlay((root) => {
-      if (!_reducedMotion()) {
-        const runner = document.createElement("div");
-        runner.className = "matilha-zoomies-runner";
-        runner.dataset.matilhaEgg = "logo-7-zoomies";
-        runner.appendChild(_spriteCorrendo("pug"));
-        runner.appendChild(_spriteCorrendo("rott"));
-        root.appendChild(runner);
-      }
+      _corredores(root, "logo-7-zoomies");
       const b = document.createElement("div");
       b.className = "matilha-fx-banner";
       b.dataset.matilhaEgg = "logo-7";
-      b.appendChild(_imgDecorativa(_imgPug("zoomies")));
+      b.appendChild(_cao("pug", "feliz", 44));
       const txt = document.createElement("span");
       txt.textContent = "Zoomies no gabinete! (Esc ou clique para dispensar)";
       b.appendChild(txt);
@@ -251,13 +215,8 @@ function _acionarKonami() {
   if (!_easterEggsAtivos()) return;
   _tocarSom("bark");
   _mostrarOverlay((root) => {
-    if (!_reducedMotion()) {
-      const runner = document.createElement("div");
-      runner.className = "matilha-zoomies-runner";
-      runner.dataset.matilhaEgg = "konami-desfile";
-      runner.appendChild(_spriteCorrendo("pug"));
-      runner.appendChild(_spriteCorrendo("rott"));
-      root.appendChild(runner);
+    _corredores(root, "konami-desfile");
+    {
       for (let i = 0; i < 6; i += 1) {
         const drop = document.createElement("span");
         drop.className = "matilha-treat-drop";
@@ -270,7 +229,7 @@ function _acionarKonami() {
     const b = document.createElement("div");
     b.className = "matilha-fx-banner";
     b.dataset.matilhaEgg = "konami";
-    b.appendChild(_imgDecorativa(_imgRott("zoomies")));
+    b.appendChild(_cao("rott", "feliz", 44));
     const txt = document.createElement("span");
     txt.textContent = "Desfile da Matilha! Petiscos liberados para a dupla.";
     b.appendChild(txt);
@@ -283,9 +242,9 @@ export function acionarSegredoPaleta(chave) {
   if (!_ativo || !_easterEggsAtivos()) return;
   _tocarSom(chave === "petisco" ? "squeak" : "bark");
   const mensagens = {
-    au_au: { img: _imgPug("feliz"), txt: "Au au! O Pug e o Rottweiler estão prontos para o expediente." },
-    petisco: { img: _imgRott("zoomies"), txt: "Petisco entregue! A dupla agradece abanando o rabo." },
-    bom_garoto: { img: _imgPug("feliz"), txt: "Os dois abanam o rabo felizes — melhores estagiários do gabinete!" },
+    au_au: { cao: ["pug", "latindo"], txt: "Au au! O Pug e o Rottweiler estão prontos para o expediente." },
+    petisco: { cao: ["rott", "comendo"], txt: "Petisco entregue! A dupla agradece abanando o rabo." },
+    bom_garoto: { cao: ["pug", "feliz"], txt: "Os dois abanam o rabo felizes — melhores estagiários do gabinete!" },
   };
   const info = mensagens[chave] || mensagens.au_au;
   // Os mascotes do rodapé reagem ao segredo: petisco → vão comer; bom garoto → abanam o rabo.
@@ -295,8 +254,8 @@ export function acionarSegredoPaleta(chave) {
     const b = document.createElement("div");
     b.className = "matilha-fx-banner";
     b.dataset.matilhaEgg = `paleta-${chave}`;
-    b.appendChild(_imgDecorativa(info.img));
-    if (chave === "bom_garoto") b.appendChild(_imgDecorativa(_imgRott("carimbando")));
+    b.appendChild(_cao(info.cao[0], info.cao[1], 44));
+    if (chave === "bom_garoto") b.appendChild(_cao("rott", "feliz", 44));
     const txt = document.createElement("span");
     txt.textContent = info.txt;
     b.appendChild(txt);
@@ -321,16 +280,16 @@ function _sincronizarSeloCabecalho() {
   const apos18h = agora.getHours() >= 18;
   badge.innerHTML = "";
   if (escuro) {
-    badge.appendChild(_imgDecorativa(_imgPug("dormindo"), { idle: true }));
+    badge.appendChild(_cao("pug", "dormindo"));
     badge.appendChild(document.createTextNode("A Matilha Dorme"));
   } else if (diaDog) {
-    badge.appendChild(_imgDecorativa(_imgPug("feliz"), { idle: true }));
+    badge.appendChild(_cao("pug", "feliz"));
     badge.appendChild(document.createTextNode("Dia do Cão 🎉"));
   } else if (apos18h) {
-    badge.appendChild(_imgDecorativa(_imgPug("bocejando"), { idle: true }));
+    badge.appendChild(_cao("pug", "deitado"));
     badge.appendChild(document.createTextNode("Expediente noturno"));
   } else {
-    badge.appendChild(_imgDecorativa(_imgRott("guardiao"), { idle: true }));
+    badge.appendChild(_cao("rott", "sentado"));
     badge.appendChild(document.createTextNode("Matilha de guarda"));
   }
 }
@@ -351,11 +310,13 @@ function _sincronizarEstadoVazio() {
     dropzone.after(card);
   }
   const escuro = document.documentElement.getAttribute("data-theme") === "dark";
-  const { pug } = obterVariantesMatilha();
   card.hidden = false;
   card.innerHTML = "";
-  const arq = escuro ? "caminha-noite.webp" : (pug === "branco_bege" ? "pug-branco-dormindo.webp" : "caminha-claro.webp");
-  card.appendChild(_imgDecorativa(arq, { idle: true }));
+  const caminha = document.createElement("span");
+  caminha.className = "matilha-caminha";
+  caminha.setAttribute("aria-hidden", "true");
+  caminha.appendChild(_cao("pug", "dormindo", 56));
+  card.appendChild(caminha);
   const p = document.createElement("p");
   p.textContent = escuro
     ? "Nenhum processo carregado… a matilha tirou uma soneca."
@@ -382,12 +343,10 @@ function _sincronizarAuditoria() {
   const aprovado = Number(audit.score_confiabilidade ?? 0) >= 100 && audit.aprovado !== false;
   badge.hidden = false;
   badge.innerHTML = "";
-  const img = _imgDecorativa(_imgRott(aprovado ? "sentado" : "atento"), { idle: true });
-  badge.appendChild(img);
-  if (aprovado) {
-    // Transição encadeada: sentado -> carimbando -> guardião feliz
-    _encadearPoses(img, [_imgRott("sentado"), _imgRott("carimbando")], 450);
-  }
+  badge.appendChild(_cao("rott", aprovado ? "feliz" : "atento", 44));
+  // Os mascotes comemoram quando a auditoria passa a aprovar a minuta.
+  if (aprovado && !_auditoriaAprovada) reagirMascotes("auditoria_aprovada");
+  _auditoriaAprovada = aprovado;
   const txt = document.createElement("span");
   txt.textContent = aprovado
     ? "Rottweiler carimbou: auditoria 100% aprovada."
@@ -412,6 +371,7 @@ function _sincronizarConfiguracoes() {
 }
 
 function _reaplicarVisual() {
+  _caesEstaticos.forEach((api) => { if (!api.el.isConnected) _caesEstaticos.delete(api); });
   _sincronizarSeloCabecalho();
   _sincronizarMascotes();
   _sincronizarEstadoVazio();
@@ -439,7 +399,8 @@ export function ativarTemaMatilha() {
       return;
     }
     const alvo = e.target;
-    if (alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.isContentEditable)) return;
+    if (alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT"
+      || alvo.isContentEditable)) return;
     _konamiBuf.push(String(e.key || "").toLowerCase());
     if (_konamiBuf.length > KONAMI_SEQ.length) _konamiBuf.shift();
     if (_konamiBuf.length === KONAMI_SEQ.length && KONAMI_SEQ.every((k, i) => _konamiBuf[i] === k)) {
@@ -449,6 +410,16 @@ export function ativarTemaMatilha() {
   };
   document.addEventListener("keydown", onKeyDown);
   _cleanups.push(() => document.removeEventListener("keydown", onKeyDown));
+
+  // A estação de sentença avisa quando chega auditoria nova (o selo e a reação dos cães dependem dela).
+  const onAuditoria = () => { if (_ativo) _sincronizarAuditoria(); };
+  document.addEventListener("sentencia:auditoria", onAuditoria);
+  _cleanups.push(() => document.removeEventListener("sentencia:auditoria", onAuditoria));
+
+  const onGerar = () => reagirMascotes("gerando");
+  const btnGerar = $("btnGenerateSentence");
+  btnGerar?.addEventListener("click", onGerar);
+  _cleanups.push(() => btnGerar?.removeEventListener("click", onGerar));
 
   const dropzone = document.querySelector("#dropZoneAutos, .dropzone");
   if (dropzone) {
@@ -524,10 +495,15 @@ export function desativarTemaMatilha() {
     clearTimeout(_idleTimer);
     _idleTimer = null;
   }
+  clearTimeout(_logoTimer);
+  _logoTimer = null;
+  _logoClicks = 0;
   _fecharOverlay();
   pararMascotes();
   _cleanups.forEach((fn) => fn());
   _cleanups = [];
+  _caesEstaticos.clear();
+  _auditoriaAprovada = false;
   $("matilhaRibbonBadge")?.remove();
   $("matilhaEmptyCard")?.remove();
   $("matilhaAuditBadge")?.remove();

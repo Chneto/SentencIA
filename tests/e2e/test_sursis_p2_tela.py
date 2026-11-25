@@ -14,7 +14,7 @@ def test_sursis_p2_e_excecao_44_p3_na_tela(_live_server: _LocalAppServer, tmp_pa
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.4.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.5.0');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([dados], {type: 'application/pdf'}), 'autos-ficticios.pdf');
@@ -34,7 +34,7 @@ def test_sursis_p2_e_excecao_44_p3_na_tela(_live_server: _LocalAppServer, tmp_pa
             sursis.locator("[data-hipotese-art77-p2]").select_option("maior_70")
             sursis.locator("[data-condicoes-acessorias]").fill("Condição fictícia.")
             validar = """async () => {
-                const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.4.0');
+                const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.5.0');
                 return {res: m.validarDecisoesAcessorias(), dados: m.dadosAcessorias()};
             }"""
             sursis.locator("[data-prazo-acessorio]").fill("3")

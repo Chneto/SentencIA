@@ -1,8 +1,8 @@
-# Guia do Usuário — SentencIA 2.4.0
+# Guia do Usuário — SentencIA 2.5.0
 
 > **A inteligência que auxilia. A decisão que é sua.**
 >
-> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA 2.4.0** no dia a dia:
+> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA 2.5.0** no dia a dia:
 > das 4 estações de trabalho à cópia segura para o PJe, passando por temas, pré-análise em lote,
 > jurisprudência do gabinete e privacidade.
 
@@ -141,13 +141,16 @@ No **menu do logo**, escolha o desenho que melhor se adapta à sua tela e à sua
 - **Matilha:** o pug (assistente) e o rottweiler (guardião) acompanham carregamentos, estados vazios,
   auditoria e avisos, com fundo pastel e easter eggs. Em **Configurações › Aparência** escolha as variantes
   (pug abricó ou branco e bege; rottweiler clássico ou atlético e feliz), ligue ou desligue os easter eggs
-  e os sons (desligados por padrão). Com "reduzir movimento" do sistema, as animações param. A folha da
+  e os sons (desligados por padrão). Os mascotes continuam animados mesmo com "reduzir movimento" do sistema. A folha da
   sentença, o editor e as exportações continuam inteiramente formais.
-  - **Mascotes no rodapé:** os dois cães passeiam na parte de baixo da tela. Seguem o mouse, vão beber água e
-    comer nos potes do canto esquerdo, de vez em quando deixam um 💩 no canto direito (clique nele para limpar) e
-    dormem se o mouse ficar parado (acordam quando você o mexe). Mouse perto ou clique em cima: eles abanam o rabo;
-    na paleta (`Ctrl+K`), "petisco" faz os dois comerem. Os cliques passam através deles, sem atrapalhar os botões.
-    Desligue em **Configurações › Aparência › Mascotes no rodapé**.
+  - **Mascotes:** o pug (curioso e atrapalhado) e o rottweiler (sério e protetor) andam pela tela atrás do mouse.
+    A cada poucos minutos vão beber água e comer nos potes do canto inferior esquerdo e deixam um 💩 no canto
+    direito (clique nele para limpar). Com o mouse parado, deitam e dormem juntinhos; ao mexê-lo, acordam. Enquanto
+    você digita (na folha ou em qualquer campo), sentam no canto e esperam. **Duplo clique numa área vazia** joga
+    uma bolinha: eles correm, pegam e trazem até o mouse. **Clique no cão** para fazer carinho; **clique e arraste**
+    para carregá-lo. De vez em quando um persegue o outro, e eles reagem ao programa (comemoram a auditoria
+    aprovada, latem com erros, correm quando a minuta é gerada). Fora do desenho dos cães, os cliques passam para os
+    botões. Desligue em **Configurações › Aparência › Mascotes**.
 
 Todos os 5 temas possuem **modo claro e escuro** e usam fontes hospedadas localmente (sem carregar
 fontes da internet).

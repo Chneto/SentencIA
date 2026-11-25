@@ -17,7 +17,7 @@ def test_hover_em_botao_primario_nao_altera_largura_nem_cabecalho(_live_server: 
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async () => {
-                    const { applyDesign } = await import('/static/js/modulos/temas.js?v=2.4.0');
+                    const { applyDesign } = await import('/static/js/modulos/temas.js?v=2.5.0');
                     applyDesign('matilha', { persist: false });
                 }"""
             )

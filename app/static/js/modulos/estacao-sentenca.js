@@ -1,12 +1,12 @@
 // SentencIA — Módulo ES: estacao-sentenca.js (TASK-015)
-import { hooks, state } from "./estado.js?v=2.4.0";
-import { $, closeModal, escapeHtml, listarMarcadores, openModal, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.4.0";
-import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError, lerJson, postJson } from "./api.js?v=2.4.0";
-import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.4.0";
-import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.4.0";
-import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.4.0";
-import { marcarMinutaGerada, renderDecisoesAcessorias } from "./registro-decisoes-acessorias.js?v=2.4.0";
-import { ROTULOS_FONTE, renderSectionalTelemetry } from "./telemetria-sentenca.js?v=2.4.0";
+import { hooks, state } from "./estado.js?v=2.5.0";
+import { $, closeModal, escapeHtml, listarMarcadores, openModal, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.5.0";
+import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError, lerJson, postJson } from "./api.js?v=2.5.0";
+import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.5.0";
+import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.5.0";
+import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.5.0";
+import { marcarMinutaGerada, renderDecisoesAcessorias } from "./registro-decisoes-acessorias.js?v=2.5.0";
+import { ROTULOS_FONTE, renderSectionalTelemetry } from "./telemetria-sentenca.js?v=2.5.0";
 
 function renderPendenciasPanel() {
   const panel = $("sentencePendenciasPanel");
@@ -82,6 +82,8 @@ function renderSentenceOnSheet(data) {
   state.lastSentence = data.sentenca || null;
   if (state.lastSentence) marcarMinutaGerada();
   state.lastAudit = data.auditoria || null;
+  // O tema Matilha escuta este aviso para atualizar o selo de auditoria e a reação dos mascotes.
+  document.dispatchEvent(new CustomEvent("sentencia:auditoria"));
   state.lastHtmlPje = data.html_pje || "";
   state.lastPayload = data.sentenca
     ? {

@@ -51,7 +51,7 @@ A saída no Terminal mostra cada etapa em português claro:
 
 ==> Obtendo o pacote do SentencIA
     Consultando a versão disponível em github.com/<dono>/SentencIA (latest)...
-    Baixando SentencIA-v2.4.0.zip...
+    Baixando SentencIA-v2.5.0.zip...
     Baixando SHA256SUMS.txt para conferência de integridade...
 
 ==> Conferindo a integridade do arquivo (SHA-256)
@@ -115,7 +115,7 @@ pergunta se você deseja **manter seus dados do gabinete** (o padrão é **Sim �
 - **Erro ao baixar (`curl` falhou):** verifique a conexão com a internet ou se a VPN/rede do tribunal
   bloqueia o GitHub. Se você já baixou o `.zip` por outro caminho, instale localmente:
   ```bash
-  bash instalar-mac.sh --pacote-local ~/Downloads/SentencIA-v2.4.0.zip
+  bash instalar-mac.sh --pacote-local ~/Downloads/SentencIA-v2.5.0.zip
   ```
 - **Aviso de Xcode Command Line Tools:** na maioria dos Macs não é necessário. Se alguma biblioteca pedir
   compilação, rode `xcode-select --install` no Terminal, aguarde concluir e execute o instalador novamente.

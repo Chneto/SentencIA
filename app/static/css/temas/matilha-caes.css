@@ -1,0 +1,404 @@
+/* SentencIA — Cães SVG do tema Matilha (TASK-103). Tudo sob .mcao; movimento só com transform/opacity.
+   As animações rodam sempre (o usuário quer os cães animados mesmo com "reduzir movimento").
+   Convenções: rotate(+) gira no sentido horário; na perna, + leva a pata para trás; na cabeça, + abaixa o focinho. */
+
+/* ---------- base e cliques ---------- */
+.mcao { display: block; overflow: visible; pointer-events: none; }
+.mcao-interativo .mcao { pointer-events: none; }
+.mcao-interativo .mcao * { pointer-events: visiblePainted; }
+.mcao .mc-pivo { fill: none; stroke: none; }
+.mcao .mc-p, .mcao .mc-sombra {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition: transform .3s ease, opacity .2s ease;
+}
+
+/* ---------- variantes (só variáveis) ---------- */
+.mcao-pug {
+  --mc-pelo: #e4b47c; --mc-sombra: #c48f58; --mc-claro: #f6d9ae; --mc-mascara: #2f2521;
+  --mc-orelha: #2f2521; --mc-contorno: #5a3a23; --mc-ruga: #a8743f; --mc-nariz: #1b1411;
+  --mc-iris: #3b2416; --mc-focinho: #3d2f29; --mc-coleira: #d9534a; --mc-placa: #f4c54f; --mc-palpebra-linha: #5a3a23;
+  --mc-marca: #000; --mc-marca-sombra: #000;
+  --mc-incl: -11deg; --mc-amp: 21deg; --mc-passo: .5s;
+}
+.mcao-pug[data-variante="branco_bege"] {
+  --mc-pelo: #f9f2e6; --mc-sombra: #e7d7c0; --mc-claro: #fffdf8; --mc-mascara: #cfab80;
+  --mc-orelha: #c9a174; --mc-contorno: #8a6f55; --mc-ruga: #d6bd9b; --mc-nariz: #3a2a22;
+  --mc-coleira: #3f8fd2; --mc-palpebra-linha: #8a6f55; --mc-focinho: #c09a6d;
+}
+.mcao-rott {
+  --mc-pelo: #2d2826; --mc-sombra: #1c1817; --mc-claro: #4b433f; --mc-marca: #b9672f;
+  --mc-marca-sombra: #8f4f22; --mc-orelha: #221e1d; --mc-contorno: #0e0b0a; --mc-ruga: #3a2a20;
+  --mc-nariz: #0b0909; --mc-iris: #7a4520; --mc-coleira: #c43b3b; --mc-placa: #e9edf2;
+  --mc-palpebra-linha: #8c7a6e; --mc-mascara: #2d2826;
+  --mc-incl: -6deg; --mc-amp: 18deg; --mc-passo: .62s;
+}
+.mcao-rott[data-variante="atletico_feliz"] {
+  --mc-marca: #c4763c; --mc-marca-sombra: #9a5a27; --mc-coleira: #2f9e6e; --mc-passo: .56s;
+}
+
+/* ---------- pinturas ---------- */
+.mcao .f-pelo { fill: var(--mc-pelo); }
+.mcao .f-sombra { fill: var(--mc-sombra); }
+.mcao .f-claro { fill: var(--mc-claro); }
+.mcao .f-mascara { fill: var(--mc-mascara); }
+.mcao .f-orelha { fill: var(--mc-orelha); }
+.mcao .f-marca { fill: var(--mc-marca); }
+.mcao .f-marca-sombra { fill: var(--mc-marca-sombra); }
+.mcao .f-nariz { fill: var(--mc-nariz); }
+.mcao .f-focinho { fill: var(--mc-focinho); }
+.mcao .f-iris { fill: var(--mc-iris); }
+.mcao .f-pupila { fill: #120c0a; }
+.mcao .f-branco { fill: #fbf8f3; }
+.mcao .f-brilho { fill: #fff; }
+.mcao .f-boca { fill: #5b1d24; }
+.mcao .f-lingua { fill: #ef7f90; }
+.mcao .f-placa { fill: var(--mc-placa); }
+.mcao .f-palpebra { fill: var(--mc-pelo); }
+.mcao .sf { fill: none; }
+.mcao .tr { stroke: var(--mc-contorno); stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+.mcao .mc-sombreado { opacity: .55; }
+.mcao .mc-brilho-pelo { opacity: .6; }
+.mcao .mc-sombra { fill: #000; opacity: .16; }
+.mcao .mc-dedos { stroke-width: .9; }
+.mcao .mc-nariz { stroke-width: .7; }
+.mcao .mc-brilho-focinho { opacity: .22; }
+.mcao .mc-dobra-coxa { stroke: var(--mc-contorno); stroke-width: 1.2; stroke-linecap: round; opacity: .55; }
+.mcao-rott .mc-dobra-coxa { stroke: var(--mc-claro); opacity: .9; }
+.mcao .mc-olho-borda { stroke-width: 1.1; }
+.mcao .mc-placa { stroke-width: .9; }
+.mcao .mc-ruga { stroke: var(--mc-ruga); stroke-width: 1.2; stroke-linecap: round; }
+.mcao .mc-ruga-focinho { stroke: #000; stroke-opacity: .35; stroke-width: 1; stroke-linecap: round; }
+.mcao .mc-dobra { stroke: var(--mc-sombra); stroke-width: 1.3; stroke-linecap: round; }
+.mcao .mc-musculo { stroke: var(--mc-claro); stroke-width: 1.2; stroke-linecap: round; opacity: .7; }
+.mcao .mc-sobrancelha { stroke: var(--mc-claro); stroke-width: 1.1; stroke-linecap: round; }
+.mcao .mc-orelha-dobra { stroke: #000; stroke-opacity: .3; stroke-width: 1; stroke-linecap: round; }
+.mcao .mc-coleira { stroke: var(--mc-coleira); stroke-width: 3.4; stroke-linecap: round; }
+.mcao .mc-cauda-borda { stroke: var(--mc-contorno); stroke-linecap: round; stroke-linejoin: round; }
+.mcao .mc-cauda-pelo { stroke: var(--mc-pelo); stroke-linecap: round; stroke-linejoin: round; }
+.mcao .mc-palpebra-linha { stroke: var(--mc-palpebra-linha); stroke-width: 1.1; stroke-linecap: round; }
+.mcao .mc-lingua-borda { stroke: #b4485a; stroke-width: .9; }
+.mcao .mc-lingua-risca { stroke: #c9586b; stroke-width: .8; stroke-linecap: round; }
+
+/* ---------- estados padrão ---------- */
+.mcao .mc-palpebra { transform: scaleY(0); }
+.mcao .mc-lingua { opacity: 0; }
+.mcao .mc-anca { opacity: 0; }
+.mcao.mc-piscando .mc-palpebra { animation: mc-piscar .2s ease-in-out 1; }
+.mcao-rott[data-variante="atletico_feliz"] .mc-mandibula { transform: rotate(17deg); }
+.mcao-rott[data-variante="atletico_feliz"] .mc-lingua { opacity: 1; }
+.mcao-rott[data-variante="atletico_feliz"] .mc-sobrancelha { opacity: 0; }
+
+@keyframes mc-piscar { 0%, 100% { transform: scaleY(0); } 45%, 60% { transform: scaleY(1); } }
+@keyframes mc-respirar { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.035); } }
+@keyframes mc-respirar-sono { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.02, 1.06); } }
+@keyframes mc-abanar { 0%, 100% { transform: rotate(-13deg); } 50% { transform: rotate(13deg); } }
+@keyframes mc-abanar-forte { 0%, 100% { transform: rotate(-26deg); } 50% { transform: rotate(22deg); } }
+@keyframes mc-rebolar { 0%, 100% { transform: rotate(-6deg) scale(1); } 50% { transform: rotate(7deg) scale(1.04); } }
+@keyframes mc-olhar {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  66%, 84% { transform: rotate(var(--mc-incl)); }
+}
+@keyframes mc-orelha-ouvir { 0%, 70%, 100% { transform: rotate(0deg); } 76%, 82% { transform: rotate(-9deg); } }
+
+/* ---------- parado ---------- */
+.mcao[data-pose="parado"] .mc-torso { animation: mc-respirar 2.8s ease-in-out infinite; }
+.mcao[data-pose="parado"] .mc-cauda { animation: mc-abanar 1.1s ease-in-out infinite; }
+.mcao-pug[data-pose="parado"] .mc-cauda { animation: mc-rebolar .5s ease-in-out infinite; }
+.mcao[data-pose="parado"] .mc-cabeca-mov { animation: mc-olhar 8s ease-in-out infinite; }
+.mcao[data-pose="parado"] .mc-orelha-perto { animation: mc-orelha-ouvir 8s ease-in-out infinite; }
+
+/* ---------- andando ---------- */
+@keyframes mc-passo {
+  0% { transform: translate(0, 0) rotate(var(--mc-amp)); }
+  25% { transform: translate(0, -2.8px) rotate(0deg); }
+  50% { transform: translate(0, 0) rotate(calc(var(--mc-amp) * -1)); }
+  100% { transform: translate(0, 0) rotate(var(--mc-amp)); }
+}
+@keyframes mc-balanco { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
+@keyframes mc-cabeca-passo { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(2deg); } }
+@keyframes mc-orelha-pulo { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-11deg); } }
+.mcao[data-pose="andando"] .mc-perna,
+.mcao[data-pose="tropecando"] .mc-perna { animation: mc-passo var(--mc-passo) linear infinite; }
+.mcao[data-pose="andando"] .mc-pf-longe, .mcao[data-pose="andando"] .mc-pt-perto,
+.mcao[data-pose="tropecando"] .mc-pf-longe, .mcao[data-pose="tropecando"] .mc-pt-perto {
+  animation-delay: calc(var(--mc-passo) * -.5);
+}
+.mcao[data-pose="andando"] .mc-tronco-mov { animation: mc-balanco calc(var(--mc-passo) / 2) ease-in-out infinite; }
+.mcao[data-pose="andando"] .mc-cabeca-mov { animation: mc-cabeca-passo var(--mc-passo) ease-in-out infinite; }
+.mcao[data-pose="andando"] .mc-orelha { animation: mc-orelha-pulo calc(var(--mc-passo) / 2) ease-in-out infinite; }
+.mcao[data-pose="andando"] .mc-cauda { animation: mc-abanar var(--mc-passo) ease-in-out infinite; }
+.mcao-pug[data-pose="andando"] .mc-cauda { animation: mc-rebolar calc(var(--mc-passo) / 2) ease-in-out infinite; }
+
+/* ---------- correndo (galope) ---------- */
+@keyframes mc-galope-frente {
+  0% { transform: translate(0, 0) rotate(-40deg); }
+  45% { transform: translate(0, 0) rotate(30deg); }
+  70% { transform: translate(0, -3px) rotate(-5deg); }
+  100% { transform: translate(0, 0) rotate(-40deg); }
+}
+@keyframes mc-galope-tras {
+  0% { transform: translate(0, 0) rotate(38deg); }
+  45% { transform: translate(0, -2px) rotate(-34deg); }
+  75% { transform: translate(0, 0) rotate(10deg); }
+  100% { transform: translate(0, 0) rotate(38deg); }
+}
+@keyframes mc-galope-corpo {
+  0% { transform: translateY(-5px) rotate(-2deg) scaleX(1.05); }
+  45% { transform: translateY(0) rotate(3deg) scaleX(.96); }
+  100% { transform: translateY(-5px) rotate(-2deg) scaleX(1.05); }
+}
+@keyframes mc-galope-sombra { 0%, 100% { transform: scaleX(.85); } 45% { transform: scaleX(1); } }
+@keyframes mc-orelha-vento { 0%, 100% { transform: rotate(-26deg); } 50% { transform: rotate(-12deg); } }
+.mcao[data-pose="correndo"] .mc-pf-perto, .mcao[data-pose="correndo"] .mc-pf-longe {
+  animation: mc-galope-frente .42s linear infinite;
+}
+.mcao[data-pose="correndo"] .mc-pt-perto, .mcao[data-pose="correndo"] .mc-pt-longe {
+  animation: mc-galope-tras .42s linear infinite;
+}
+.mcao[data-pose="correndo"] .mc-pf-longe, .mcao[data-pose="correndo"] .mc-pt-longe { animation-delay: -.05s; }
+.mcao[data-pose="correndo"] .mc-cao-mov { animation: mc-galope-corpo .42s ease-in-out infinite; }
+.mcao[data-pose="correndo"] .mc-sombra { animation: mc-galope-sombra .42s ease-in-out infinite; }
+.mcao[data-pose="correndo"] .mc-orelha { animation: mc-orelha-vento .21s ease-in-out infinite; }
+.mcao[data-pose="correndo"] .mc-cabeca { transform: rotate(-4deg); }
+.mcao[data-pose="correndo"] .mc-cauda { transform: rotate(18deg); }
+.mcao-pug[data-pose="correndo"] .mc-cauda { transform: none; animation: mc-rebolar .21s ease-in-out infinite; }
+.mcao-pug[data-pose="correndo"] .mc-mandibula { transform: rotate(14deg); }
+.mcao-pug[data-pose="correndo"] .mc-lingua { opacity: 1; }
+
+/* ---------- sentado ---------- */
+.mcao[data-pose="sentado"] .mc-pt-perto, .mcao[data-pose="sentado"] .mc-pt-longe { opacity: 0; }
+.mcao[data-pose="sentado"] .mc-anca { opacity: 1; }
+.mcao[data-pose="sentado"] .mc-torso { animation: mc-respirar 3s ease-in-out infinite; }
+.mcao[data-pose="sentado"] .mc-cabeca-mov { animation: mc-olhar 7s ease-in-out infinite; }
+.mcao-pug[data-pose="sentado"] .mc-tronco { transform: translate(0, -7px) rotate(-24deg); }
+.mcao-pug[data-pose="sentado"] .mc-pf-perto { transform: translate(-2.85px, 6.4px) rotate(24deg); }
+.mcao-pug[data-pose="sentado"] .mc-pf-longe { transform: translate(-1.5px, 3.4px) rotate(24deg); }
+.mcao-pug[data-pose="sentado"] .mc-cabeca { transform: rotate(17deg); }
+.mcao-pug[data-pose="sentado"] .mc-cauda { opacity: 0; }
+.mcao-rott[data-pose="sentado"] .mc-tronco { transform: translate(0, 3px) rotate(-32deg); }
+.mcao-rott[data-pose="sentado"] .mc-pf-perto { transform: translate(1.6px, -2.5px) rotate(32deg); }
+.mcao-rott[data-pose="sentado"] .mc-pf-longe { transform: translate(3.8px, -6.1px) rotate(32deg); }
+.mcao-rott[data-pose="sentado"] .mc-cabeca { transform: rotate(17deg); }
+.mcao-rott[data-pose="sentado"] .mc-pescoco { transform: rotate(12deg); }
+
+/* ---------- deitado e dormindo ---------- */
+.mcao[data-pose="deitado"] .mc-torso { animation: mc-respirar 3.2s ease-in-out infinite; }
+.mcao[data-pose="dormindo"] .mc-torso { animation: mc-respirar-sono 4.2s ease-in-out infinite; }
+.mcao[data-pose="deitado"] .mc-cauda { animation: mc-abanar 2.2s ease-in-out infinite; }
+.mcao[data-pose="dormindo"] .mc-palpebra { transform: scaleY(1); }
+.mcao[data-pose="dormindo"] .mc-mandibula { transform: none; }
+.mcao[data-pose="dormindo"] .mc-lingua, .mcao[data-pose="dormindo"] .mc-placa { opacity: 0; }
+.mcao[data-pose="dormindo"] .mc-orelha { transform: rotate(8deg); }
+.mcao[data-pose="deitado"] .mc-cabeca-mov { animation: mc-olhar 9s ease-in-out infinite; }
+.mcao-pug:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-tronco { transform: translate(0, 11px); }
+.mcao-pug:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pf-perto,
+.mcao-pug:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pf-longe { transform: rotate(-69deg); }
+.mcao-pug:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pt-perto,
+.mcao-pug:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pt-longe { transform: rotate(76deg); }
+.mcao-pug[data-pose="deitado"] .mc-cabeca { transform: translate(2px, 3px) rotate(4deg); }
+.mcao-pug[data-pose="dormindo"] .mc-cabeca { transform: translate(0, 3px) rotate(6deg); }
+.mcao-pug[data-pose="dormindo"] .mc-pescoco { transform: rotate(16deg); }
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-tronco { transform: translate(0, 21px); }
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pf-perto,
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pf-longe { transform: rotate(-69deg); }
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pt-perto,
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-pt-longe { opacity: 0; }
+.mcao-rott:is([data-pose="deitado"], [data-pose="dormindo"]) .mc-anca { opacity: 1; transform: translate(2px, 0); }
+.mcao-rott[data-pose="dormindo"] .mc-cabeca { transform: rotate(-10deg); }
+.mcao-rott[data-pose="dormindo"] .mc-pf-perto, .mcao-rott[data-pose="dormindo"] .mc-pf-longe { transform: translate(-6px, 3px) rotate(-82deg); }
+.mcao-rott[data-pose="dormindo"] .mc-pescoco { transform: rotate(36deg); }
+
+/* ---------- bebendo, comendo, farejando (cabeça no chão) ---------- */
+@keyframes mc-lamber { 0%, 100% { transform: scaleY(.9); } 50% { transform: scaleY(1.5); } }
+@keyframes mc-mastigar { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(13deg); } }
+@keyframes mc-cabeca-bicar { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(0, 1.6px); } }
+@keyframes mc-farejar {
+  0%, 100% { transform: translate(-2.5px, 0) rotate(-4deg); }
+  50% { transform: translate(2.5px, 1px) rotate(4deg); }
+}
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-tronco {
+  transform: translate(-5px, 6px) rotate(8deg);
+}
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pf-perto,
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pf-longe {
+  transform: translate(0, -6px) rotate(-8deg);
+}
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pt-perto,
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pt-longe {
+  transform: rotate(-6deg);
+}
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pescoco { transform: translate(2px, 8px) rotate(14deg); }
+.mcao-pug:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-cabeca {
+  transform: translate(0, 6px) rotate(18deg);
+}
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-tronco {
+  transform: translate(-.4px, 7px) rotate(8deg);
+}
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pf-perto,
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pf-longe {
+  transform: translate(0, -7px) rotate(-8deg);
+}
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pt-perto,
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pt-longe {
+  transform: rotate(-8deg);
+}
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-pescoco { transform: translate(2px, 10px) rotate(28deg); }
+.mcao-rott:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-cabeca {
+  transform: translate(0, 8px) rotate(6deg);
+}
+.mcao[data-pose="bebendo"] .mc-mandibula { transform: rotate(12deg); }
+.mcao[data-pose="bebendo"] .mc-lingua { opacity: 1; animation: mc-lamber .32s ease-in-out infinite; }
+.mcao[data-pose="bebendo"] .mc-cabeca-mov { animation: mc-cabeca-bicar .32s ease-in-out infinite; }
+.mcao[data-pose="comendo"] .mc-mandibula { animation: mc-mastigar .34s ease-in-out infinite; }
+.mcao[data-pose="comendo"] .mc-lingua { opacity: 0; }
+.mcao[data-pose="comendo"] .mc-cabeca-mov { animation: mc-cabeca-bicar .68s ease-in-out infinite; }
+.mcao[data-pose="farejando"] .mc-cabeca-mov { animation: mc-farejar 1.1s ease-in-out infinite; }
+.mcao[data-pose="farejando"] .mc-mandibula { transform: none; }
+.mcao[data-pose="farejando"] .mc-lingua { opacity: 0; }
+.mcao:is([data-pose="bebendo"], [data-pose="comendo"], [data-pose="farejando"]) .mc-cauda {
+  animation: mc-abanar .8s ease-in-out infinite;
+}
+
+/* ---------- cocô ---------- */
+@keyframes mc-esforco { 0%, 100% { transform: translateX(-.5px); } 50% { transform: translateX(.5px); } }
+.mcao[data-pose="coco"] .mc-cao-mov { animation: mc-esforco .16s linear infinite; }
+.mcao-pug[data-pose="coco"] .mc-tronco { transform: rotate(-11deg); }
+.mcao-pug[data-pose="coco"] .mc-pt-perto, .mcao-pug[data-pose="coco"] .mc-pt-longe {
+  transform: translate(0, -8px) rotate(-14deg);
+}
+.mcao-pug[data-pose="coco"] .mc-pf-perto { transform: rotate(9deg); }
+.mcao-pug[data-pose="coco"] .mc-pf-longe { transform: translate(0, -1.5px) rotate(9deg); }
+.mcao-pug[data-pose="coco"] .mc-cauda { transform: rotate(-16deg) scale(1.06); }
+.mcao-pug[data-pose="coco"] .mc-cabeca { transform: rotate(8deg); }
+.mcao-rott[data-pose="coco"] .mc-tronco { transform: rotate(-14deg); }
+.mcao-rott[data-pose="coco"] .mc-pt-perto, .mcao-rott[data-pose="coco"] .mc-pt-longe {
+  transform: translate(0, -12px) rotate(-16deg);
+}
+.mcao-rott[data-pose="coco"] .mc-pf-perto { transform: rotate(12deg); }
+.mcao-rott[data-pose="coco"] .mc-pf-longe { transform: translate(0, -2px) rotate(12deg); }
+.mcao-rott[data-pose="coco"] .mc-cauda { transform: rotate(-38deg); }
+.mcao-rott[data-pose="coco"] .mc-cabeca { transform: rotate(12deg); }
+.mcao[data-pose="coco"] .mc-palpebra { transform: scaleY(.45); }
+
+/* ---------- feliz ---------- */
+@keyframes mc-pulinho {
+  0%, 100% { transform: translateY(0) scale(1.03, .96); }
+  45% { transform: translateY(-8px) scale(.98, 1.03); }
+  60% { transform: translateY(-8px) scale(1, 1); }
+}
+@keyframes mc-requebrar { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes mc-patinhas { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-22deg); } }
+@keyframes mc-sombra-pulo { 0%, 100% { transform: scale(1); opacity: .16; } 50% { transform: scale(.75); opacity: .1; } }
+.mcao[data-pose="feliz"] .mc-cao-mov { animation: mc-pulinho .52s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-sombra { animation: mc-sombra-pulo .52s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-tronco-mov { animation: mc-requebrar .26s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-cauda { animation: mc-abanar-forte .2s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-mandibula { transform: rotate(20deg); }
+.mcao[data-pose="feliz"] .mc-lingua { opacity: 1; }
+.mcao[data-pose="feliz"] .mc-orelha { animation: mc-orelha-pulo .26s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-pf-perto, .mcao[data-pose="feliz"] .mc-pf-longe { animation: mc-patinhas .52s ease-in-out infinite; }
+.mcao[data-pose="feliz"] .mc-pf-longe { animation-delay: -.13s; }
+.mcao[data-pose="feliz"] .mc-cabeca { transform: rotate(-6deg); }
+
+/* ---------- atento ---------- */
+.mcao[data-pose="atento"] .mc-cabeca { transform: translate(0, -1.5px) rotate(-8deg); }
+.mcao[data-pose="atento"] .mc-orelha { transform: translate(0, -1px) rotate(-16deg); }
+.mcao[data-pose="atento"] .mc-torso { animation: mc-respirar 2.2s ease-in-out infinite; }
+.mcao-rott[data-pose="atento"] .mc-tronco { transform: translate(0, -.5px) rotate(-2deg); }
+.mcao-rott[data-pose="atento"] .mc-cauda { transform: rotate(-12deg); }
+
+/* ---------- carregado pelo cangote (gira em torno do cangote; ver relatório) ---------- */
+@keyframes mc-pendulo-pug {
+  0%, 100% { transform: translate(-4.2px, -2.4px) rotate(5deg); }
+  50% { transform: translate(4.4px, 2px) rotate(-5deg); }
+}
+@keyframes mc-pendulo-rott {
+  0%, 100% { transform: translate(-4.28px, -1.55px) rotate(4deg); }
+  50% { transform: translate(4.38px, 1.25px) rotate(-4deg); }
+}
+@keyframes mc-balangar {
+  0%, 100% { transform: rotate(calc(var(--mc-pend) + 12deg)); }
+  50% { transform: rotate(calc(var(--mc-pend) - 12deg)); }
+}
+.mcao-pug { --mc-pend: 38deg; }
+.mcao-rott { --mc-pend: 30deg; }
+.mcao-pug[data-pose="carregado"] .mc-cao { transform: translate(35.5px, 5px) rotate(-38deg); }
+.mcao-rott[data-pose="carregado"] .mc-cao { transform: translate(33.7px, 1.7px) rotate(-30deg); }
+.mcao-pug[data-pose="carregado"] .mc-cao-mov { animation: mc-pendulo-pug 1.6s ease-in-out infinite; }
+.mcao-rott[data-pose="carregado"] .mc-cao-mov { animation: mc-pendulo-rott 1.8s ease-in-out infinite; }
+.mcao[data-pose="carregado"] .mc-perna { animation: mc-balangar 1.1s ease-in-out infinite; }
+.mcao[data-pose="carregado"] .mc-pf-longe, .mcao[data-pose="carregado"] .mc-pt-perto { animation-delay: -.45s; }
+.mcao[data-pose="carregado"] .mc-pt-longe { animation-delay: -.8s; }
+.mcao-pug[data-pose="carregado"] .mc-cabeca { transform: rotate(24deg); }
+.mcao-rott[data-pose="carregado"] .mc-cabeca { transform: rotate(22deg); }
+.mcao[data-pose="carregado"] .mc-cauda { transform: rotate(24deg); }
+.mcao[data-pose="carregado"] .mc-orelha { transform: rotate(14deg); }
+.mcao[data-pose="carregado"] .mc-palpebra { transform: scaleY(.4); }
+.mcao[data-pose="carregado"] .mc-sombra { opacity: 0; }
+
+/* ---------- pulando ---------- */
+@keyframes mc-salto {
+  0% { transform: translateY(0) scale(1.06, .9); }
+  14% { transform: translateY(-4px) scale(.95, 1.07); }
+  50% { transform: translateY(-30px) scale(1, 1); }
+  84% { transform: translateY(0) scale(1, 1.02); }
+  92% { transform: translateY(0) scale(1.06, .92); }
+  100% { transform: translateY(0) scale(1.06, .9); }
+}
+@keyframes mc-salto-tronco {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-9deg); }
+  70% { transform: rotate(7deg); }
+}
+@keyframes mc-salto-frente { 0%, 100% { transform: rotate(0deg); } 20%, 60% { transform: rotate(-38deg); } 84% { transform: rotate(-8deg); } }
+@keyframes mc-salto-tras { 0%, 100% { transform: rotate(0deg); } 20% { transform: rotate(40deg); } 60% { transform: rotate(14deg); } 84% { transform: rotate(0deg); } }
+@keyframes mc-salto-sombra {
+  0%, 84%, 100% { transform: scale(1); opacity: .16; }
+  50% { transform: scale(.5); opacity: .07; }
+}
+.mcao[data-pose="pulando"] .mc-cao-mov { animation: mc-salto 1s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-tronco-mov { animation: mc-salto-tronco 1s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-pf-perto, .mcao[data-pose="pulando"] .mc-pf-longe { animation: mc-salto-frente 1s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-pt-perto, .mcao[data-pose="pulando"] .mc-pt-longe { animation: mc-salto-tras 1s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-sombra { animation: mc-salto-sombra 1s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-orelha { animation: mc-orelha-vento .5s ease-in-out infinite; }
+.mcao[data-pose="pulando"] .mc-mandibula { transform: rotate(16deg); }
+.mcao[data-pose="pulando"] .mc-lingua { opacity: 1; }
+
+/* ---------- tropeçando (só pug; o rott vira "andando") ---------- */
+@keyframes mc-tropeco-tronco {
+  0%, 18%, 100% { transform: translate(0, 0) rotate(0deg); }
+  30% { transform: translate(3px, 4px) rotate(13deg); }
+  40% { transform: translate(4px, 5px) rotate(15deg); }
+  55% { transform: translate(2px, 0) rotate(-5deg); }
+  68% { transform: translate(0, 0) rotate(2deg); }
+  80% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes mc-tropeco-cabeca {
+  0%, 18%, 100% { transform: rotate(0deg); }
+  36% { transform: rotate(20deg); }
+  55% { transform: rotate(-10deg); }
+  70% { transform: rotate(4deg); }
+}
+@keyframes mc-tropeco-orelha { 0%, 22%, 100% { transform: rotate(0deg); } 36% { transform: rotate(-34deg); } 55% { transform: rotate(14deg); } }
+.mcao[data-pose="tropecando"] .mc-tronco { animation: mc-tropeco-tronco 1.5s ease-in-out infinite; }
+.mcao[data-pose="tropecando"] .mc-cabeca { animation: mc-tropeco-cabeca 1.5s ease-in-out infinite; }
+.mcao[data-pose="tropecando"] .mc-orelha { animation: mc-tropeco-orelha 1.5s ease-in-out infinite; }
+.mcao[data-pose="tropecando"] .mc-cauda { animation: mc-rebolar .25s ease-in-out infinite; }
+
+/* ---------- latindo ---------- */
+@keyframes mc-latir-boca { 0%, 55%, 100% { transform: rotate(0deg); } 18%, 30% { transform: rotate(26deg); } }
+@keyframes mc-latir-cabeca {
+  0%, 55%, 100% { transform: translate(0, 0) rotate(0deg); }
+  16% { transform: translate(-1px, -1.5px) rotate(-9deg); }
+  32% { transform: translate(0, 0) rotate(-3deg); }
+}
+@keyframes mc-latir-corpo { 0%, 55%, 100% { transform: translateY(0); } 18% { transform: translateY(-1.6px); } }
+.mcao[data-pose="latindo"] .mc-mandibula { animation: mc-latir-boca .55s ease-out infinite; }
+.mcao[data-pose="latindo"] .mc-cabeca-mov { animation: mc-latir-cabeca .55s ease-out infinite; }
+.mcao[data-pose="latindo"] .mc-tronco-mov { animation: mc-latir-corpo .55s ease-out infinite; }
+.mcao[data-pose="latindo"] .mc-orelha { animation: mc-orelha-pulo .55s ease-out infinite; }
+.mcao[data-pose="latindo"] .mc-lingua { opacity: 0; }
+.mcao-rott[data-pose="latindo"] .mc-tronco { transform: rotate(-2deg); }
+.mcao-rott[data-pose="latindo"] .mc-cauda { transform: rotate(-14deg); }

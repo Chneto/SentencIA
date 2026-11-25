@@ -27,20 +27,10 @@ def test_assets_matilha_respeitam_orcamento_e_licenca() -> None:
     assert pasta.is_dir()
     arquivos = list(pasta.glob("*.webp"))
     nomes = {p.name for p in arquivos}
-    assert len(arquivos) >= 30
-    obrigatorios = {
-        "pug-feliz.webp",
-        "rott-sentado.webp",
-        "pug-branco-feliz.webp",
-        "pug-branco-dormindo.webp",
-        "rott-feliz-sentado.webp",
-        "rott-feliz-carimbando.webp",
-        "sprite-pug-run.webp",
-        "sprite-rott-run.webp",
-        "pattern-matilha-claro.webp",
-        "pattern-matilha-escuro.webp",
-    }
-    assert obrigatorios.issubset(nomes), f"Assets B2 ausentes: {obrigatorios - nomes}"
+    # Matilha 2.0 (TASK-103): os cães são desenho vetorial em código; só os fundos continuam como imagem.
+    assert nomes == {"pattern-matilha-claro.webp", "pattern-matilha-escuro.webp"}
+    assert (RAIZ / "app" / "static" / "js" / "modulos" / "matilha-caes-svg.js").is_file()
+    assert (RAIZ / "app" / "static" / "css" / "temas" / "matilha-caes.css").is_file()
     total = sum(p.stat().st_size for p in arquivos)
     assert total <= 4_000_000, f"Orçamento excedido: {total} bytes (> 4 MB)"
     assert (RAIZ / "docs" / "identidade" / "licenca_matilha.md").is_file()
@@ -87,8 +77,8 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 # 1) Gera e exporta sentença demo no tema ORIGINAL para baseline de comparação
                 baseline = page.evaluate(
                     """async () => {
-                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.4.0");
-                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.4.0");
+                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.5.0");
+                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.5.0");
                         const demo = await postJson("/api/cases/load-demo", {});
                         if (hooks.applyActiveCase) await hooks.applyActiveCase(demo, { clearSentence: true });
                         const gen = await postJson("/api/sentence/generate", { use_ollama: false });
@@ -109,7 +99,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 # 2) Ativa o tema Matilha pelo menu/API de tema e verifica sons desligados por padrão
                 page.evaluate(
                     """async () => {
-                        const { applyDesign } = await import("/static/js/modulos/temas.js?v=2.4.0");
+                        const { applyDesign } = await import("/static/js/modulos/temas.js?v=2.5.0");
                         applyDesign("matilha", { persist: true });
                     }"""
                 )
@@ -125,8 +115,9 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 for _ in range(4):
                     page.click("#btnAppMenu")
                 page.wait_for_selector('[data-matilha-egg="logo-7"]', timeout=3000)
-                assert page.locator(".matilha-sprite-pug").count() >= 1
-                assert page.locator(".matilha-sprite-rott").count() >= 1
+                corredores = page.locator(".matilha-zoomies-runner .mcao")
+                assert corredores.count() == 2
+                assert corredores.first.get_attribute("data-pose") == "correndo"
                 page.keyboard.press("Escape")
                 assert page.locator("#matilhaFxOverlay").count() == 0
 
@@ -168,17 +159,35 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                         selRott.dispatchEvent(new Event("change", { bubbles: true }));
                     }"""
                 )
-                page.wait_for_timeout(400)
-                badge_src_before = page.evaluate(
-                    '() => document.querySelector("#matilhaRibbonBadge img")?.getAttribute("src") || ""'
+                page.wait_for_function(
+                    '() => !!document.querySelector("#matilhaRibbonBadge .mcao[data-variante=\'branco_bege\'], #matilhaRibbonBadge .mcao[data-variante=\'atletico_feliz\']")',
+                    timeout=5000,
                 )
-                assert "pug-branco-" in badge_src_before
+                variante_selo = page.evaluate(
+                    '() => document.querySelector("#matilhaRibbonBadge .mcao")?.getAttribute("data-variante") || ""'
+                )
+                assert variante_selo in ("branco_bege", "atletico_feliz")
+
+                # A gravação das variantes é agrupada (~150 ms): espera o servidor tê-las antes de recarregar.
+                gravado = {}
+                for _ in range(25):
+                    gravado = page.evaluate(
+                        """async () => {
+                            const { apiJson } = await import("/static/js/modulos/api.js?v=2.5.0");
+                            const s = await apiJson("/api/settings");
+                            return { pug: s.matilha_pug, rott: s.matilha_rott };
+                        }"""
+                    )
+                    if gravado == {"pug": "branco_bege", "rott": "atletico_feliz"}:
+                        break
+                    page.wait_for_timeout(200)
+                assert gravado == {"pug": "branco_bege", "rott": "atletico_feliz"}
 
                 page.reload(wait_until="networkidle")
                 page.wait_for_selector("#matilhaRibbonBadge", state="attached", timeout=5000)
                 persisted = page.evaluate(
                     """async () => {
-                        const { apiJson } = await import("/static/js/modulos/api.js?v=2.4.0");
+                        const { apiJson } = await import("/static/js/modulos/api.js?v=2.5.0");
                         const s = await apiJson("/api/settings");
                         return {
                             selPug: document.getElementById("selMatilhaPug")?.value,
@@ -187,7 +196,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                             lsRott: localStorage.getItem("sentencia_matilha_rott"),
                             apiPug: s.matilha_pug,
                             apiRott: s.matilha_rott,
-                            badgeSrc: document.querySelector("#matilhaRibbonBadge img")?.getAttribute("src") || "",
+                            badgeVariante: document.querySelector("#matilhaRibbonBadge .mcao")?.getAttribute("data-variante") || "",
                         };
                     }"""
                 )
@@ -197,7 +206,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 assert persisted["lsRott"] == "atletico_feliz"
                 assert persisted["apiPug"] == "branco_bege"
                 assert persisted["apiRott"] == "atletico_feliz"
-                assert "pug-branco-" in persisted["badgeSrc"]
+                assert persisted["badgeVariante"] in ("branco_bege", "atletico_feliz")
 
                 # 4) Easter egg #2: Código Konami (↑↑↓↓←→←→BA)
                 page.evaluate("() => document.activeElement?.blur?.()")
@@ -218,7 +227,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 ):
                     page.evaluate(
                         """async () => {
-                            const { openCommandPalette } = await import("/static/js/modulos/temas.js?v=2.4.0");
+                            const { openCommandPalette } = await import("/static/js/modulos/temas.js?v=2.5.0");
                             openCommandPalette();
                         }"""
                     )
@@ -232,7 +241,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                     page.click(f'.station-btn[data-station="{estacao}"]')
                 matilha_out = page.evaluate(
                     """async () => {
-                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.4.0");
+                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.5.0");
                         const gen = await postJson("/api/sentence/generate", { use_ollama: false });
                         const rev = gen.sentenca?.revisao_documento || "";
                         const pje = await apiJson(`/api/export/pje?revisao_esperada=${encodeURIComponent(rev)}`);
@@ -254,7 +263,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                     assert not re.search(proibido, matilha_out["texto"], re.IGNORECASE)
                     assert not re.search(proibido, matilha_out["html"], re.IGNORECASE)
 
-                # 7) prefers-reduced-motion: reduce desliga animações dos easter eggs
+                # 7) Com "reduzir movimento", os cães continuam animados (escolha do usuário na TASK-103)
                 page.emulate_media(reduced_motion="reduce")
                 page.evaluate("() => document.activeElement?.blur?.()")
                 for tecla in (
@@ -264,8 +273,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 ):
                     page.keyboard.press(tecla)
                 page.wait_for_selector('[data-matilha-egg="konami"]', timeout=3000)
-                assert page.locator(".matilha-zoomies-runner").count() == 0
-                assert page.locator(".matilha-treat-drop").count() == 0
+                assert page.locator(".matilha-zoomies-runner .mcao").count() == 2
                 page.keyboard.press("Escape")
 
                 # 8) Zero violações de CSP e zero requisições externas

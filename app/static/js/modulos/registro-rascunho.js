@@ -1,6 +1,6 @@
 // Persistência do rascunho de decisões por caso (servidor + fallback sessionStorage) — TASK-068.
-import { apiFetch } from "./api.js?v=2.4.0";
-import { state } from "./estado.js?v=2.4.0";
+import { apiFetch } from "./api.js?v=2.5.0";
+import { state } from "./estado.js?v=2.5.0";
 
 export const CHAVE_DECISOES_SESSAO = "sentencia.decisoes.v1";
 const CHAVE_DECISOES_LEGADO = "jvdfm.decisoes.v1";

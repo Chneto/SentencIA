@@ -14,7 +14,7 @@ def test_efeitos_art92_da_tela_chegam_ao_dispositivo(_live_server: _LocalAppServ
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.4.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.5.0');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([dados], {type: 'application/pdf'}), 'autos-ficticios.pdf');
@@ -38,7 +38,7 @@ def test_efeitos_art92_da_tela_chegam_ao_dispositivo(_live_server: _LocalAppServ
 
             validacao = page.evaluate(
                 """async () => {
-                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.4.0');
+                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.5.0');
                     return m.validarDecisoesAcessorias();
                 }"""
             )
@@ -47,7 +47,7 @@ def test_efeitos_art92_da_tela_chegam_ao_dispositivo(_live_server: _LocalAppServ
             bloco.locator("[data-descricao-cargo-art92]").fill("servidor municipal fictício")
             registro = page.evaluate(
                 """async () => {
-                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.4.0');
+                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.5.0');
                     return {ok: m.validarDecisoesAcessorias().ok, dados: m.dadosAcessorias()};
                 }"""
             )

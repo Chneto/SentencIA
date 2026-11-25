@@ -1,8 +1,8 @@
 // SentencIA — Módulo ES: telemetria.js (TASK-015)
-import { hooks, state } from "./estado.js?v=2.4.0";
-import { $, escapeHtml, openModal } from "./dom.js?v=2.4.0";
-import { apiJson, handleApiError } from "./api.js?v=2.4.0";
-import { renderOcrBanner, renderUploadStatusTables } from "./estacao-autos.js?v=2.4.0";
+import { hooks, state } from "./estado.js?v=2.5.0";
+import { $, escapeHtml, openModal } from "./dom.js?v=2.5.0";
+import { apiJson, handleApiError } from "./api.js?v=2.5.0";
+import { renderOcrBanner, renderUploadStatusTables } from "./estacao-autos.js?v=2.5.0";
 
 function txtNum(v, sufixo = "") {
   return v === null || v === undefined || v === "" || Number.isNaN(Number(v)) ? "indisponível" : `${v}${sufixo}`;

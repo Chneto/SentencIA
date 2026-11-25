@@ -25,7 +25,7 @@ def test_rascunho_restaura_so_o_caso_certo_e_marca_minuta_desatualizada(_live_se
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.4.0');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.5.0');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([dados], {type: 'application/pdf'}), 'autos-ficticios.pdf');
@@ -45,7 +45,7 @@ def test_rascunho_restaura_so_o_caso_certo_e_marca_minuta_desatualizada(_live_se
             for _ in range(30):
                 salvo = page.evaluate(
                     """async () => {
-                        const { apiJson } = await import('/static/js/modulos/api.js?v=2.4.0');
+                        const { apiJson } = await import('/static/js/modulos/api.js?v=2.5.0');
                         const r = (await apiJson('/api/cases/rascunho-decisoes')).rascunho;
                         return r?.extras?.acessorias?.medidas_protetivas || [];
                     }"""
@@ -63,8 +63,8 @@ def test_rascunho_restaura_so_o_caso_certo_e_marca_minuta_desatualizada(_live_se
 
             desatualizada = page.evaluate(
                 """async () => {
-                    const { state } = await import('/static/js/modulos/estado.js?v=2.4.0');
-                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.4.0');
+                    const { state } = await import('/static/js/modulos/estado.js?v=2.5.0');
+                    const m = await import('/static/js/modulos/registro-decisoes-acessorias.js?v=2.5.0');
                     state.lastSentence = { texto_completo: 'Minuta fictícia.' };
                     m.marcarMinutaGerada();
                     const antes = !!document.querySelector('[data-minuta-desatualizada]');
@@ -78,8 +78,8 @@ def test_rascunho_restaura_so_o_caso_certo_e_marca_minuta_desatualizada(_live_se
 
             page.evaluate(
                 """async () => {
-                    const { postJson } = await import('/static/js/modulos/api.js?v=2.4.0');
-                    const { hooks } = await import('/static/js/modulos/estado.js?v=2.4.0');
+                    const { postJson } = await import('/static/js/modulos/api.js?v=2.5.0');
+                    const { hooks } = await import('/static/js/modulos/estado.js?v=2.5.0');
                     const demo = await postJson('/api/cases/load-demo', {});
                     await hooks.applyActiveCase(demo, { clearSentence: true });
                 }"""
