@@ -14,7 +14,7 @@ def test_conflito_de_confissao_aparece_e_bloqueia_simulacao(_live_server: _Local
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async (pdf) => {
-                    const { apiJson, postJson } = await import('/static/js/modulos/api.js?v=2.3.0');
+                    const { apiJson, postJson } = await import('/static/js/modulos/api.js?v=2.3.1');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append('files', new Blob([dados], {type: 'application/pdf'}), 'autos-ficticios.pdf');
@@ -41,8 +41,8 @@ def test_conflito_de_confissao_aparece_e_bloqueia_simulacao(_live_server: _Local
             assert "negativa do fato" in aviso.inner_text()
 
             simular = """async () => {
-                const { postJson } = await import('/static/js/modulos/api.js?v=2.3.0');
-                const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.3.0');
+                const { postJson } = await import('/static/js/modulos/api.js?v=2.3.1');
+                const { buildDosimetryPayload } = await import('/static/js/modulos/estacao-dosimetria.js?v=2.3.1');
                 try {
                     await postJson('/api/dosimetria/simulate', {...buildDosimetryPayload(), data_sentenca: '2024-05-30'});
                     return 'ok';

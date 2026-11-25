@@ -1,5 +1,5 @@
 // SentencIA — Módulo ES: dom.js (TASK-015)
-import { MARCADOR_RE, PENAL_CATALOG_LABELS, state } from "./estado.js?v=2.3.0";
+import { MARCADOR_RE, PENAL_CATALOG_LABELS, state } from "./estado.js?v=2.3.1";
 
 const $ = (id) => document.getElementById(id);
 

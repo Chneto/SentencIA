@@ -1,8 +1,8 @@
 // SentencIA — Módulo ES sob demanda: tema-matilha.js — Fase B2 (TASK-099)
 // Carregado exclusivamente quando data-design="matilha". Zero recursos externos; CSP-safe.
-import { postJson } from "./api.js?v=2.3.0";
-import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.3.0";
-import { state } from "./estado.js?v=2.3.0";
+import { postJson } from "./api.js?v=2.3.1";
+import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.3.1";
+import { state } from "./estado.js?v=2.3.1";
 
 const KEY_EASTER_EGGS = "sentencia_matilha_easter_eggs";
 const KEY_SONS = "sentencia_matilha_sons";

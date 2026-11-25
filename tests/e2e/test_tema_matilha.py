@@ -87,8 +87,8 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 # 1) Gera e exporta sentença demo no tema ORIGINAL para baseline de comparação
                 baseline = page.evaluate(
                     """async () => {
-                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.3.0");
-                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.3.0");
+                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.3.1");
+                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.3.1");
                         const demo = await postJson("/api/cases/load-demo", {});
                         if (hooks.applyActiveCase) await hooks.applyActiveCase(demo, { clearSentence: true });
                         const gen = await postJson("/api/sentence/generate", { use_ollama: false });
@@ -109,7 +109,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 # 2) Ativa o tema Matilha pelo menu/API de tema e verifica sons desligados por padrão
                 page.evaluate(
                     """async () => {
-                        const { applyDesign } = await import("/static/js/modulos/temas.js?v=2.3.0");
+                        const { applyDesign } = await import("/static/js/modulos/temas.js?v=2.3.1");
                         applyDesign("matilha", { persist: true });
                     }"""
                 )
@@ -178,7 +178,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 page.wait_for_selector("#matilhaRibbonBadge", state="attached", timeout=5000)
                 persisted = page.evaluate(
                     """async () => {
-                        const { apiJson } = await import("/static/js/modulos/api.js?v=2.3.0");
+                        const { apiJson } = await import("/static/js/modulos/api.js?v=2.3.1");
                         const s = await apiJson("/api/settings");
                         return {
                             selPug: document.getElementById("selMatilhaPug")?.value,
@@ -218,7 +218,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                 ):
                     page.evaluate(
                         """async () => {
-                            const { openCommandPalette } = await import("/static/js/modulos/temas.js?v=2.3.0");
+                            const { openCommandPalette } = await import("/static/js/modulos/temas.js?v=2.3.1");
                             openCommandPalette();
                         }"""
                     )
@@ -232,7 +232,7 @@ def test_tema_matilha_easter_eggs_fluxo_exportacao_identica_e_reduced_motion() -
                     page.click(f'.station-btn[data-station="{estacao}"]')
                 matilha_out = page.evaluate(
                     """async () => {
-                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.3.0");
+                        const { postJson, apiJson, apiFetch } = await import("/static/js/modulos/api.js?v=2.3.1");
                         const gen = await postJson("/api/sentence/generate", { use_ollama: false });
                         const rev = gen.sentenca?.revisao_documento || "";
                         const pje = await apiJson(`/api/export/pje?revisao_esperada=${encodeURIComponent(rev)}`);

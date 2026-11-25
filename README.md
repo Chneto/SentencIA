@@ -1,4 +1,4 @@
-# SentencIA 2.1.0
+# SentencIA 2.3.1
 
 ![SentencIA — A inteligência que auxilia. A decisão que é sua.](docs/identidade/banner.png)
 
@@ -30,7 +30,7 @@ cópia/HTML para o PJe.
   curl -fsSL https://github.com/Chneto/SentencIA/releases/latest/download/instalar-mac.sh | bash
   ```
 
-Também disponível como instalador gráfico **`SentencIA-Setup-v2.1.0.exe`** e pacote portátil **`.zip`** em [Releases](https://github.com/Chneto/SentencIA/releases).
+Também disponível como instalador gráfico **`SentencIA-Setup-2.3.1.exe`** e pacote portátil **`.zip`** em [Releases](https://github.com/Chneto/SentencIA/releases).
 Consulte o **[Guia Completo de Instalação](docs/INSTALACAO.md)** ([versão em PDF](docs/INSTALACAO.pdf)) e o **[Guia do Usuário](docs/GUIA_DO_USUARIO.md)**.
 
 ---
@@ -58,7 +58,7 @@ transcrição roda no processador.
 
 ### Windows
 
-1. Extraia o arquivo `SentencIA-v2.1.0.zip` (botão direito → **Extrair Tudo...**).
+1. Extraia o arquivo `SentencIA-v2.3.1.zip` (botão direito → **Extrair Tudo...**).
    Prefira uma pasta **fora do OneDrive**, por exemplo `C:\SentencIA` ou `Documentos`: os autos
    são sigilosos e não devem ser sincronizados com a nuvem. O iniciador avisa se a pasta estiver no
    OneDrive.
@@ -89,7 +89,7 @@ janela quando a instalação já existe.
    - Alternativa pelo Terminal (remove a quarentena da pasta inteira de uma só vez):
 
      ```bash
-     xattr -dr com.apple.quarantine ~/Documents/SentencIA-v2.1.0
+     xattr -dr com.apple.quarantine ~/Documents/SentencIA-v2.3.1
      ```
 3. O Terminal abre e mostra as etapas (iguais às do Windows). No Mac o Ollama é instalado pelo
    Homebrew, se você o tiver; caso contrário, o iniciador abre a página oficial de download.
@@ -168,10 +168,29 @@ esquerdo que concentra temas, jurisprudência, pré-análise em lote, configura�
 6. **Nova sentença:** "Zerar produção" mantém os autos; "Limpar tudo" arquiva o caso em
    `data/cases/_arquivados/<data>.zip` (com deduplicação) — a exclusão definitiva exige confirmação expressa.
 
-### Recursos adicionais da v2.1.0
+### Novidades das versões 2.2 e 2.3
 
-- **Menu do logo, 4 temas e paleta de comandos (`Ctrl+K`):** escolha entre *Original*, *Gabinete Clássico*,
-  *Estúdio Moderno* e *Cockpit / Alta Densidade*, todos com modo claro e escuro e fontes locais.
+- **Sentença mais segura e auditável:**
+  - só afirma o que o juízo registrou como provado por imputação;
+  - traz uma única decisão de confissão por imputação (conflito entre Análise e Dosimetria bloqueia o cálculo; Tema 1194/STJ);
+  - a detração só usa custódias com vínculo documental inequívoco;
+  - a prescrição retroativa exige a estabilidade da acusação no mesmo título da pena usada.
+- **Decisões acessórias completas:**
+  - substituição da pena (inclusive a exceção do art. 44, § 3º, para reincidente);
+  - sursis comum e etário/humanitário (art. 77, § 2º);
+  - medidas protetivas;
+  - efeitos do art. 92, § 2º, do CP (Lei 14.994/2024).
+  Tudo isso entra no rascunho do caso e a reauditoria aponta comandos contraditórios em qualquer seção da minuta.
+- **Leitura dos autos mais fiel:** o OCR não substitui texto nativo legível e as peças sem espécie reconhecida
+  continuam no índice como "não identificada".
+- **Tema Matilha:** o pug e o rottweiler acompanham o trabalho (estados vazios, auditoria, avisos), com
+  variantes à escolha e easter eggs. Sons desligados por padrão; a folha da sentença e as exportações
+  continuam formais em qualquer tema.
+
+### Recursos adicionais
+
+- **Menu do logo, 5 temas e paleta de comandos (`Ctrl+K`):** escolha entre *Original*, *Gabinete Clássico*,
+  *Estúdio Moderno*, *Cockpit / Alta Densidade* e *Matilha*, todos com modo claro e escuro e fontes locais.
 - **Pré-análise de processos em lote:** envie vários PDFs de uma vez, acompanhe a triagem em segundo plano
   e abra qualquer processo diretamente na sessão de trabalho.
 - **Jurisprudência do gabinete e acervo fechado:** consulte o acervo verificado (incluindo o Tema 1197/STJ
@@ -268,7 +287,7 @@ uv run python launcher.py     # iniciador (porta livre + navegador)
 - Testes que exigem os **autos reais** (sigilosos) usam o marcador `dados_reais` e só rodam com
   `SENTENCIA_REAL_CASES_DIR` apontando para a pasta dos PDFs/MP4: `uv run pytest -m dados_reais`.
 - Pacote de distribuição: `uv run python scripts/build_release.py --dry-run` lista o que entraria;
-  sem `--dry-run` gera `dist/SentencIA-v2.1.0.zip` e `dist/SHA256SUMS.txt` (permissões Unix
+  sem `--dry-run` gera `dist/SentencIA-v<versão>.zip` e `dist/SHA256SUMS.txt` (permissões Unix
   preservadas para o macOS; testes, autos, preferências, segredos, modelos e capturas de tela ficam de
   fora).
 - Detalhes técnicos: `docs/context.md` (ambiente, estrutura e rotas) e `docs/INSTALACAO.md` (instalação em Windows e macOS).

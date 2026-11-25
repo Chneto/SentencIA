@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: lote.js (TASK-018: Pré-análise em lote — interface)
-import { hooks } from "./estado.js?v=2.3.0";
-import { $, closeModal, escapeHtml, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.0";
-import { apiFetch, apiJson, handleApiError, postJson } from "./api.js?v=2.3.0";
+import { hooks } from "./estado.js?v=2.3.1";
+import { $, closeModal, escapeHtml, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.1";
+import { apiFetch, apiJson, handleApiError, postJson } from "./api.js?v=2.3.1";
 
 const _loteState = {
   arquivosSelecionados: [],

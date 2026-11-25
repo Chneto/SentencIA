@@ -1,9 +1,9 @@
 // SentencIA — Módulo ES: gemini.js (TASK-015)
-import { LEGACY_GEMINI_KEY_STORAGE, hooks, state } from "./estado.js?v=2.3.0";
-import { $, atualizarControlesConsentimento, closeModal, envioExternoPermitido, escapeHtml, lsGet, lsRemove, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.0";
-import { apiJson, handleApiError, postJson } from "./api.js?v=2.3.0";
-import { buildDosimetryPayload, garantirDecisaoJudicial } from "./estacao-dosimetria.js?v=2.3.0";
-import { avisarResultadoGeracao, renderSentenceOnSheet } from "./estacao-sentenca.js?v=2.3.0";
+import { LEGACY_GEMINI_KEY_STORAGE, hooks, state } from "./estado.js?v=2.3.1";
+import { $, atualizarControlesConsentimento, closeModal, envioExternoPermitido, escapeHtml, lsGet, lsRemove, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.1";
+import { apiJson, handleApiError, postJson } from "./api.js?v=2.3.1";
+import { buildDosimetryPayload, garantirDecisaoJudicial } from "./estacao-dosimetria.js?v=2.3.1";
+import { avisarResultadoGeracao, renderSentenceOnSheet } from "./estacao-sentenca.js?v=2.3.1";
 
 async function statusCofreGemini() {
   try {

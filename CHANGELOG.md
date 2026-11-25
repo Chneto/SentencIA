@@ -3,6 +3,13 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.3.1] — 2026-11-24
+
+Correção do tema Matilha.
+
+- O "rabo abanando" ao passar o mouse sobre botões principais não altera mais o tamanho do botão: em algumas larguras de tela (ex.: 1366 px) o cabeçalho piscava sem parar.
+- Testes automáticos independentes do horário e da velocidade da máquina.
+
 ## [2.3.0] — 2026-11-24
 
 Novo tema visual **Matilha** e conclusão do Ciclo 8 (sentença mais segura).

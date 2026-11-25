@@ -1,16 +1,16 @@
-import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, VEREDICTO_LABELS, VETORES_59_META, hooks, state } from "./estado.js?v=2.3.0";
-import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.3.0";
-import { handleApiError, postJson } from "./api.js?v=2.3.0";
-import { abrirComplementacao } from "./estacao-analise.js?v=2.3.0";
-import { camposCautelar, camposConclusoes, dadosCondicoesAcao, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.3.0";
-import { camposPrescricao, ligarRegistroPrescricao, painelPrescricao } from "./registro-prescricao.js?v=2.3.0";
+import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, VEREDICTO_LABELS, VETORES_59_META, hooks, state } from "./estado.js?v=2.3.1";
+import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.3.1";
+import { handleApiError, postJson } from "./api.js?v=2.3.1";
+import { abrirComplementacao } from "./estacao-analise.js?v=2.3.1";
+import { camposCautelar, camposConclusoes, dadosCondicoesAcao, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.3.1";
+import { camposPrescricao, ligarRegistroPrescricao, painelPrescricao } from "./registro-prescricao.js?v=2.3.1";
 
-import { camposAntecedentes, dadosAntecedentes, ligarAntecedentes } from "./registro-antecedentes.js?v=2.3.0";
-import { CHAVE_DECISOES_SESSAO, agendarRascunho, lerRascunhoDecisoes, salvarRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.0";
+import { camposAntecedentes, dadosAntecedentes, ligarAntecedentes } from "./registro-antecedentes.js?v=2.3.1";
+import { CHAVE_DECISOES_SESSAO, agendarRascunho, lerRascunhoDecisoes, salvarRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.1";
 
-import { dadosDetracao, montarDetracao } from "./registro-detracao.js?v=2.3.0";
-import { dadosAcessorias, estadoEditorAcessorias, garantirDecisoesAcessoriasValidas } from "./registro-decisoes-acessorias.js?v=2.3.0";
-import { avisoConflitoConfissao, dadosConfissaoDosimetria, opcoesConfissao } from "./registro-confissao.js?v=2.3.0";
+import { dadosDetracao, montarDetracao } from "./registro-detracao.js?v=2.3.1";
+import { dadosAcessorias, estadoEditorAcessorias, garantirDecisoesAcessoriasValidas } from "./registro-decisoes-acessorias.js?v=2.3.1";
+import { avisoConflitoConfissao, dadosConfissaoDosimetria, opcoesConfissao } from "./registro-confissao.js?v=2.3.1";
 
 function novoCrimeConfig(code, isDemo) {
   const vetores = {};

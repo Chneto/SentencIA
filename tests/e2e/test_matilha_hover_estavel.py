@@ -1,6 +1,6 @@
 """Tema Matilha: o "rabo abanando" no hover de botão primário não muda o layout.
 
-Regressão encontrada na CI da 2.3.0: os 12 px do pseudo-elemento quebravam a linha do cabeçalho em 1366 px; o botão
+Regressão encontrada na CI da 2.3.1: os 12 px do pseudo-elemento quebravam a linha do cabeçalho em 1366 px; o botão
 saía de baixo do ponteiro, o hover acabava e o cabeçalho oscilava a cada quadro (menu "instável").
 """
 
@@ -17,7 +17,7 @@ def test_hover_em_botao_primario_nao_altera_largura_nem_cabecalho(_live_server: 
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async () => {
-                    const { applyDesign } = await import('/static/js/modulos/temas.js?v=2.3.0');
+                    const { applyDesign } = await import('/static/js/modulos/temas.js?v=2.3.1');
                     applyDesign('matilha', { persist: false });
                 }"""
             )

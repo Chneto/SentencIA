@@ -52,7 +52,7 @@ def _ler_versao_projeto(raiz: Path = PROJECT_DIR) -> str:
             return versao
     except Exception:
         pass
-    return "2.3.0"
+    return "2.3.1"
 
 
 VERSAO_ESPERADA = _ler_versao_projeto()

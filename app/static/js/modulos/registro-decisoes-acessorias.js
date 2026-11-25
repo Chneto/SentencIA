@@ -1,6 +1,6 @@
-import { $, escapeHtml, showToast } from "./dom.js?v=2.3.0";
-import { state } from "./estado.js?v=2.3.0";
-import { lerRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.0";
+import { $, escapeHtml, showToast } from "./dom.js?v=2.3.1";
+import { state } from "./estado.js?v=2.3.1";
+import { lerRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.1";
 
 let casoDoEditor = null;
 // TASK-092: registro usado na última minuta gerada, para marcá-la desatualizada quando o registro mudar.

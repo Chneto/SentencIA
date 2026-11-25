@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: temas.js (TASK-015)
-import { APP_VERSION, DESIGNS_ATIVOS, DESIGN_STORAGE, THEME_MODE_STORAGE, THEME_STORAGE, hooks, state } from "./estado.js?v=2.3.0";
-import { $, closeModal, lsGet, lsSet, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.0";
-import { handleApiError, postJson } from "./api.js?v=2.3.0";
+import { APP_VERSION, DESIGNS_ATIVOS, DESIGN_STORAGE, THEME_MODE_STORAGE, THEME_STORAGE, hooks, state } from "./estado.js?v=2.3.1";
+import { $, closeModal, lsGet, lsSet, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.1";
+import { handleApiError, postJson } from "./api.js?v=2.3.1";
 
 function initNavigationAndModals() {
   document.querySelectorAll(".station-btn").forEach((btn) => {

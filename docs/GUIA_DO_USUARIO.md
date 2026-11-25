@@ -1,8 +1,8 @@
-# Guia do Usuário — SentencIA v2.1.0
+# Guia do Usuário — SentencIA 2.3.1
 
 > **A inteligência que auxilia. A decisão que é sua.**
 >
-> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA v2.1.0** no dia a dia:
+> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA 2.3.1** no dia a dia:
 > das 4 estações de trabalho à cópia segura para o PJe, passando por temas, pré-análise em lote,
 > jurisprudência do gabinete e privacidade.
 
@@ -87,7 +87,14 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
    por espécie de pena**, **prescrição por crime** (art. 119 do CP e Súmula 497/STF) e alertas jurídicos
    (por exemplo, vedação de substituição ou sursis quando há vetor judicial negativo).
 4. **Prescrição na minuta:** o tópico de prescrição só é escrito na sentença quando há prescrição a
-   reconhecer. Se não houver, a minuta não abre esse tópico.
+   reconhecer. Se não houver, a minuta não abre esse tópico. Na prescrição retroativa, informe a qual
+   decisão condenatória se refere a estabilidade da acusação quando houver mais de uma.
+5. **Confissão:** o padrão é "Conforme a Análise". Se a Dosimetria divergir do que foi registrado na
+   Análise (ou do tipo da confissão), aparece um aviso em vermelho e o cálculo fica bloqueado até você
+   escolher uma única decisão. Em fato posterior a 16/09/2025 informe o tipo (integral, parcial ou
+   qualificada): ele define a proporção da atenuante (Tema 1194/STJ).
+6. **Prisão provisória:** a detração automática só usa períodos em que a prisão e a soltura estão
+   vinculadas por documento; períodos ambíguos aparecem para você confirmar.
 
 ### Estação 4 — Sentença
 
@@ -108,10 +115,15 @@ como demonstração) para você conhecer todas as telas sem precisar carregar um
    pode exportar um **rascunho** com a marca d'água **MINUTA NÃO AUDITADA**.
 4. **Teses da defesa:** cada tese defensiva é respondida no tópico **"Da Apreciação Individualizada das
    Teses Defensivas"** (art. 381, III, do CPP).
-5. **Versão desatualizada:** se a minuta tiver sido alterada em outra janela ou regenerada, ao salvar,
+5. **Decisões acessórias** (painel abaixo das pendências): registre com fundamento próprio a
+   substituição da pena (com a exceção do art. 44, § 3º, para reincidente), o sursis (comum, prova de 2 a
+   4 anos, ou etário/humanitário do art. 77, § 2º, prova de 4 a 6 anos), as medidas protetivas e os
+   efeitos do art. 92, § 2º, do CP (fatos a partir de 10/10/2024). O que faltar vira pendência; tudo fica
+   salvo no rascunho do caso, e a minuta já gerada é marcada como desatualizada quando o registro muda.
+6. **Versão desatualizada:** se a minuta tiver sido alterada em outra janela ou regenerada, ao salvar,
    regenerar ou copiar aparece o aviso "A revisão da minuta mudou. Reabra a versão atual". Isso evita
    sobrescrever um trabalho mais recente.
-6. **Exportação congelada:** o arquivo exportado (Word, PDF, HTML ou cópia para o PJe) é uma cópia fixa
+7. **Exportação congelada:** o arquivo exportado (Word, PDF, HTML ou cópia para o PJe) é uma cópia fixa
    da mesma versão da minuta que foi auditada; se a minuta mudou depois, a exportação avisa em vez de
    misturar versões.
 
@@ -126,8 +138,13 @@ No **menu do logo**, escolha o desenho que melhor se adapta à sua tela e à sua
 - **Estúdio Moderno:** navegação superior segmentada e cartões limpos.
 - **Cockpit / Alta Densidade:** máximo aproveitamento de espaço em tela, preservando largura confortável
   de leitura na folha.
+- **Matilha:** o pug (assistente) e o rottweiler (guardião) acompanham carregamentos, estados vazios,
+  auditoria e avisos, com fundo pastel e easter eggs. Em **Configurações › Aparência** escolha as variantes
+  (pug abricó ou branco e bege; rottweiler clássico ou atlético e feliz), ligue ou desligue os easter eggs
+  e os sons (desligados por padrão). Com "reduzir movimento" do sistema, as animações param. A folha da
+  sentença, o editor e as exportações continuam inteiramente formais.
 
-Todos os 4 temas possuem **modo claro e escuro** e usam fontes hospedadas localmente (sem carregar
+Todos os 5 temas possuem **modo claro e escuro** e usam fontes hospedadas localmente (sem carregar
 fontes da internet).
 
 ---

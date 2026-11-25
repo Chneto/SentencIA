@@ -1,5 +1,5 @@
-import { escapeHtml, fmtPena, rotuloCrime } from "./dom.js?v=2.3.0";
-import { state } from "./estado.js?v=2.3.0";
+import { escapeHtml, fmtPena, rotuloCrime } from "./dom.js?v=2.3.1";
+import { state } from "./estado.js?v=2.3.1";
 
 const TIPOS = {
   termo_inicial: {

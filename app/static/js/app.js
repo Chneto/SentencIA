@@ -19,21 +19,21 @@
      Camada 5: app.js (orquestração, registro de hooks e bootstrap)
    ========================================================================== */
 
-import { APP_VERSION, state, hooks } from "./modulos/estado.js?v=2.3.0";
-import { $, setActiveStation, updateHeroRibbon } from "./modulos/dom.js?v=2.3.0";
-import { SESSION_TOKEN, apiJson, showSessionExpired, handleApiError } from "./modulos/api.js?v=2.3.0";
-import { initNavigationAndModals } from "./modulos/temas.js?v=2.3.0";
-import { initDropzones, renderUploadStatusTables, renderDiskBanner, renderPecasIndice, bindAutosEvents } from "./modulos/estacao-autos.js?v=2.3.0";
-import { renderAnaliseProvas, abrirComplementacao, bindAnaliseEvents } from "./modulos/estacao-analise.js?v=2.3.0";
-import { chaveCaso, initCrimeConfigsFromCase, garantirDecisaoJudicial, exigirVeredictos, renderDosimetryCrimeTabsAndEditor, buildDosimetryPayload, renderDadosBanner, limparDosimetria, simulateDosimetry, bindDosimetriaEvents } from "./modulos/estacao-dosimetria.js?v=2.3.0";
-import { initBarraFormatacao } from "./modulos/folha-ferramentas.js?v=2.3.0";
-import { irParaMarcador, renderSentenceOnSheet, carregarUltimaSentenca, reauditarEdicao, bindSentencaEvents } from "./modulos/estacao-sentenca.js?v=2.3.0";
-import { atualizarStatusCofre, verificarChaveLegada, bindGeminiEvents } from "./modulos/gemini.js?v=2.3.0";
-import { abrirModalSettings, carregarSettings, preencherFormSettings, atualizarOpcoesReset, bindConfiguracoesEvents } from "./modulos/configuracoes.js?v=2.3.0";
-import { abrirModalAcervo, refreshKnowledge, bindJurisprudenciaEvents } from "./modulos/jurisprudencia.js?v=2.3.0";
-import { abrirModalTelemetria, refreshStatus, refreshUploadAndMotores, bindTelemetriaEvents } from "./modulos/telemetria.js?v=2.3.0";
-import { abrirModalLote, bindLoteEvents } from "./modulos/lote.js?v=2.3.0";
-import { abrirAssistente, bindAssistenteEvents, verificarAssistentePrimeiraExecucao } from "./modulos/assistente.js?v=2.3.0";
+import { APP_VERSION, state, hooks } from "./modulos/estado.js?v=2.3.1";
+import { $, setActiveStation, updateHeroRibbon } from "./modulos/dom.js?v=2.3.1";
+import { SESSION_TOKEN, apiJson, showSessionExpired, handleApiError } from "./modulos/api.js?v=2.3.1";
+import { initNavigationAndModals } from "./modulos/temas.js?v=2.3.1";
+import { initDropzones, renderUploadStatusTables, renderDiskBanner, renderPecasIndice, bindAutosEvents } from "./modulos/estacao-autos.js?v=2.3.1";
+import { renderAnaliseProvas, abrirComplementacao, bindAnaliseEvents } from "./modulos/estacao-analise.js?v=2.3.1";
+import { chaveCaso, initCrimeConfigsFromCase, garantirDecisaoJudicial, exigirVeredictos, renderDosimetryCrimeTabsAndEditor, buildDosimetryPayload, renderDadosBanner, limparDosimetria, simulateDosimetry, bindDosimetriaEvents } from "./modulos/estacao-dosimetria.js?v=2.3.1";
+import { initBarraFormatacao } from "./modulos/folha-ferramentas.js?v=2.3.1";
+import { irParaMarcador, renderSentenceOnSheet, carregarUltimaSentenca, reauditarEdicao, bindSentencaEvents } from "./modulos/estacao-sentenca.js?v=2.3.1";
+import { atualizarStatusCofre, verificarChaveLegada, bindGeminiEvents } from "./modulos/gemini.js?v=2.3.1";
+import { abrirModalSettings, carregarSettings, preencherFormSettings, atualizarOpcoesReset, bindConfiguracoesEvents } from "./modulos/configuracoes.js?v=2.3.1";
+import { abrirModalAcervo, refreshKnowledge, bindJurisprudenciaEvents } from "./modulos/jurisprudencia.js?v=2.3.1";
+import { abrirModalTelemetria, refreshStatus, refreshUploadAndMotores, bindTelemetriaEvents } from "./modulos/telemetria.js?v=2.3.1";
+import { abrirModalLote, bindLoteEvents } from "./modulos/lote.js?v=2.3.1";
+import { abrirAssistente, bindAssistenteEvents, verificarAssistentePrimeiraExecucao } from "./modulos/assistente.js?v=2.3.1";
 
 async function applyActiveCase(data, opts = {}) {
   if (!data || typeof data !== "object") return;
