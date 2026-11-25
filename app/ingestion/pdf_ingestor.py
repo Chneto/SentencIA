@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Versão do esquema do cache ``<arquivo>.pdf.pje_cache_v2.json`` (o nome do arquivo é mantido por
 # compatibilidade com a rotina de reset/arquivamento). Caches de esquemas anteriores — validados só
 # pelo tamanho e com ``data_peca`` = data de hoje quando ausente — são simplesmente ignorados.
-PDF_CACHE_SCHEMA = 8
+PDF_CACHE_SCHEMA = 9
 PDF_CACHE_SUFFIX = ".pje_cache_v2.json"
 
 # Limiares de texto "substantivo" abaixo dos quais a página é tratada como digitalizada.
@@ -49,9 +49,6 @@ _LIMIAR_OCR_HIBRIDO = 60
 _OCR_DPI = 150
 _OCR_TIMEOUT_S = 90.0
 _OCR_MAX_TIMEOUTS_SEGUIDOS = 3
-
-# Títulos de marcadores sempre irrelevantes para a sentença (não precisam de OCR nem de segmentação).
-_TITULOS_SEMPRE_IRRELEVANTES = {"ÍNDICE", "INTIMAÇÃO", "INTIMAÇÃO DE AUDIÊNCIA", "ATO ORDINATÓRIO", "DESPACHO"}
 
 ProgressoCallback = Callable[[str, int, int], None]
 
@@ -301,6 +298,33 @@ def avaliar_qualidade_ocr_pagina(texto: str) -> Dict[str, Any]:
     return {"qualidade": "boa", "score": score, "motivo": ""}
 
 
+# TASK-084: texto nativo legível e curto não é trocado por OCR (que pode errar datas e nomes).
+_MIN_NATIVO_LEGIVEL = 20
+_OCR_COBRE_MAIS_FATOR = 3
+_OCR_COBRE_MAIS_MIN_CHARS = 120
+
+
+def escolher_camada_texto(nativo: str, ocr_txt: str) -> str:
+    """Camada usada na página: ``nativa`` ou ``ocr``, conforme a qualidade das duas.
+
+    O OCR só prevalece quando o nativo é vazio/ilegível ou quando o OCR, legível, cobre muito mais conteúdo
+    (página digitalizada com carimbo nativo curto, como "Assinado digitalmente").
+    """
+    ocr_limpo = (ocr_txt or "").strip()
+    if not ocr_limpo:
+        return "nativa"
+    nativo_limpo = _strip_pje_footer(nativo or "").strip()
+    if len(nativo_limpo) < _MIN_NATIVO_LEGIVEL or avaliar_qualidade_ocr_pagina(nativo_limpo)["qualidade"] != "boa":
+        return "ocr"
+    if avaliar_qualidade_ocr_pagina(ocr_limpo)["qualidade"] != "boa":
+        return "nativa"
+    cobre_mais = (
+        len(ocr_limpo) >= _OCR_COBRE_MAIS_FATOR * len(nativo_limpo)
+        and len(ocr_limpo) - len(nativo_limpo) >= _OCR_COBRE_MAIS_MIN_CHARS
+    )
+    return "ocr" if cobre_mais else "nativa"
+
+
 def _cache_precisa_reprocessamento_seletivo(dados: Dict[str, Any], motor_atual: Optional[str]) -> bool:
     if dados.get("invalido_parcial"):
         return True
@@ -433,15 +457,17 @@ def extrair_texto_pdf_hibrido(
         ocr_pendente = idx in precisa_ocr and not ocr_txt and sem_motor
         ocr_falhou = idx in falhas_ocr
         qualidade_ocr = "nativa"
+        camada = escolher_camada_texto(texto, ocr_txt)
         if idx in precisa_ocr:
             if ocr_txt:
                 q_info = avaliar_qualidade_ocr_pagina(ocr_txt)
-                qualidade_ocr = str(q_info["qualidade"])
+                qualidade_ocr = str(q_info["qualidade"]) if camada == "ocr" else "nativa"
                 if ocr_paginas_out is not None:
                     ocr_paginas_out[str(idx + 1)] = {
                         "texto": ocr_txt,
-                        "qualidade": qualidade_ocr,
+                        "qualidade": str(q_info["qualidade"]),
                         "estado": "OCR_CONCLUIDO",
+                        "camada": camada,
                     }
             elif ocr_falhou:
                 qualidade_ocr = "falhou"
@@ -464,11 +490,11 @@ def extrair_texto_pdf_hibrido(
                 "pagina": idx + 1,
                 "doc_id": f"ID-PDF-{idx + 1:04d}",
                 "folha": f"fl. {idx + 1}",
-                "ocr_aplicado": bool(ocr_txt),
+                "ocr_aplicado": camada == "ocr",
                 "ocr_pendente": ocr_pendente,
                 "ocr_falhou": ocr_falhou,
                 "ocr_qualidade": qualidade_ocr,
-                "conteudo": f"[OCR Página {idx + 1}] {ocr_txt}" if ocr_txt else texto,
+                "conteudo": f"[OCR Página {idx + 1}] {ocr_txt}" if camada == "ocr" else texto,
             }
         )
     return paginas
@@ -479,7 +505,7 @@ def extrair_texto_pdf_hibrido(
 # ----------------------------------------------------------------------------------------------
 def _infer_title_and_phase(toc_title: str, body_text: str, doc_id: str) -> tuple[str, str, bool]:
     """
-    Retorna (titulo_formatado, fase_processual, is_relevante) para cada peça do PJe.
+    Sugere título e fase. O terceiro campo informa se o padrão foi reconhecido.
     """
     base_title = toc_title.split("|")[0].strip()
     body_sem_tag = re.sub(r"\[(?:P[áa]g\.|OCR P[áa]gina)\s*\d+(?:\s*-\s*OCR)?\]", " ", body_text or "", flags=re.IGNORECASE)
@@ -1049,30 +1075,16 @@ def _segmentar_sem_toc(
                 f"OCR de baixa qualidade em {n_baixa} página(s) digitalizada(s): confira o texto extraído."
             )
         if not full_body:
-            if n_falhou > 0:
-                alertas_peca.append(f"Falha no motor de OCR em {n_falhou} página(s) digitalizada(s).")
-            elif n_indisponivel > 0:
-                alertas_peca.append(
-                    f"Motor de OCR não instalado: {n_indisponivel} página(s) digitalizada(s) sem texto."
-                )
-            else:
-                continue
+            alertas_peca.append("Peça sem texto extraído. Confira as páginas originais.")
+        if n_falhou:
+            alertas_peca.append(f"Falha no OCR em {n_falhou} página(s) digitalizada(s).")
+        if n_indisponivel:
+            alertas_peca.append(f"Motor de OCR não instalado em {n_indisponivel} página(s) sem texto.")
 
         titulo_raw = grp["titulo_hint"] or f"Peça Processual (fls. {start_page:02d}/{end_page:02d})"
-        titulo_fmt, fase_peca, is_relevante = _infer_title_and_phase(titulo_raw, full_body, doc_id)
-        if not is_relevante:
-            hint = str(grp["titulo_hint"] or "")
-            if not hint or hint.upper() == "DESPACHO":
-                continue
-            titulo_fmt = f"{hint} ({doc_id})"
-            fase_peca = (
-                "INQUISITORIAL"
-                if any(
-                    k in hint.upper()
-                    for k in ("FLAGRANTE", "INQUÉRITO", "BOLETIM", "LAUDO", "CORPO DE DELITO", "INTERROGATÓRIO", "DECLARAÇÕES", "DEPOIMENTO", "RELATÓRIO FINAL")
-                )
-                else "JUDICIAL"
-            )
+        titulo_fmt, fase_peca, reconhecida = _infer_title_and_phase(titulo_raw, full_body, doc_id)
+        if not reconhecida:
+            alertas_peca.append("Espécie não inferida na segmentação. Peça conservada para classificação.")
 
         seen_ids.add(doc_id)
         ocr_estado = _classificar_estado_ocr(
@@ -1134,9 +1146,6 @@ def _segmentar_por_toc(
     intervalos: List[tuple[int, str, int, int]] = []
     paginas_necessarias: set[int] = set()
     for i, (_lvl, raw_title, start_page) in enumerate(entradas):
-        base_up = raw_title.split("|")[0].strip().upper()
-        if base_up in _TITULOS_SEMPRE_IRRELEVANTES:
-            continue
         end_page = _pagina_final(entradas, i, n_paginas)
         intervalos.append((i, raw_title, start_page, end_page))
         paginas_necessarias.update(range(start_page - 1, min(end_page, n_paginas)))
@@ -1171,6 +1180,7 @@ def _segmentar_por_toc(
                     "texto": ocr_txt,
                     "qualidade": str(q_info["qualidade"]),
                     "estado": "OCR_CONCLUIDO",
+                    "camada": escolher_camada_texto(textos[pno], ocr_txt),
                 }
             elif pno in falhas_ocr:
                 ocr_paginas_out[str(pno + 1)] = {"texto": "", "qualidade": "falhou", "estado": "OCR_FALHOU"}
@@ -1186,7 +1196,9 @@ def _segmentar_por_toc(
     pecas_extraidas: List[Dict[str, Any]] = []
     seen_ids: set[str] = set()
 
-    for _i, raw_title, start_page, end_page in intervalos:
+    marcadores: set[tuple[str, int, int]] = set()
+    exclusoes = []
+    for indice, raw_title, start_page, end_page in intervalos:
         m_num = re.search(r"NUM:\s*(\d+)", raw_title, flags=re.IGNORECASE)
         if raw_title.strip().upper() == "CABEÇALHO":
             doc_id = "ID-CAPA-PJE"
@@ -1195,8 +1207,30 @@ def _segmentar_por_toc(
         else:
             doc_id = f"ID-PJE-{start_page:03d}"
 
-        if doc_id in seen_ids:
+        marcador = (raw_title, start_page, end_page)
+        motivo_exclusao = ""
+        if marcador in marcadores:
+            motivo_exclusao = "Marcador idêntico para o mesmo intervalo de páginas."
+        elif raw_title.split("|")[0].strip().upper() == "ANEXO":
+            inicio = start_page - 1
+            rotulo = " ".join(_PJE_FOOTER_RE.sub("", textos[inicio]).split()).upper()
+            nivel = entradas[indice][0]
+            if rotulo in ("ANEXO", "EM ANEXO") and not ocr.get(inicio) and not doc[inicio].get_image_info():
+                if any(
+                    entradas[i][0] < nivel and pai_inicio <= start_page <= end_page <= pai_fim
+                    for i, _, pai_inicio, pai_fim in intervalos[:indice]
+                ):
+                    motivo_exclusao = "Capa de anexo cujo intervalo já consta na peça pai."
+        if motivo_exclusao:
+            exclusoes.append({
+                "doc_id": doc_id,
+                "folha": f"fls. {start_page:02d}/{end_page:02d}",
+                "motivo": motivo_exclusao,
+            })
             continue
+        marcadores.add(marcador)
+        if doc_id in seen_ids:
+            doc_id = f"{doc_id}-P{start_page:03d}-M{indice + 1:03d}"
 
         data_iso = _data_do_titulo(raw_title)
 
@@ -1212,6 +1246,10 @@ def _segmentar_por_toc(
             raw_p_txt = textos.get(pno, "")
             if pno in precisa_ocr:
                 ocr_txt = ocr.get(pno, "")
+                if ocr_txt and escolher_camada_texto(raw_p_txt, ocr_txt) == "nativa":
+                    page_texts.append(raw_p_txt)
+                    page_entries.append((pno + 1, raw_p_txt, False))
+                    continue
                 if ocr_txt:
                     if avaliar_qualidade_ocr_pagina(ocr_txt)["qualidade"] == "baixa":
                         paginas_baixa_peca.append(pno + 1)
@@ -1248,11 +1286,11 @@ def _segmentar_por_toc(
                     f"Motor de OCR não instalado: {n_indisponivel_peca} página(s) digitalizada(s) sem texto."
                 )
             else:
-                continue
+                alertas_peca.append("Peça sem texto extraído. Confira as páginas originais.")
 
-        titulo_fmt, fase_peca, is_relevante = _infer_title_and_phase(raw_title, full_body, doc_id)
-        if not is_relevante:
-            continue
+        titulo_fmt, fase_peca, reconhecida = _infer_title_and_phase(raw_title, full_body, doc_id)
+        if not reconhecida:
+            alertas_peca.append("Espécie não inferida na segmentação. Peça conservada para classificação.")
 
         seen_ids.add(doc_id)
         ocr_estado = _classificar_estado_ocr(
@@ -1288,6 +1326,8 @@ def _segmentar_por_toc(
                 seen_ids.add(sp["doc_id"])
                 pecas_extraidas.append(sp)
 
+    if exclusoes:
+        pecas_extraidas[0]["exclusoes_segmentacao"] = exclusoes
     return pecas_extraidas
 
 

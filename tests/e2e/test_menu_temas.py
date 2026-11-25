@@ -43,11 +43,12 @@ def test_menu_logo_temas_teclado_paleta_e_persistencia(_live_server: _LocalAppSe
             assert page.is_visible("#appMainMenu")
             assert page.get_attribute("#appMainMenu", "role") == "menu"
 
-            # Submenu Temas com os 4 desenhos + Claro/Escuro/Sistema
+            # Submenu Temas com os 5 desenhos + Claro/Escuro/Sistema
             page.click("#menuItemTemas")
             assert page.is_visible("#appThemesSubmenu")
             assert not page.is_disabled('[data-set-design="moderno"]')
             assert not page.is_disabled('[data-set-design="cockpit"]')
+            assert not page.is_disabled('[data-set-design="matilha"]')
             assert page.get_attribute('[data-set-design="original"]', "aria-checked") == "true"
             assert page.get_attribute('[data-set-design="classico"]', "role") == "menuitemradio"
 

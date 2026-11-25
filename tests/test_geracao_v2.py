@@ -209,8 +209,8 @@ def test_confissao_respeita_negacao_e_pedidos_defensivos():
 
 def test_detracao_conta_da_prisao_em_flagrante_ate_a_soltura():
     pecas = [
-        _peca("ID-APF", "BO", "Auto de Prisão em Flagrante", "Lavrado o auto de prisão em flagrante.", "2025-01-20"),
-        _peca("ID-ALV", "OUTROS", "Certidão de cumprimento do alvará de soltura", "Cumprido o alvará em 22/01/2025.", "2025-01-22"),
+        _peca("ID-APF", "BO", "Auto de Prisão em Flagrante", "Foi preso em flagrante em 20/01/2025.", "2025-01-20"),
+        _peca("ID-ALV", "OUTROS", "Certidão de cumprimento do alvará de soltura", "Cumprido o alvará em 22/01/2025, referente à custódia do ID-APF.", "2025-01-22"),
     ]
     dias, periodo = inferir_detracao_cautelar(pecas, data_fato_iso="2024-12-01")
     assert dias == 3

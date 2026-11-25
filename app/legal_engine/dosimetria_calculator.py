@@ -315,6 +315,11 @@ class DosimetriaConfig(BaseModel):
     fracao_segunda_fase: Tuple[int, int] = (1, 6)
     aplicar_sumula_231_stj: bool = True
     aplicar_sumula_444_stj: bool = True
+    # TASK-088. Hipótese do art. 77, § 2º, do CP registrada pelo juízo (maior de 70 anos ou razões de saúde).
+    hipotese_sursis_art77_p2: Literal["maior_70", "saude"] | None = None
+    # TASK-088. Exceção do art. 44, § 3º, do CP reconhecida pelo juízo: medida socialmente recomendável e
+    # reincidência não operada pela prática do mesmo crime.
+    excecao_art44_p3: bool = False
 
 
 class MajoranteArt24aP4(BaseModel):
@@ -469,6 +474,7 @@ class DosimetriaGlobalOutput(BaseModel):
     motivo_vedacao_substituicao: str
     sursis_art77_cabivel: bool
     fundamentacao_sursis: str
+    sursis_modalidade: Literal["caput", "art77_p2"] | None = None
     sursis_condicoes_legais: List[str] = Field(default_factory=list)
     indenizacao_dano_moral_tema983: float
     alertas_globais: List[str]
@@ -1171,9 +1177,16 @@ def calcular_dosimetria_global(
             "Incabível a substituição da pena privativa de liberdade por restritiva de direitos (art. 44, I, do CP), "
             "nos termos da Súmula 588/STJ ('A prática de crime ou contravenção penal contra a mulher com violência ou grave ameaça no ambiente doméstico impossibilita a substituição da pena privativa de liberdade por restritiva de direitos')."
         )
-    elif anos_totais > 4.0 or algum_reincidente:
+    elif anos_totais > 4.0:
         subst_cabivel = False
         motivo_vedacao = "Incabível a substituição da pena privativa de liberdade por restritiva de direitos por ausência dos requisitos do art. 44 do Código Penal."
+    elif algum_reincidente and not cfg.excecao_art44_p3:
+        subst_cabivel = False
+        motivo_vedacao = (
+            "Incabível a substituição da pena privativa de liberdade por restritiva de direitos em razão da reincidência (art. 44, II, do CP), "
+            "ressalvada a exceção do art. 44, § 3º, do CP, se o juízo reconhecer a medida socialmente recomendável e a reincidência não "
+            "operada pela prática do mesmo crime."
+        )
     elif modalidade_pendente:
         # Tipo com modalidades com e sem violência/grave ameaça, sem decisão do juízo: a Súmula 588/STJ
         # não pode ser afirmada nem afastada automaticamente.
@@ -1202,10 +1215,23 @@ def calcular_dosimetria_global(
     else:
         subst_cabivel = True
         motivo_vedacao = "Preenchidos os requisitos do art. 44 do CP (delito praticado sem violência ou grave ameaça à pessoa)."
+        if algum_reincidente:
+            motivo_vedacao = (
+                "Preenchidos os requisitos do art. 44 do CP (delito praticado sem violência ou grave ameaça à pessoa), reconhecida pelo juízo "
+                "a exceção do art. 44, § 3º: a medida é socialmente recomendável e a reincidência não decorre da prática do mesmo crime."
+            )
 
     # Suspensão Condicional da Pena - Sursis (Art. 77 CP)
     sursis_negado_circ = False
     sursis_condicoes: List[str] = []
+    sursis_modalidade: Literal["caput", "art77_p2"] | None = None
+    # Art. 77, § 2º, do CP (Lei 9.714/1998): pena não superior a 4 anos, prova de 4 a 6 anos, condenado maior de
+    # 70 anos ou razões de saúde. Os requisitos dos incisos I a III do caput continuam exigidos.
+    # Registrada a hipótese, o juízo optou pelo § 2º, que alcança toda pena não superior a 4 anos.
+    sursis_p2 = (
+        cfg.hipotese_sursis_art77_p2 is not None and anos_totais <= 4.0
+        and not algum_reincidente and not subst_cabivel
+    )
     if subst_pendente:
         sursis_cabivel = False
         fund_sursis = (
@@ -1213,11 +1239,12 @@ def calcular_dosimetria_global(
             "(com ou sem violência/grave ameaça) e, por conseguinte, da substituição do art. 44 do CP. "
             "[COMPLETAR PELO JUÍZO: concessão ou denegação do sursis, conforme a decisão sobre a substituição]."
         )
-    elif anos_totais <= 2.0 and not algum_reincidente and not subst_cabivel and vetores_art77_negativos:
+    elif (anos_totais <= 2.0 or sursis_p2) and not algum_reincidente and not subst_cabivel and vetores_art77_negativos:
         sursis_cabivel = False
         sursis_negado_circ = True
+        limite = "4 (quatro) anos (art. 77, § 2º, do CP)" if sursis_p2 else "2 (dois) anos"
         fund_sursis = (
-            "Embora a pena aplicada não supere 2 (dois) anos e não haja reincidência reconhecida em crime doloso, deixo de conceder a suspensão "
+            f"Embora a pena aplicada não supere {limite} e não haja reincidência reconhecida em crime doloso, deixo de conceder a suspensão "
             f"condicional da pena, pois a valoração negativa das circunstâncias judiciais ({', '.join(rotulos_art77_negativos)}) "
             "não autoriza o benefício (art. 77, II, do Código Penal)."
         )
@@ -1225,8 +1252,22 @@ def calcular_dosimetria_global(
             "Sursis (art. 77 do CP) NÃO concedido automaticamente: requisitos objetivos presentes, mas há circunstância(s) judicial(is) "
             f"desfavorável(is) ({', '.join(rotulos_art77_negativos)}) — art. 77, II. Cabe ao juízo decidir fundamentadamente."
         )
+    elif sursis_p2:
+        sursis_cabivel = True
+        sursis_modalidade = "art77_p2"
+        hipotese = (
+            "o condenado é maior de 70 (setenta) anos" if cfg.hipotese_sursis_art77_p2 == "maior_70"
+            else "razões de saúde justificam a suspensão"
+        )
+        fund_sursis = (
+            "A pena aplicada não supera 4 (quatro) anos e, conforme reconhecido pelo juízo, "
+            f"{hipotese}, sem reincidência em crime doloso, com circunstâncias judiciais favoráveis e incabível a substituição do art. 44 do CP. "
+            "Cabível a suspensão condicional da pena na forma do art. 77, § 2º, do Código Penal, com período de prova de "
+            "4 (quatro) a 6 (seis) anos, a fixar pelo juízo."
+        )
     elif anos_totais <= 2.0 and not algum_reincidente and not subst_cabivel:
         sursis_cabivel = True
+        sursis_modalidade = "caput"
         fund_sursis = (
             "Preenchidos os requisitos objetivos e subjetivos do art. 77 do Código Penal (pena não superior a 2 anos, sem reincidência reconhecida em crime doloso, "
             "circunstâncias judiciais do art. 77, II, favoráveis e incabível a substituição do art. 44 do CP), "
@@ -1245,6 +1286,11 @@ def calcular_dosimetria_global(
         fund_sursis = (
             "Incabível a suspensão condicional da pena (art. 77 do CP) porquanto a reprimenda total supera o patamar de 2 (dois) anos ou ausentes os requisitos subjetivos/objetivos legais."
         )
+        if 2.0 < anos_totais <= 4.0 and not algum_reincidente and not subst_cabivel:
+            fund_sursis += (
+                " Ressalva-se a hipótese do art. 77, § 2º, do CP (pena não superior a 4 anos, condenado maior de 70 anos ou razões "
+                "de saúde), a registrar pelo juízo."
+            )
 
     pena_remanescente = (
         PenaAnosMesesDias.from_total_days(max(0, total_days - detracao_efetiva))
@@ -1294,6 +1340,7 @@ def calcular_dosimetria_global(
         motivo_vedacao_substituicao=motivo_vedacao,
         sursis_art77_cabivel=sursis_cabivel,
         fundamentacao_sursis=fund_sursis,
+        sursis_modalidade=sursis_modalidade,
         sursis_condicoes_legais=sursis_condicoes,
         indenizacao_dano_moral_tema983=indenizacao,
         alertas_globais=alertas_globais,
@@ -1363,6 +1410,40 @@ def _lapso_consumado(inicio: datetime.date, fim: datetime.date, prazo_meses: int
 
 def _fmt_data(d: datetime.date | None) -> str:
     return d.strftime("%d/%m/%Y") if d else "não informada"
+
+
+_TITULOS_CONDENATORIOS = ("publicacao_sentenca_condenatoria", "publicacao_acordao_condenatorio")
+
+
+def _estabilidade_do_titulo(linha_tempo: LinhaTempoPrescricao, data_sentenca: datetime.date) -> tuple[bool, str]:
+    """Estabilidade da acusação vinculada ao título cuja pena serve ao cálculo (art. 110, § 1º, do CP; TASK-089).
+
+    A estabilidade de uma decisão não se transfere para a pena de outra. Com mais de um título condenatório,
+    o vínculo precisa ser informado; com um só, ele é inequívoco.
+    """
+    fim = linha_tempo.estabilidade_acusacao
+    if fim is None:
+        return False, ""
+    titulos = {m.fonte_id: m.data for m in linha_tempo.interrupcoes if m.tipo in _TITULOS_CONDENATORIOS}
+    pena = linha_tempo.pena_documentada
+    if pena is not None:
+        titulos[pena.fonte_id] = pena.data
+        usado = pena.fonte_id
+    elif titulos:
+        usado = min(titulos, key=titulos.get)
+    else:
+        return False, ""
+    if fim.titulo_fonte_id is None and len(titulos) > 1:
+        return False, (
+            f"Informe a qual decisão condenatória se refere a estabilidade da acusação ({fim.fonte_id}): há mais de um título "
+            f"e a pena usada no cálculo vem de {usado} (art. 110, § 1º, do CP)."
+        )
+    if fim.titulo_fonte_id is not None and fim.titulo_fonte_id != usado:
+        return False, (
+            f"A estabilidade da acusação ({fim.fonte_id}) refere-se a {fim.titulo_fonte_id}, mas a pena usada no cálculo vem de "
+            f"{usado}: a estabilidade de um título não se transfere à pena de outro (art. 110, § 1º, do CP)."
+        )
+    return titulos[usado] <= fim.data <= data_sentenca, ""
 
 
 def _prescricao_um_crime(
@@ -1465,7 +1546,9 @@ def _prescricao_um_crime(
         abstrata = retroativa = False
         estado = "sem_indicio" if verificacao_completa else "inconclusiva"
         fim_estabilidade = linha_tempo.estabilidade_acusacao
-        estabilidade = bool(fim_estabilidade and publicacoes and min(publicacoes) <= fim_estabilidade.data <= data_sentenca)
+        estabilidade, aviso_titulo = _estabilidade_do_titulo(linha_tempo, data_sentenca)
+        if aviso_titulo:
+            alertas.append(aviso_titulo)
         if indicio_abstrato:
             estado = "abstrata"
         elif projecao_retroativa:

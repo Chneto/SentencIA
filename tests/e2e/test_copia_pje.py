@@ -11,9 +11,9 @@ def _gerar_sentenca_demo(page) -> None:
     """Garante que o caso demo e uma sentença determinística estão carregados na Estação 4."""
     page.evaluate(
         """async () => {
-            const { postJson } = await import('/static/js/modulos/api.js?v=2.2.1');
-            const { hooks } = await import('/static/js/modulos/estado.js?v=2.2.1');
-            const { renderSentenceOnSheet } = await import('/static/js/modulos/estacao-sentenca.js?v=2.2.1');
+            const { postJson } = await import('/static/js/modulos/api.js?v=2.3.0');
+            const { hooks } = await import('/static/js/modulos/estado.js?v=2.3.0');
+            const { renderSentenceOnSheet } = await import('/static/js/modulos/estacao-sentenca.js?v=2.3.0');
             const demo = await postJson('/api/cases/load-demo', {});
             if (hooks.applyActiveCase) await hooks.applyActiveCase(demo, { clearSentence: true });
             const res = await postJson('/api/sentence/generate', { use_ollama: false });
@@ -174,18 +174,18 @@ def test_duas_abas_copia_pje_rejeita_revisao_anterior(_live_server: _LocalAppSer
             segunda = context.new_page()
             segunda.goto(_live_server.base_url, wait_until="networkidle")
             revisao_antiga = segunda.evaluate("""async () => {
-                const {apiJson} = await import('/static/js/modulos/api.js?v=2.2.1');
+                const {apiJson} = await import('/static/js/modulos/api.js?v=2.3.0');
                 return (await apiJson('/api/sentence/last')).sentenca.revisao_documento;
             }""")
             salta = primeira.evaluate("""async () => {
-                const {sincronizarFolha} = await import('/static/js/modulos/folha-editor.js?v=2.2.1');
+                const {sincronizarFolha} = await import('/static/js/modulos/folha-editor.js?v=2.3.0');
                 const paragrafo = document.querySelector('#sentenceRenderBody p');
                 paragrafo.style.textAlign = 'right';
                 return await sincronizarFolha();
             }""")
             assert salta
             resultados = segunda.evaluate("""async (anterior) => {
-                const {apiFetch, apiJson} = await import('/static/js/modulos/api.js?v=2.2.1');
+                const {apiFetch, apiJson} = await import('/static/js/modulos/api.js?v=2.3.0');
                 const atual = (await apiJson('/api/sentence/last')).sentenca.revisao_documento;
                 const antiga = await apiFetch('/api/export/pje?revisao_esperada=' + anterior);
                 const nova = await apiFetch('/api/export/pje?revisao_esperada=' + atual);

@@ -1,15 +1,16 @@
-import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, VEREDICTO_LABELS, VETORES_59_META, hooks, state } from "./estado.js?v=2.2.1";
-import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.2.1";
-import { handleApiError, postJson } from "./api.js?v=2.2.1";
-import { abrirComplementacao } from "./estacao-analise.js?v=2.2.1";
-import { camposCautelar, camposConclusoes, dadosCondicoesAcao, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.2.1";
-import { camposPrescricao, ligarRegistroPrescricao, painelPrescricao } from "./registro-prescricao.js?v=2.2.1";
+import { ART107_OPTIONS, ART386_OPTIONS, META_CAMPOS_LABELS, TENTATIVA_OPTIONS, VEREDICTO_LABELS, VETORES_59_META, hooks, state } from "./estado.js?v=2.3.0";
+import { $, activateSubtab, codigosCatalogo, debounce, escapeHtml, fmtMoeda, fmtPena, rotuloCrime, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.3.0";
+import { handleApiError, postJson } from "./api.js?v=2.3.0";
+import { abrirComplementacao } from "./estacao-analise.js?v=2.3.0";
+import { camposCautelar, camposConclusoes, dadosCondicoesAcao, elementosDoCrime, ligarRegistroProbatorio } from "./registro-probatorio.js?v=2.3.0";
+import { camposPrescricao, ligarRegistroPrescricao, painelPrescricao } from "./registro-prescricao.js?v=2.3.0";
 
-import { camposAntecedentes, dadosAntecedentes, ligarAntecedentes } from "./registro-antecedentes.js?v=2.2.1";
-import { CHAVE_DECISOES_SESSAO, lerRascunhoDecisoes, salvarRascunhoDecisoes } from "./registro-rascunho.js?v=2.2.1";
+import { camposAntecedentes, dadosAntecedentes, ligarAntecedentes } from "./registro-antecedentes.js?v=2.3.0";
+import { CHAVE_DECISOES_SESSAO, agendarRascunho, lerRascunhoDecisoes, salvarRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.0";
 
-import { dadosDetracao, montarDetracao } from "./registro-detracao.js?v=2.2.1";
-import { dadosAcessorias, garantirDecisoesAcessoriasValidas } from "./registro-decisoes-acessorias.js?v=2.2.1";
+import { dadosDetracao, montarDetracao } from "./registro-detracao.js?v=2.3.0";
+import { dadosAcessorias, estadoEditorAcessorias, garantirDecisoesAcessoriasValidas } from "./registro-decisoes-acessorias.js?v=2.3.0";
+import { avisoConflitoConfissao, dadosConfissaoDosimetria, opcoesConfissao } from "./registro-confissao.js?v=2.3.0";
 
 function novoCrimeConfig(code, isDemo) {
   const vetores = {};
@@ -47,8 +48,6 @@ function chaveCaso(c, usarManifesto = true) {
   return `${c.case_id || ""}|${c.is_demo ? "demo" : "real"}|${(c.pecas || []).length}|${ids}`;
 }
 
-let salvarDecisoesTimer = null;
-
 function salvarDecisoesSessao() {
   if (!state.caseKey || !state.crimeConfigs.length) return;
   salvarRascunhoDecisoes({
@@ -62,14 +61,15 @@ function salvarDecisoesSessao() {
       menor21: !!$("chkReuMenor21")?.checked,
       maior70: !!$("chkReuMaior70")?.checked,
       decisaoCautelar: state.decisaoCautelar,
+      // TASK-092: editor ainda não aberto nesta página → preserva o que já estava no rascunho.
+      acessorias: estadoEditorAcessorias() ?? lerDecisoesSessao(state.caseKey)?.extras?.acessorias ?? null,
     },
   });
 }
 
 function agendarSalvarDecisoes(ev) {
   if (ev?.target?.closest && ev.target.closest("#sentenceRenderBody")) return;
-  clearTimeout(salvarDecisoesTimer);
-  salvarDecisoesTimer = setTimeout(salvarDecisoesSessao, 250);
+  agendarRascunho(salvarDecisoesSessao);
 }
 
 function lerDecisoesSessao(caseKey) {
@@ -434,10 +434,9 @@ function renderDosimetryCrimeTabsAndEditor() {
         <div>
           <label class="form-label" for="selCrimeConfissao">Confissão (Art. 65, III, 'd')</label>
           <select class="form-select" id="selCrimeConfissao">
-            <option value="auto" ${cfg.confissao === "auto" ? "selected" : ""}>Conforme decisão na Análise</option>
-            <option value="sim" ${cfg.confissao === "sim" ? "selected" : ""}>Sim — reconhecer</option>
-            <option value="nao" ${cfg.confissao === "nao" ? "selected" : ""}>Não reconhecer</option>
+            ${opcoesConfissao(cfg)}
           </select>
+          ${avisoConflitoConfissao(cfg)}
         </div>
         ${registrosAntecedentes.length ? "" : `<div>
           <label class="form-label" for="selCrimeReincidente">Reincidência (Art. 61, I)</label>
@@ -554,6 +553,8 @@ function renderDosimetryCrimeTabsAndEditor() {
   });
   $("selCrimeConfissao")?.addEventListener("change", (e) => {
     cfg.confissao = e.target.value;
+    e.target.parentElement.querySelector("[data-conflito-confissao]")?.remove();
+    e.target.insertAdjacentHTML("afterend", avisoConflitoConfissao(cfg));
     aoMudar(false);
   });
   $("selCrimeReincidente")?.addEventListener("change", (e) => {
@@ -620,8 +621,7 @@ function buildCrimesConfig() {
       if (f) vetores_art59[v.key].fundamentacao = f;
     });
     item.vetores_art59 = vetores_art59;
-    if (c.confissao === "sim") item.confissao = true;
-    else if (c.confissao === "nao") item.confissao = false;
+    Object.assign(item, dadosConfissaoDosimetria(c));
     Object.assign(item, dadosAntecedentes(registros, c));
     item.agravante_art61f = c.agravante_art61f === true;
     item.tentativa_fracao = (c.tentativa_fracao || "").trim() || null;
@@ -883,7 +883,6 @@ export {
   renderDosimetryResults,
   renderVeredictoBanner,
   salvarDecisoesSessao,
-  salvarDecisoesTimer,
   simularAposEdicao,
   simulateDosimetry,
 };

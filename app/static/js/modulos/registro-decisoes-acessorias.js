@@ -1,7 +1,57 @@
-import { $, escapeHtml, showToast } from "./dom.js?v=2.2.1";
-import { state } from "./estado.js?v=2.2.1";
+import { $, escapeHtml, showToast } from "./dom.js?v=2.3.0";
+import { state } from "./estado.js?v=2.3.0";
+import { lerRascunhoDecisoes } from "./registro-rascunho.js?v=2.3.0";
 
 let casoDoEditor = null;
+// TASK-092: registro usado na última minuta gerada, para marcá-la desatualizada quando o registro mudar.
+let registroDaMinuta = null;
+
+/** Valores do editor (inclusive edição incompleta) para o rascunho do caso, ou null se o editor não é deste caso. */
+export function estadoEditorAcessorias() {
+  const editor = $("editorDecisoesAcessorias");
+  if (!editor || !state.caseKey || casoDoEditor !== state.caseKey) return null;
+  const valores = {};
+  editor.querySelectorAll("[data-acessorio]").forEach((campo) => {
+    valores[campo.dataset.acessorio] = [...campo.querySelectorAll("input, select, textarea")].map((el) =>
+      el.type === "checkbox" ? el.checked : el.value
+    );
+  });
+  return valores;
+}
+
+function restaurarEditorAcessorias(editor, valores) {
+  if (!valores || typeof valores !== "object") return;
+  editor.querySelectorAll("[data-acessorio]").forEach((campo) => {
+    const salvos = valores[campo.dataset.acessorio];
+    const elementos = [...campo.querySelectorAll("input, select, textarea")];
+    // Estrutura diferente (outras peças nos autos): não restaura às cegas.
+    if (!Array.isArray(salvos) || salvos.length !== elementos.length) return;
+    elementos.forEach((el, i) => {
+      if (el.type === "checkbox") el.checked = salvos[i] === true;
+      else el.value = salvos[i] ?? "";
+    });
+    campo.querySelector("[data-decisao-acessoria]")?.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function atualizarAvisoMinuta(editor) {
+  const desatualizada = Boolean(state.lastSentence) && registroDaMinuta !== null
+    && JSON.stringify(dadosAcessorias()) !== registroDaMinuta;
+  let aviso = editor.querySelector("[data-minuta-desatualizada]");
+  if (desatualizada && !aviso) {
+    editor.querySelector("summary")?.insertAdjacentHTML("afterend",
+      '<p class="muted" role="status" data-minuta-desatualizada>As decisões acessórias mudaram depois da última minuta: gere a sentença novamente para atualizá-la.</p>');
+  } else if (!desatualizada && aviso) {
+    aviso.remove();
+  }
+}
+
+/** Chamado quando uma minuta é exibida: guarda o registro que ela usou. */
+export function marcarMinutaGerada() {
+  registroDaMinuta = JSON.stringify(dadosAcessorias());
+  const editor = $("editorDecisoesAcessorias");
+  if (editor) atualizarAvisoMinuta(editor);
+}
 
 function opcoesDecisao(opcoes) {
   return '<option value="">Pendente</option>' + opcoes.map(([codigo, rotulo]) =>
@@ -21,7 +71,15 @@ const ROTULOS_ACESSORIOS = {
   substituicao: "Substituição da pena",
   sursis: "Suspensão condicional da pena",
   medidas_protetivas: "Medidas protetivas",
+  efeitos_art92: "Efeitos do art. 92, § 2º",
 };
+// TASK-087: art. 92, § 2º, do CP (Lei 14.994/2024, fatos a partir de 10/10/2024).
+const enquadramentos121A = [
+  ["violencia_domestica", "Enquadrado: violência doméstica e familiar (art. 121-A, § 1º, I)"],
+  ["menosprezo", "Enquadrado: menosprezo ou discriminação à condição de mulher (art. 121-A, § 1º, II)"],
+  ["nao_se_aplica", "Não se aplica (fundamentar)"],
+];
+const SITUACAO_ART92 = '<option value="nao_informado">Não informado nos autos</option><option value="sim">Sim</option><option value="nao">Não</option>';
 
 function campos(chave, rotulo, opcoes, extras) {
   return `<fieldset data-acessorio="${chave}">
@@ -45,12 +103,14 @@ export function renderDecisoesAcessorias() {
     editor.id = "editorDecisoesAcessorias";
     editor.className = "inner-tile";
     ancora.after(editor);
+    editor.addEventListener("input", () => atualizarAvisoMinuta(editor));
     editor.addEventListener("change", (evento) => {
+      atualizarAvisoMinuta(editor);
       if (!evento.target.matches("[data-decisao-acessoria]")) return;
       const campo = evento.target.closest("[data-acessorio]");
       const valor = evento.target.value;
       campo.querySelector("[data-fundamento-acessorio]").hidden = !valor;
-      campo.querySelector("[data-detalhes-acessorios]").hidden = !valor || valor === "negar";
+      campo.querySelector("[data-detalhes-acessorios]").hidden = !valor || valor === "negar" || valor === "nao_se_aplica";
       const contraditorio = campo.querySelector("[data-confirmacao-oitivas]");
       if (contraditorio) contraditorio.hidden = valor !== "revogar";
     });
@@ -67,14 +127,27 @@ export function renderDecisoesAcessorias() {
   editor.innerHTML = "<summary>Decisões acessórias</summary>"
     + campos("substituicao", "Substituição da pena", beneficios, modalidades.map(([codigo, rotulo]) =>
       `<label class="switch-inline"><input type="checkbox" data-modalidade value="${codigo}"><span>${rotulo}</span></label>`
-    ).join("") + '<label class="form-label">Especificação das restritivas <textarea class="form-textarea" rows="2" data-especificacao-acessoria></textarea></label>')
+    ).join("") + '<label class="form-label">Especificação das restritivas <textarea class="form-textarea" rows="2" data-especificacao-acessoria></textarea></label>'
+      + '<fieldset data-excecao-art44-p3><legend>Réu reincidente: exceção do art. 44, § 3º, do CP</legend>'
+      + '<label class="switch-inline"><input type="checkbox" data-socialmente-recomendavel><span>Em face da condenação anterior, a medida é socialmente recomendável</span></label>'
+      + '<label class="switch-inline"><input type="checkbox" data-reincidencia-nao-especifica><span>A reincidência não decorre da prática do mesmo crime</span></label></fieldset>')
     + campos("sursis", "Suspensão condicional da pena", beneficios,
       '<p class="muted">Registre a negativa da substituição para conceder a suspensão.</p>'
-      + '<label class="form-label">Prazo em anos <input class="form-control" type="number" min="2" max="4" step="1" data-prazo-acessorio></label>'
+      + '<label class="form-label">Hipótese do art. 77, § 2º (pena até 4 anos, prova de 4 a 6 anos) <select class="form-select" data-hipotese-art77-p2>'
+      + '<option value="">Não se aplica (caput: pena até 2 anos, prova de 2 a 4 anos)</option>'
+      + '<option value="maior_70">Condenado maior de 70 anos</option><option value="saude">Razões de saúde justificam a suspensão</option></select></label>'
+      + '<label class="form-label">Prazo em anos <input class="form-control" type="number" min="2" max="6" step="1" data-prazo-acessorio></label>'
       + '<label class="form-label">Condições, uma por linha <textarea class="form-textarea" rows="3" data-condicoes-acessorias></textarea></label>')
     + campos("medidas_protetivas", "Medidas protetivas de urgência", medidas,
       '<details><summary>Peças dos autos</summary>' + fontes + '</details>'
-      + '<label class="switch-inline" data-confirmacao-oitivas hidden><input type="checkbox"><span>A ofendida e o requerido já foram ouvidos sobre a revogação</span></label>');
+      + '<label class="switch-inline" data-confirmacao-oitivas hidden><input type="checkbox"><span>A ofendida e o requerido já foram ouvidos sobre a revogação</span></label>')
+    + campos("efeitos_art92", "Efeitos do art. 92, § 2º, do CP (fatos a partir de 10/10/2024)", enquadramentos121A,
+      '<label class="form-label">Cargo, função pública ou mandato eletivo <select class="form-select" data-cargo-art92>' + SITUACAO_ART92 + '</select></label>'
+      + '<label class="form-label">Identificação do cargo, função ou mandato <input class="form-control" type="text" data-descricao-cargo-art92></label>'
+      + '<label class="form-label">Poder familiar, tutela ou curatela <select class="form-select" data-poder-familiar-art92>' + SITUACAO_ART92 + '</select></label>');
+  // TASK-092: novo caso → editor limpo; depois, o rascunho deste caso (e só dele) é restaurado.
+  registroDaMinuta = null;
+  restaurarEditorAcessorias(editor, lerRascunhoDecisoes(state.caseKey, caso)?.extras?.acessorias);
 }
 
 function limparDestaquesAcessorios(editor) {
@@ -123,6 +196,16 @@ export function validarDecisoesAcessorias() {
     const rotulo = ROTULOS_ACESSORIOS[chave] || chave;
     const txtFundamento = campo.querySelector("[data-fundamento-acessorio] textarea");
     const fundamento = (txtFundamento?.value || "").trim();
+    if (chave === "efeitos_art92") {
+      if (decisao === "nao_se_aplica" && !fundamento) {
+        return { ok: false, mensagem: `${rotulo}: fundamente o afastamento do art. 121-A, § 1º.`, alvo: txtFundamento };
+      }
+      const descricao = campo.querySelector("[data-descricao-cargo-art92]");
+      if (decisao !== "nao_se_aplica" && campo.querySelector("[data-cargo-art92]")?.value === "sim" && !(descricao?.value || "").trim()) {
+        return { ok: false, mensagem: `${rotulo}: identifique o cargo, a função ou o mandato atingido.`, alvo: descricao };
+      }
+      continue;
+    }
     if (!fundamento) {
       return { ok: false, mensagem: `${rotulo}: informe o fundamento da decisão.`, alvo: txtFundamento };
     }
@@ -169,10 +252,12 @@ export function validarDecisoesAcessorias() {
       const inputPrazo = campo.querySelector("[data-prazo-acessorio]");
       const prazoBruto = (inputPrazo?.value || "").trim();
       const prazo = prazoBruto ? Number(prazoBruto) : NaN;
-      if (!Number.isInteger(prazo) || prazo < 2 || prazo > 4) {
+      const p2 = Boolean(campo.querySelector("[data-hipotese-art77-p2]")?.value);
+      const [minimo, maximo] = p2 ? [4, 6] : [2, 4];
+      if (!Number.isInteger(prazo) || prazo < minimo || prazo > maximo) {
         return {
           ok: false,
-          mensagem: "Suspensão condicional da pena: informe o prazo entre 2 e 4 anos.",
+          mensagem: `Suspensão condicional da pena: informe o prazo entre ${minimo} e ${maximo} anos${p2 ? " (art. 77, § 2º)" : ""}.`,
           alvo: inputPrazo,
         };
       }
@@ -209,7 +294,18 @@ export function dadosAcessorias() {
     const decisao = campo.querySelector("[data-decisao-acessoria]").value;
     if (!decisao) continue;
     const chave = campo.dataset.acessorio;
-    const registro = { decisao, fundamento: campo.querySelector("[data-fundamento-acessorio] textarea").value.trim() };
+    const fundamentoInformado = campo.querySelector("[data-fundamento-acessorio] textarea").value.trim();
+    if (chave === "efeitos_art92") {
+      const efeitos = { enquadramento: decisao, fundamento: fundamentoInformado || null };
+      if (decisao !== "nao_se_aplica") {
+        efeitos.cargo_publico = campo.querySelector("[data-cargo-art92]").value;
+        efeitos.poder_familiar = campo.querySelector("[data-poder-familiar-art92]").value;
+        if (efeitos.cargo_publico === "sim") efeitos.descricao_cargo = campo.querySelector("[data-descricao-cargo-art92]").value.trim();
+      }
+      dados[chave] = efeitos;
+      continue;
+    }
+    const registro = { decisao, fundamento: fundamentoInformado };
     const selecionados = (seletor) => [...campo.querySelectorAll(seletor)].map((item) => item.value);
     if (chave === "medidas_protetivas") {
       registro.fontes = selecionados("[data-fonte-acessoria]:checked");
@@ -218,9 +314,16 @@ export function dadosAcessorias() {
       const prazo = campo.querySelector("[data-prazo-acessorio]").value;
       registro.prazo_anos = prazo ? Number(prazo) : null;
       registro.modalidades = campo.querySelector("[data-condicoes-acessorias]").value.split("\n").map((c) => c.trim()).filter(Boolean);
+      const hipotese = campo.querySelector("[data-hipotese-art77-p2]")?.value;
+      if (hipotese) registro.hipotese_art77_p2 = hipotese;
     } else if (decisao === "conceder") {
       registro.modalidades = selecionados("[data-modalidade]:checked");
       registro.especificacao = campo.querySelector("[data-especificacao-acessoria]").value.trim() || null;
+      const recomendavel = campo.querySelector("[data-socialmente-recomendavel]")?.checked;
+      const naoEspecifica = campo.querySelector("[data-reincidencia-nao-especifica]")?.checked;
+      if (recomendavel || naoEspecifica) {
+        registro.excecao_art44_p3 = { socialmente_recomendavel: !!recomendavel, reincidencia_nao_especifica: !!naoEspecifica };
+      }
     }
     dados[chave] = registro;
   }

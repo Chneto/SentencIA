@@ -1,5 +1,5 @@
 ; SentencIA — Script Inno Setup 6 (instalacao por usuario, sem administrador, sem certificado).
-; Compilar com: iscc /DMyAppVersion=2.2.1 (no CI a versão vem da tag) instalador\windows\SentencIA.iss
+; Compilar com: iscc /DMyAppVersion=2.3.0 (no CI a versão vem da tag) instalador\windows\SentencIA.iss
 ;
 ; Observacoes:
 ; - PrivilegesRequired=lowest: instala em {localappdata}\Programs\SentencIA sem pedir UAC/admin.
@@ -7,7 +7,7 @@
 ; - Na desinstalacao, os dados sao MANTIDOS por padrao (o usuario so apaga se confirmar explicitamente).
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.2.1"
+  #define MyAppVersion "2.3.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\.."

@@ -134,7 +134,7 @@ def deduplicar_pecas_equivalentes(
         norm_tit = _limpar_titulo_para_dedup(p.titulo)
         clean_body = _limpar_rodapes_pje_texto(p.conteudo or "")
         norm_body = _norm_sem_acento(clean_body).lower()
-        body_hash = hashlib.md5(norm_body.encode("utf-8")).hexdigest()
+        body_hash = hashlib.md5(norm_body.encode("utf-8"), usedforsecurity=False).hexdigest()
 
         matched_group: Optional[Dict[str, Any]] = None
         if not is_sub_parent and len(norm_body) >= 80:

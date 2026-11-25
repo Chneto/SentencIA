@@ -234,3 +234,67 @@ class TestSegmentacaoSemSumario:
 
         det_pje = pi._detectar_fronteira_sem_toc("Decisão proferida às fls. 30.\nNum. 4100199 - Pág. 1")
         assert det_pje is not None and det_pje["nova_peca"] is True and det_pje["doc_id"] == "ID-4100199"
+
+
+@pytest.mark.parametrize("com_sumario", [True, False])
+def test_memoriais_sem_rotulo_no_corpo_chegam_ao_laya(tmp_path, monkeypatch, com_sumario):
+    from app.ingestion.laya_classifier import classificar_pecas_autos, extrair_metadados_processo
+
+    monkeypatch.setattr(pi, "_motor_ocr", lambda: None)
+    paginas = [
+        "DENÚNCIA\nO Ministério Público oferece denúncia pela ameaça de art. 147 do Código Penal.",
+        "DECISÃO\nRecebo a denúncia em face do acusado. Cite-se a defesa para resposta.",
+        "Ao Juízo. Defensoria Pública. A defesa requer a absolvição por insuficiência probatória.",
+        "Certidão do fim do caderno de teste. Documento sem sinais para definir a espécie.",
+    ]
+    titulos = ["Denúncia", "Decisão", "Memoriais da defesa", "Peça avulsa"]
+    pdf = tmp_path / "autos-ficticios.pdf"
+    with pymupdf.open() as doc:
+        for indice, corpo in enumerate(paginas, 1):
+            pg = doc.new_page()
+            pg.insert_text((35, 55), corpo + f"\nNum. {9900200 + indice} - Pág. 1")
+        if com_sumario:
+            doc.set_toc([[1, f"{titulo} | NUM: {9900200 + i}", i] for i, titulo in enumerate(titulos, 1)])
+        doc.save(pdf)
+
+    brutas = pi.segmentar_autos_pdf_pje(pdf, usar_cache=False)
+    ids = {p["doc_id"]: p for p in brutas}
+    assert ids["ID-9900203"]["folha"] == "fls. 03/03"
+    assert ids["ID-9900203"]["alertas"]
+    assert "insuficiência probatória" in ids["ID-9900203"]["conteudo"]
+    pecas = classificar_pecas_autos(brutas)
+    defesa = next(p for p in pecas if p.doc_id == "ID-9900203")
+    if not com_sumario:
+        assert defesa.categoria == "NAO_IDENTIFICADA"
+        ids[defesa.doc_id]["categoria_confirmada"] = "ALEGACOES_FINAIS_DEFESA"
+        pecas = classificar_pecas_autos(brutas)
+        defesa = next(p for p in pecas if p.doc_id == "ID-9900203")
+    assert defesa.categoria == "ALEGACOES_FINAIS_DEFESA"
+    meta = extrair_metadados_processo(pecas)
+    assert any(t.fonte_id == defesa.doc_id for t in meta.teses_defesa)
+
+
+def test_duplicata_identica_tem_trilha_e_despacho_com_texto_e_preservado(tmp_path, monkeypatch):
+    from app.main import _status_pdf
+
+    monkeypatch.setattr(pi, "_motor_ocr", lambda: None)
+    pdf = tmp_path / "duplicata-ficticia.pdf"
+    with pymupdf.open() as doc:
+        doc.new_page().insert_text((30, 40), "Certifico a prática de ato fictício com texto de teste.")
+        doc.new_page().insert_text((30, 40), "À defesa para manifestação sobre os documentos novos.")
+        doc.new_page().insert_text((30, 40), "Documento avulso fictício com texto para classificação posterior.")
+        doc.set_toc([
+            [1, "Certidão | NUM: 9900291", 1],
+            [1, "Certidão | NUM: 9900291", 1],
+            [1, "Despacho", 2],
+            [1, "Peça avulsa", 3],
+        ])
+        doc.save(pdf)
+
+    brutas = pi.segmentar_autos_pdf_pje(pdf, usar_cache=False)
+    assert len(brutas) == 3
+    assert "documentos novos" in brutas[1]["conteudo"]
+    status = _status_pdf(pdf, brutas, "hora fictícia")
+    assert len(status["exclusoes_segmentacao"]) == 1
+    assert status["exclusoes_segmentacao"][0]["doc_id"] == "ID-9900291"
+    assert "fls. 01/01" in status["detalhes"]

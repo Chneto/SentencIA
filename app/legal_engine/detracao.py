@@ -69,10 +69,27 @@ class ResultadoDetracao(BaseModel):
         )
 
 
-def detracao_por_quantidade(valor: object, caminho: str = "dias_prisao_cautelar") -> ResultadoDetracao:
-    """Conversão legada explícita, sem vincular a quantidade a datas não comprovadas."""
+_AVISO_ANTERIOR_A_LEI = (
+    "Sentença anterior a 03/12/2012: a detração não interfere na fixação do regime inicial "
+    "(art. 387, § 2º, do CPP, incluído pela Lei 12.736/2012); os dias de custódia ficam para a execução."
+)
+
+
+def _antes_da_vigencia(data_referencia: dt.date | None) -> bool:
+    return data_referencia is not None and data_referencia < VIGENCIA_DETRACAO_REGIME
+
+
+def detracao_por_quantidade(
+    valor: object, caminho: str = "dias_prisao_cautelar", *, data_referencia: dt.date | None = None,
+) -> ResultadoDetracao:
+    """Conversão legada explícita, sem vincular a quantidade a datas não comprovadas.
+
+    Segue a mesma regra de vigência dos intervalos documentados (TASK-093).
+    """
     if type(valor) is not int or valor < 0:
         raise DadosInsuficientesError([caminho], "Informe uma quantidade inteira e não negativa de dias.")
+    if _antes_da_vigencia(data_referencia):
+        return ResultadoDetracao(origem="legado", pendencias=[_AVISO_ANTERIOR_A_LEI] if valor else [])
     return ResultadoDetracao(dias=valor, origem="legado")
 
 
@@ -119,8 +136,9 @@ def calcular_detracao(
         anterior.fontes = list(dict.fromkeys(anterior.fontes + periodo.fontes))
         anterior.em_curso |= periodo.em_curso
 
-    if data_referencia is not None and data_referencia < VIGENCIA_DETRACAO_REGIME:
-        return ResultadoDetracao(origem=origem, pendencias=pendencias)
+    if _antes_da_vigencia(data_referencia):
+        aviso = [_AVISO_ANTERIOR_A_LEI] if unidos else []
+        return ResultadoDetracao(origem=origem, pendencias=pendencias + aviso)
     return ResultadoDetracao(
         dias=sum((p.fim - p.inicio).days + 1 for p in unidos),
         origem=origem, periodos=unidos, pendencias=pendencias,

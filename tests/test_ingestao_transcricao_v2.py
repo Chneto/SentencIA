@@ -116,7 +116,11 @@ class TestPdfIngestor:
 
         dec = por_id["ID-113"]
         assert dec["data_peca"] == ""  # sem data no marcador: vazio, nunca a data de hoje
-        assert "ID-112" not in por_id  # anexo de 1 linha é irrelevante
+        assert "ID-112" not in por_id
+        assert pecas[0]["exclusoes_segmentacao"] == [{
+            "doc_id": "ID-112", "folha": "fls. 03/04",
+            "motivo": "Capa de anexo cujo intervalo já consta na peça pai.",
+        }]
 
     def test_cache_validado_por_sha256_e_esquema(self, tmp_path, sem_ocr):
         pdf = _criar_pdf(

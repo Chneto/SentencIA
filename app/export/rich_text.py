@@ -163,7 +163,7 @@ def eh_bloco_assinatura(texto: str) -> bool:
 
 def _blocos_cabecalho(texto: str) -> List[Bloco]:
     """Cabeçalho: tribunal/juízo centralizados em negrito; identificação do processo à esquerda."""
-    linhas = [l.strip() for l in texto.split("\n") if l.strip()]
+    linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
     titulo: List[str] = []
     ident: List[str] = []
     for linha in linhas:
@@ -189,7 +189,7 @@ def texto_para_blocos(texto: str) -> List[Bloco]:
         if not conteudo:
             continue
         eh_citacao = bruto.startswith("    ") and not bruto.strip().startswith("•")
-        linhas = [l.strip() for l in conteudo.split("\n") if l.strip()]
+        linhas = [linha.strip() for linha in conteudo.split("\n") if linha.strip()]
 
         if idx == 0 or conteudo.startswith(("PODER JUDICIÁRIO", "TRIBUNAL DE JUSTIÇA")):
             saida.extend(_blocos_cabecalho(conteudo))

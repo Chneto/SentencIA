@@ -58,7 +58,7 @@ Uso:
 
 Opções:
   --repo <dono/repo>       repositório GitHub (padrão: Chneto/SentencIA)
-  --versao <tag|latest>    versão (ex.: v2.2.1 ou latest)
+  --versao <tag|latest>    versão (ex.: v2.3.0 ou latest)
   --pacote-local <zip>     instala a partir de um .zip local
   --sha256-local <arquivo> arquivo SHA256SUMS.txt do pacote local
   --destino <pasta>        pasta de instalação (padrão: ~/Applications/SentencIA)
@@ -320,7 +320,7 @@ executar_bootstrap() {
 ler_versao_instalada() {
     local v
     v="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' "$PASTA_APP_DIR/pyproject.toml" 2>/dev/null || true)"
-    printf '%s' "${v:-2.2.1}"
+    printf '%s' "${v:-2.3.0}"
 }
 
 montar_app_local() {

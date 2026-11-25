@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: temas.js (TASK-015)
-import { APP_VERSION, DESIGNS_ATIVOS, DESIGN_STORAGE, THEME_MODE_STORAGE, THEME_STORAGE, hooks, state } from "./estado.js?v=2.2.1";
-import { $, closeModal, lsGet, lsSet, openModal, setActiveStation, showToast } from "./dom.js?v=2.2.1";
-import { handleApiError, postJson } from "./api.js?v=2.2.1";
+import { APP_VERSION, DESIGNS_ATIVOS, DESIGN_STORAGE, THEME_MODE_STORAGE, THEME_STORAGE, hooks, state } from "./estado.js?v=2.3.0";
+import { $, closeModal, lsGet, lsSet, openModal, setActiveStation, showToast } from "./dom.js?v=2.3.0";
+import { handleApiError, postJson } from "./api.js?v=2.3.0";
 
 function initNavigationAndModals() {
   document.querySelectorAll(".station-btn").forEach((btn) => {
@@ -95,6 +95,25 @@ function _sincronizarTemasHabilitados() {
   });
 }
 
+let _modMatilha = null;
+
+function _sincronizarModuloMatilha(design) {
+  if (design === "matilha") {
+    import(`./tema-matilha.js?v=${APP_VERSION}`)
+      .then((m) => {
+        _modMatilha = m;
+        if (document.documentElement.getAttribute("data-design") === "matilha") {
+          m.ativarTemaMatilha();
+        }
+      })
+      .catch(() => {
+        /* módulo opcional */
+      });
+  } else if (_modMatilha && typeof _modMatilha.desativarTemaMatilha === "function") {
+    _modMatilha.desativarTemaMatilha();
+  }
+}
+
 function applyDesign(design, { persist = false } = {}) {
   const d = DESIGNS_ATIVOS.has(design) ? design : "original";
   _garantirFolhaTema(d);
@@ -104,6 +123,7 @@ function applyDesign(design, { persist = false } = {}) {
   document.querySelectorAll("[data-set-design]").forEach((btn) => {
     btn.setAttribute("aria-checked", btn.dataset.setDesign === d ? "true" : "false");
   });
+  _sincronizarModuloMatilha(d);
   if (persist) _persistirPreferenciaTema({ tema_design: d });
 }
 
@@ -366,6 +386,7 @@ const _COMANDOS_PALETA = [
   { label: "Tema: Gabinete Clássico", hint: "Tema", run: () => applyDesign("classico", { persist: true }) },
   { label: "Tema: Estúdio Moderno", hint: "Tema", run: () => applyDesign("moderno", { persist: true }) },
   { label: "Tema: Cockpit", hint: "Tema", run: () => applyDesign("cockpit", { persist: true }) },
+  { label: "Tema: Matilha (Pug & Rottweiler)", hint: "Tema", run: () => applyDesign("matilha", { persist: true }) },
   { label: "Aparência: Claro", hint: "Tema", run: () => applyThemeMode("light", { persist: true }) },
   { label: "Aparência: Escuro", hint: "Tema", run: () => applyThemeMode("dark", { persist: true }) },
   { label: "Aparência: Seguir o sistema", hint: "Tema", run: () => applyThemeMode("system", { persist: true }) },
@@ -379,11 +400,43 @@ const _COMANDOS_PALETA = [
   { label: "Sobre o SentencIA", hint: "Ajuda", run: () => executarAcaoMenuApp("about") },
 ];
 
+function _comandosSecretosMatilha(q) {
+  if (document.documentElement.getAttribute("data-design") !== "matilha") return [];
+  const norm = (q || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  if (!norm) return [];
+  const secretos = [];
+  if (norm.includes("au au") || norm === "au") {
+    secretos.push({
+      label: "Matilha: Au au! (Pug e Rottweiler cumprimentam o gabinete)",
+      hint: "Segredo",
+      run: () => _modMatilha?.acionarSegredoPaleta?.("au_au"),
+    });
+  }
+  if (norm.includes("petisco")) {
+    secretos.push({
+      label: "Matilha: Distribuir petiscos para a dupla",
+      hint: "Segredo",
+      run: () => _modMatilha?.acionarSegredoPaleta?.("petisco"),
+    });
+  }
+  if (norm.includes("bom garoto")) {
+    secretos.push({
+      label: "Matilha: Quem é um bom garoto? (os dois abanam!)",
+      hint: "Segredo",
+      run: () => _modMatilha?.acionarSegredoPaleta?.("bom_garoto"),
+    });
+  }
+  return secretos;
+}
+
 function renderCommandPalette(filtro = "") {
   const list = $("cmdPaletteList");
   if (!list) return;
   const q = (filtro || "").trim().toLowerCase();
-  const filtrados = _COMANDOS_PALETA.filter((c) => !q || c.label.toLowerCase().includes(q) || c.hint.toLowerCase().includes(q));
+  const filtrados = [
+    ..._comandosSecretosMatilha(q),
+    ..._COMANDOS_PALETA.filter((c) => !q || c.label.toLowerCase().includes(q) || c.hint.toLowerCase().includes(q)),
+  ];
   list.innerHTML = "";
   for (const cmd of filtrados) {
     const btn = document.createElement("button");

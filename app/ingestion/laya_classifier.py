@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.core.text_utils import normalizar
 from app.ingestion.antecedentes import ler_certidoes
-from app.ingestion.custodia import extrair_intervalos_custodia
+from app.ingestion.custodia import EventoCustodia, ExtracaoCustodia, analisar_custodia
 from app.ingestion.confissao import (
     EFEITO_CONFISSAO,
     DecisaoConfissao,
@@ -66,6 +66,7 @@ class PontoDecisivoItem(BaseModel):
     trecho: str = ""
     efeito: str = ""
     confirmado: bool = False
+    eventos_custodia: List[EventoCustodia] = Field(default_factory=list)
 
 
 class TeseDefensivaItem(OcorrenciaProcessual):
@@ -904,7 +905,7 @@ def extrair_pontos_decisivos(
     pedidos_mp: Optional[List[PedidoParteItem]] = None,
     transcricoes: Optional[List[Dict[str, Any]]] = None,
     confissao: SugestaoConfissao | None = None,
-    custodia: tuple[List[IntervaloCustodia], List[str]] | None = None,
+    custodia: ExtracaoCustodia | None = None,
 ) -> List[PontoDecisivoItem]:
     """Extrai os 10 pontos decisivos obrigatórios dos autos, sempre com fonte e estado explícito."""
     pontos: List[PontoDecisivoItem] = []
@@ -923,22 +924,28 @@ def extrair_pontos_decisivos(
     # 4. prisao_provisoria
     efeito_detr = "Detração penal (art. 387, § 2º, do CPP) para fins de definição do regime inicial."
     fontes_prisao = pecas if pecas_prisao is None else pecas_prisao
-    intervalos, _ = custodia if custodia is not None else extrair_intervalos_custodia(fontes_prisao)
-    if intervalos:
+    if custodia is None:
+        custodia = analisar_custodia(fontes_prisao)
+    intervalos = custodia.intervalos
+    if custodia.eventos:
         resultado = calcular_detracao(intervalos)
-        primeiro = intervalos[0]
-        fonte = next((p for p in fontes_prisao if p.doc_id == primeiro.fonte_inicio), None)
+        primeiro = intervalos[0] if intervalos else None
+        evento = custodia.eventos[0]
+        if primeiro:
+            evento = next(e for e in custodia.eventos if e.tipo == "inicio" and e.fonte_id == primeiro.fonte_inicio)
+        avisos = custodia.pendencias + resultado.pendencias
         pontos.append(PontoDecisivoItem(
             chave="prisao_provisoria", estado="a_confirmar",
-            valor={
-                "data_prisao": primeiro.inicio.isoformat(),
-                "data_soltura": primeiro.fim.isoformat() if primeiro.fim else "",
+            valor=None if avisos else {
+                "data_prisao": primeiro.inicio.isoformat() if primeiro else "",
+                "data_soltura": primeiro.fim.isoformat() if primeiro and primeiro.fim else "",
                 "dias": resultado.dias if resultado.periodos else None,
                 "intervalos": [i.model_dump(mode="json") for i in intervalos],
             },
-            fonte_id=primeiro.fonte_inicio, folha=fonte.folha if fonte else "",
-            trecho=resultado.descricao_periodos or f"Custódia indicada a partir de {primeiro.inicio:%d/%m/%Y}.",
-            efeito=efeito_detr,
+            fonte_id=evento.fonte_id, folha=evento.folha,
+            trecho=evento.trecho,
+            efeito=" ".join([efeito_detr, *avisos]),
+            eventos_custodia=custodia.eventos,
         ))
     else:
         pontos.append(PontoDecisivoItem(chave="prisao_provisoria", estado="ausente", efeito=efeito_detr))
@@ -2190,7 +2197,7 @@ def extrair_metadados_processo(
     sugestoes_confissao, confissao_geral = detectar_confissoes(
         fontes_fatos, transcricoes or [], alvos_confissao(crimes_imputados, imputacoes),
     )
-    custodia = extrair_intervalos_custodia(pecas)
+    custodia = analisar_custodia(pecas)
     pontos_decisivos = extrair_pontos_decisivos(
         fontes_fatos,
         pecas_prisao=pecas_prisao,
@@ -2231,8 +2238,8 @@ def extrair_metadados_processo(
         teses_defesa=teses_defesa,
         pedidos_mp=pedidos_mp,
         pedidos_defesa=pedidos_defesa,
-        intervalos_custodia=custodia[0],
-        alertas_custodia=custodia[1],
+        intervalos_custodia=custodia.intervalos,
+        alertas_custodia=custodia.pendencias,
         pontos_decisivos=pontos_decisivos,
         confissoes_sugeridas=sugestoes_confissao,
         alertas_extracao=alertas,

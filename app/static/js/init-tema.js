@@ -2,7 +2,7 @@
 (function () {
   try {
     var d = localStorage.getItem("sentencia_design") || "original";
-    if (d !== "original" && d !== "classico" && d !== "moderno" && d !== "cockpit") d = "original";
+    if (d !== "original" && d !== "classico" && d !== "moderno" && d !== "cockpit" && d !== "matilha") d = "original";
     document.documentElement.setAttribute("data-design", d);
     var legadoTema = localStorage.getItem("jvdfm_theme");
     if (legadoTema && !localStorage.getItem("sentencia_theme")) {

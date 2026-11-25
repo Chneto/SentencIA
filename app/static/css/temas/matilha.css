@@ -1,0 +1,396 @@
+/* ==========================================================================
+   SENTENCIA — TEMA 05: MATILHA (PUG & ROTTWEILER) — FASE B2 (TASK-099)
+   Paleta pastel acolhedora (rosa-algodão-doce, azul-bebê, creme, caramelo),
+   padrão contínuo em baixa opacidade SOMENTE no fundo externo da página,
+   animações fluidas por transform/opacity + sprite sheets, contraste WCAG AA.
+   Folha da sentença, editor, leitura densa e exportações: 100% lisos e formais.
+   ========================================================================== */
+
+html[data-design="matilha"],
+html[data-design="matilha"][data-theme="light"] {
+  --bg-canvas: #FDF8F2;
+  --bg-backdrop-glow: linear-gradient(180deg, #FEF9F5 0%, #F7EDE2 100%);
+  --bg-glass-header: #FFFDFB;
+  --bg-glass-sidebar: #FAF4EC;
+  --bg-surface: #FFFDFB;
+  --bg-surface-solid: #FFFDFB;
+  --bg-surface-2: #F7EFE5;
+  --bg-muted: #EFE4D6;
+  --bg-sheet: #FFFFFF;
+
+  --border-subtle: #E8D8C8;
+  --border-strong: #C97A3D;
+  --border-hairline: #F1E5D8;
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  --text-primary: #231F23;
+  --text-secondary: #4C423D;
+  --text-muted: #655952;
+  --text-on-accent: #FFFDFB;
+
+  --accent-primary: #9E5918;
+  --accent-primary-2: #C27B32;
+  --accent-primary-hover: #7D440F;
+  --accent-primary-soft: #FBEFE0;
+  --accent-gold: #9A6410;
+  --accent-gold-2: #C97A3D;
+  --accent-gold-soft: #FBF1DE;
+  --matilha-pink: #C44666;
+  --matilha-pink-soft: #FDF0F4;
+  --matilha-blue-soft: #ECF4FC;
+
+  --semantic-emerald: #1D5C3A;
+  --semantic-emerald-soft: #E8F5EC;
+  --semantic-emerald-border: #9ED0B2;
+  --semantic-amber: #944A0B;
+  --semantic-amber-soft: #FCF0E1;
+  --semantic-amber-border: #E8BE92;
+  --semantic-danger: #A61F24;
+  --semantic-danger-soft: #FCEAEB;
+  --semantic-danger-border: #E8B1B4;
+  --semantic-neutral: #2B2624;
+  --semantic-neutral-soft: #F0E6D8;
+
+  --shadow-card: 0 1px 3px rgba(35, 31, 35, 0.05), 0 4px 12px rgba(184, 115, 42, 0.05);
+  --shadow-card-hover: 0 4px 14px rgba(35, 31, 35, 0.08);
+  --shadow-sheet: 0 2px 8px rgba(35, 31, 35, 0.06), 0 12px 28px -12px rgba(35, 31, 35, 0.12);
+  --shadow-elevated: 0 16px 40px -10px rgba(35, 31, 35, 0.2);
+  --focus-ring: 0 0 0 3px rgba(158, 89, 24, 0.28);
+
+  --font-sans: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+  --font-serif: "Newsreader", "Georgia", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+}
+
+/* Modo escuro: "A Matilha Dorme" (azul-noite, contraste WCAG AA) */
+html[data-design="matilha"][data-theme="dark"] {
+  --bg-canvas: #121B2E;
+  --bg-backdrop-glow: linear-gradient(180deg, #162138 0%, #0E1626 100%);
+  --bg-glass-header: #18233A;
+  --bg-glass-sidebar: #162035;
+  --bg-surface: #1B2740;
+  --bg-surface-solid: #1B2740;
+  --bg-surface-2: #22304D;
+  --bg-muted: #283859;
+  --bg-sheet: #FFFFFF;
+
+  --border-subtle: #2D3E60;
+  --border-strong: #C98F47;
+  --border-hairline: #243352;
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  --text-primary: #F5EFE6;
+  --text-secondary: #D3DAE6;
+  --text-muted: #AEB8CA;
+  --text-on-accent: #121B2E;
+
+  --accent-primary: #E0A85C;
+  --accent-primary-2: #EAC07E;
+  --accent-primary-hover: #F0CA8E;
+  --accent-primary-soft: #2A354D;
+  --accent-gold: #E0A85C;
+  --accent-gold-2: #F0CA8E;
+  --accent-gold-soft: #2C3449;
+  --matilha-pink: #F29BB0;
+  --matilha-pink-soft: #362538;
+  --matilha-blue-soft: #1F314F;
+
+  --semantic-emerald: #68D391;
+  --semantic-emerald-soft: #1B362B;
+  --semantic-emerald-border: #2E644B;
+  --semantic-amber: #F6B969;
+  --semantic-amber-soft: #3B2D1B;
+  --semantic-amber-border: #6F5127;
+  --semantic-danger: #F88B90;
+  --semantic-danger-soft: #3D1F25;
+  --semantic-danger-border: #7A3540;
+  --semantic-neutral: #D6DCE8;
+  --semantic-neutral-soft: #24334F;
+
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.36);
+  --shadow-sheet: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-elevated: 0 18px 44px -10px rgba(0, 0, 0, 0.55);
+  --focus-ring: 0 0 0 3px rgba(224, 168, 92, 0.35);
+}
+
+/* Fundo contínuo temático (patinhas, lacinhos, gravatinhas, ossinhos, brinquedos)
+   SOMENTE no fundo externo da página — baixa opacidade, nunca nos painéis de leitura */
+html[data-design="matilha"] body {
+  background-color: var(--bg-canvas);
+  background-image: url("/static/img/matilha/pattern-matilha-claro.webp");
+  background-repeat: repeat;
+  background-size: 320px 320px;
+}
+
+html[data-design="matilha"][data-theme="dark"] body {
+  background-image: url("/static/img/matilha/pattern-matilha-escuro.webp");
+}
+
+/* Regra inegociável: folha da sentença, editor e áreas de leitura densa sempre lisas e formais */
+html[data-design="matilha"] #sentenceSheet,
+html[data-design="matilha"] #sentenceRenderBody,
+html[data-design="matilha"] .sentence-paper-wrapper,
+html[data-design="matilha"] .sentence-paper-body,
+html[data-design="matilha"] .judicial-sheet {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  color: #1A1B1E;
+}
+
+html[data-design="matilha"] .card,
+html[data-design="matilha"] .inner-tile,
+html[data-design="matilha"] .modal-dialog,
+html[data-design="matilha"] .evidence-viewer {
+  background-image: none;
+}
+
+/* Keyframes GPU-friendly (transform / opacity / background-position) */
+@keyframes matilha-wag {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-12deg); }
+  75% { transform: rotate(12deg); }
+}
+
+@keyframes matilha-breathe {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-1.5px) scaleY(1.03); }
+}
+
+@keyframes matilha-blink {
+  0%, 100% { transform: scaleY(1); opacity: 1; }
+  50% { transform: scaleY(0.86); opacity: 0.92; }
+}
+
+@keyframes matilha-pose-in {
+  0% { opacity: 0.35; transform: scale(0.92) translateY(3px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes matilha-sprite-4 {
+  from { background-position: 0% 0%; }
+  to { background-position: 100% 0%; }
+}
+
+@keyframes matilha-zoomies-run {
+  0% { transform: translateX(-18vw) translateY(0); opacity: 0; }
+  8% { opacity: 1; }
+  50% { transform: translateX(48vw) translateY(-7px); opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateX(108vw) translateY(0); opacity: 0; }
+}
+
+@keyframes matilha-treat-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(85vh) rotate(220deg); opacity: 0; }
+}
+
+/* Idle vivo (respiração suave + piscar esporádico) e troca encadeada de pose */
+.matilha-idle-alive {
+  animation: matilha-breathe 3.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: transform;
+}
+
+.matilha-blink {
+  animation: matilha-blink 0.22s ease-in-out 1 !important;
+}
+
+.matilha-pose-swap {
+  animation: matilha-pose-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+
+/* Micro-animação de rabo abanando em botões primários no hover/foco (Easter egg #6) */
+html[data-design="matilha"] .btn-primary:hover::after,
+html[data-design="matilha"] .btn-primary:focus-visible::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  margin-left: 6px;
+  border-radius: 99px;
+  background: currentColor;
+  opacity: 0.75;
+  transform-origin: bottom center;
+  animation: matilha-wag 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 2;
+  vertical-align: middle;
+}
+
+/* Barra de progresso com pegadas (Easter egg #3) */
+html[data-design="matilha"] .progress-bar-fill,
+html[data-design="matilha"] #uploadProgressBar {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--accent-primary) 0 12px,
+    var(--accent-primary-2) 12px 18px
+  );
+}
+
+/* Selo discreto no cabeçalho */
+.matilha-ribbon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--matilha-pink-soft);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.matilha-ribbon-badge img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Card de estado vazio com caminha do Pug (Easter egg #4) */
+.matilha-empty-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  border-radius: 12px;
+  background: var(--matilha-blue-soft);
+  border: 1px solid var(--border-subtle);
+}
+
+.matilha-empty-card img {
+  width: 74px;
+  height: 74px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.matilha-empty-card p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Badge do Rottweiler na auditoria e na espera da geração (Easter eggs #5 e #6) */
+.matilha-guard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-top: 8px;
+  border-radius: 10px;
+  background: var(--accent-gold-soft);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.matilha-guard-badge img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Sprite sheets animados (4 quadros) para Zoomies e Desfile Konami */
+.matilha-sprite {
+  display: inline-block;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background-repeat: no-repeat;
+  background-size: 400% 100%;
+  box-shadow: var(--shadow-card);
+  animation: matilha-sprite-4 0.42s steps(3) infinite;
+}
+
+.matilha-sprite-pug {
+  background-image: url("/static/img/matilha/sprite-pug-run.webp");
+}
+
+.matilha-sprite-rott {
+  background-image: url("/static/img/matilha/sprite-rott-run.webp");
+}
+
+/* Overlay não-bloqueante dos Easter Eggs */
+.matilha-fx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.matilha-fx-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 2px solid var(--accent-primary);
+  box-shadow: var(--shadow-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  animation: matilha-pose-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+
+.matilha-fx-banner img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.matilha-zoomies-runner {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  animation: matilha-zoomies-run 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  will-change: transform, opacity;
+}
+
+.matilha-treat-drop {
+  position: fixed;
+  top: -16px;
+  font-size: 18px;
+  animation: matilha-treat-fall 2.6s ease-in forwards;
+  will-change: transform, opacity;
+}
+
+/* Drag & Drop de PDF */
+html[data-design="matilha"] .matilha-drop-active {
+  outline: 2px dashed var(--accent-primary);
+  background: var(--accent-primary-soft);
+}
+
+/* Acessibilidade: prefers-reduced-motion desliga todas as animações */
+@media (prefers-reduced-motion: reduce) {
+  html[data-design="matilha"] .btn-primary:hover::after,
+  html[data-design="matilha"] .btn-primary:focus-visible::after,
+  .matilha-idle-alive,
+  .matilha-blink,
+  .matilha-pose-swap,
+  .matilha-sprite,
+  .matilha-fx-banner,
+  .matilha-zoomies-runner,
+  .matilha-treat-drop {
+    animation: none !important;
+    transition: none !important;
+  }
+}

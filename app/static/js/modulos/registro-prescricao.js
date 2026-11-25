@@ -1,5 +1,5 @@
-import { escapeHtml, fmtPena, rotuloCrime } from "./dom.js?v=2.2.1";
-import { state } from "./estado.js?v=2.2.1";
+import { escapeHtml, fmtPena, rotuloCrime } from "./dom.js?v=2.3.0";
+import { state } from "./estado.js?v=2.3.0";
 
 const TIPOS = {
   termo_inicial: {
@@ -60,6 +60,10 @@ function linha(grupo, dados = {}, removivel = false) {
     ${grupo === "suspensoes" ? campo("Retomada do prazo", "data_fim", "date", dados) : ""}
     ${pena}
     ${campo("ID da peça", "fonte_id", "text", dados, 'list="fontesPrescricao"')}
+    ${grupo === "estabilidade_acusacao" ? campo(
+      "ID da decisão condenatória a que se refere (obrigatório com mais de uma)", "titulo_fonte_id", "text", dados,
+      'list="fontesPrescricao"',
+    ) : ""}
     ${removivel ? '<button class="btn btn-ghost" type="button" data-presc-remover>Remover marco</button>' : ""}
   </div>`;
 }

@@ -208,7 +208,7 @@ def _resolver_detracao(
             [fonte, "dias_prisao_cautelar"], "Escolha intervalos documentados ou quantidade informada pelo juízo.",
         )
     if quantidade is not None and quantidade != "":
-        return detracao_por_quantidade(quantidade)
+        return detracao_por_quantidade(quantidade, data_referencia=data_sentenca)
     if raw is None and isinstance(confirmacao, dict):
         if type(confirmacao.get("dias")) is bool:
             raise DadosInsuficientesError(
@@ -230,9 +230,11 @@ def _resolver_detracao(
                 )
             raw = correspondentes
         if raw is None and confirmacao.get("dias") is not None:
-            return detracao_por_quantidade(confirmacao["dias"], fonte + ".dias")
+            return detracao_por_quantidade(confirmacao["dias"], fonte + ".dias", data_referencia=data_sentenca)
     if raw is None and type(confirmacao) is int:
-        return detracao_por_quantidade(confirmacao, "pontos_decisivos_confirmados.prisao_provisoria")
+        return detracao_por_quantidade(
+            confirmacao, "pontos_decisivos_confirmados.prisao_provisoria", data_referencia=data_sentenca,
+        )
     if raw is None:
         if is_demo:
             return ResultadoDetracao()
@@ -533,6 +535,80 @@ def _linha_tempo_prescricao(item: dict, prefixo: str, fontes: set[str]) -> Linha
     return linha
 
 
+def _beneficios_registrados(dados: Any) -> tuple[str | None, bool]:
+    """Hipótese do art. 77, § 2º, e exceção do art. 44, § 3º, registradas nas decisões acessórias (TASK-088).
+
+    A validação completa do registro fica em ``resolver_acessorias``; aqui só se leem os dados que mudam o cálculo.
+    """
+    if not isinstance(dados, dict):
+        return None, False
+    sursis = dados.get("sursis") if isinstance(dados.get("sursis"), dict) else {}
+    hipotese = sursis.get("hipotese_art77_p2")
+    substituicao = dados.get("substituicao") if isinstance(dados.get("substituicao"), dict) else {}
+    excecao = substituicao.get("excecao_art44_p3")
+    reconhecida = (
+        isinstance(excecao, dict)
+        and excecao.get("socialmente_recomendavel") is True
+        and excecao.get("reincidencia_nao_especifica") is True
+    )
+    return (hipotese if hipotese in ("maior_70", "saude") else None), reconhecida
+
+
+_ROTULOS_CONFISSAO = {
+    "total": "confissão integral", "parcial": "confissão parcial", "qualificada": "confissão qualificada",
+    "negativa": "Negativa do fato", "ausente": "sem confissão reconhecida",
+}
+# Tema 1194/STJ, acórdão publicado em 16/09/2025: a proporção menor da atenuante só alcança fatos posteriores.
+_MARCO_TEMA_1194 = datetime.date(2025, 9, 16)
+
+
+def _decisao_unica_confissao(
+    confissao: bool, item: Dict[str, Any], registrada: Any, tipo_legado: str | None,
+    data_fato: datetime.date, prefixo: str, is_demo: bool,
+) -> str | None:
+    """Uma decisão de confissão por imputação (TASK-086).
+
+    O registro da Análise e a escolha da Dosimetria precisam coincidir; o conflito bloqueia o cálculo
+    em vez de reconhecer (ou afastar) a atenuante em silêncio. Devolve o tipo que vai ao cálculo.
+    """
+    tipo_informado = item.get("tipo_confissao")
+    if tipo_informado is not None and tipo_informado not in TIPOS_AFIRMATIVOS:
+        raise DadosInsuficientesError(
+            [prefixo + "tipo_confissao"], "Informe o tipo da confissão: total, parcial ou qualificada.",
+        )
+    if tipo_informado and not confissao:
+        raise DadosInsuficientesError(
+            [prefixo + "tipo_confissao"], "O tipo da confissão só se informa quando a atenuante é reconhecida.",
+        )
+    if registrada is not None:
+        afirmativa = registrada.tipo in TIPOS_AFIRMATIVOS
+        rotulo = _ROTULOS_CONFISSAO.get(registrada.tipo, registrada.tipo)
+        if item.get("confissao") is not None and confissao != afirmativa:
+            escolha = "reconhece" if confissao else "afasta"
+            raise DadosInsuficientesError(
+                [prefixo + "confissao"],
+                f"Confissão em conflito: a Análise registrou \"{rotulo}\", e a Dosimetria {escolha} a atenuante. "
+                "Escolha \"Conforme decisão na Análise\" ou corrija o registro na Análise.",
+            )
+        if tipo_informado and afirmativa and tipo_informado != registrada.tipo:
+            raise DadosInsuficientesError(
+                [prefixo + "tipo_confissao"],
+                f"Confissão em conflito: a Análise registrou \"{rotulo}\", e a Dosimetria informa "
+                f"\"{_ROTULOS_CONFISSAO[tipo_informado]}\". Mantenha uma única decisão.",
+            )
+        return registrada.tipo if confissao and afirmativa else None
+    if not confissao:
+        return None
+    tipo = tipo_informado or (tipo_legado if tipo_legado in TIPOS_AFIRMATIVOS else None)
+    if tipo is None and not is_demo and data_fato > _MARCO_TEMA_1194:
+        raise DadosInsuficientesError(
+            [prefixo + "tipo_confissao"],
+            "Informe o tipo da confissão (total, parcial ou qualificada): em fato posterior a 16/09/2025 ele "
+            "define a proporção da atenuante (Tema 1194/STJ).",
+        )
+    return tipo
+
+
 def resolver_dosimetria_e_decisoes(
     pecas: List[PecaClassificada],
     meta: MetadadosProcesso,
@@ -720,11 +796,10 @@ def resolver_dosimetria_e_decisoes(
         else:
             confissao_padrao = confissao_legada
         confissao = _bool_ov(item, "confissao", confissao_padrao, prefixo)
-        tipo_confissao = None
-        if confissao and confissao_registrada and confissao_registrada.tipo in TIPOS_AFIRMATIVOS:
-            tipo_confissao = confissao_registrada.tipo
-        if confissao and confissao_registrada is None and confissao_legada and tipo_legado in TIPOS_AFIRMATIVOS:
-            tipo_confissao = tipo_legado
+        tipo_confissao = _decisao_unica_confissao(
+            confissao, item, confissao_registrada, tipo_legado if confissao_legada else None,
+            data_item, prefixo, is_demo,
+        )
         spec_orig = get_penal_type_for_date(orig_code, data_item)
 
         if veredicto in ("absolver", "extinguir") and not is_demo:
@@ -992,10 +1067,13 @@ def resolver_dosimetria_e_decisoes(
     # Fração ausente => o motor sugere conforme o número de crimes (a do juízo prevalece).
     frac_conc = _fracao_override(ov, "concurso_fracao")
 
+    hipotese_p2, excecao_p3 = _beneficios_registrados(ov.get("decisoes_acessorias"))
     cfg_dos = DosimetriaConfig(
         criterio_primeira_fase=criterio_1fase,
         aplicar_sumula_231_stj=settings.aplicar_sumula_231_stj,
         aplicar_sumula_444_stj=settings.aplicar_sumula_444_stj,
+        hipotese_sursis_art77_p2=hipotese_p2,
+        excecao_art44_p3=excecao_p3,
     )
     dosimetria_global = calcular_dosimetria_global(
         crimes=crimes_condenados_inputs,
@@ -1844,7 +1922,7 @@ def _responder_tese(t: TeseDefensivaItem) -> str:
     classe = _classe_tese(t)
     if classe == "revelia":
         return (
-            f"Assiste razão à Defesa ao pontuar que a revelia (art. 367 do CPP) não gera confissão ficta no processo penal, "
+            "Assiste razão à Defesa ao pontuar que a revelia (art. 367 do CPP) não gera confissão ficta no processo penal, "
             "devendo a valoração observar o art. 155 do CPP."
         )
     if classe == "subsidiaria_pena":

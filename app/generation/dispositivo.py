@@ -61,6 +61,18 @@ def decidir_registro_medidas_protetivas(
     )
 
 
+class ExcecaoArt44P3(BaseModel):
+    """Requisitos do art. 44, § 3º, do CP afirmados pelo juízo para substituir a pena do reincidente."""
+
+    model_config = ConfigDict(extra="forbid")
+    socialmente_recomendavel: StrictBool
+    reincidencia_nao_especifica: StrictBool
+
+    @property
+    def reconhecida(self) -> bool:
+        return self.socialmente_recomendavel and self.reincidencia_nao_especifica
+
+
 class DecisaoBeneficio(BaseModel):
     """Decisão explícita sobre a pena substitutiva ou a suspensão condicional."""
 
@@ -69,7 +81,10 @@ class DecisaoBeneficio(BaseModel):
     fundamento: Texto
     modalidades: list[Texto] = Field(default_factory=list)
     especificacao: Texto | None = None
-    prazo_anos: int | None = Field(default=None, strict=True, ge=2, le=4)
+    # Caput do art. 77: 2 a 4 anos; § 2º: 4 a 6 anos (conferido contra a modalidade calculada).
+    prazo_anos: int | None = Field(default=None, strict=True, ge=2, le=6)
+    hipotese_art77_p2: Literal["maior_70", "saude"] | None = None
+    excecao_art44_p3: ExcecaoArt44P3 | None = None
 
     @model_validator(mode="after")
     def validar_detalhes(self) -> DecisaoBeneficio:
@@ -92,6 +107,25 @@ class DecisaoMedidasProtetivas(BaseModel):
         return self
 
 
+class DecisaoEfeitosArt92(BaseModel):
+    """Pressupostos do art. 92, § 2º, do CP registrados pelo juízo (TASK-087)."""
+
+    model_config = ConfigDict(extra="forbid")
+    enquadramento: Literal["violencia_domestica", "menosprezo", "nao_se_aplica"]
+    fundamento: Texto | None = None
+    cargo_publico: Literal["sim", "nao", "nao_informado"] = "nao_informado"
+    descricao_cargo: Texto | None = None
+    poder_familiar: Literal["sim", "nao", "nao_informado"] = "nao_informado"
+
+    @model_validator(mode="after")
+    def validar_cargo(self) -> DecisaoEfeitosArt92:
+        if self.cargo_publico == "sim" and not self.descricao_cargo:
+            raise ValueError("Identifique o cargo, a função pública ou o mandato eletivo atingido.")
+        if self.enquadramento == "nao_se_aplica" and not self.fundamento:
+            raise ValueError("Fundamente o afastamento do enquadramento do art. 121-A, § 1º, do CP.")
+        return self
+
+
 MODALIDADES_SUBSTITUICAO = {
     "prestacao_servicos": "prestação de serviços à comunidade ou a entidades públicas",
     "interdicao_direitos": "interdição temporária de direitos",
@@ -105,6 +139,7 @@ class RegistroAcessorio(BaseModel):
     substituicao: DecisaoBeneficio | None = None
     sursis: DecisaoBeneficio | None = None
     medidas_protetivas: DecisaoMedidasProtetivas | None = None
+    efeitos_art92: DecisaoEfeitosArt92 | None = None
 
     @model_validator(mode="after")
     def validar_beneficios(self) -> RegistroAcessorio:
@@ -156,8 +191,61 @@ _OUTRO_COMANDO = {
     "substituicao": r"\b(?:concedo|defiro|indefiro|nego|determino|deixo de conceder) (?:a )?substituicao\b",
     "sursis": r"\b(?:concedo|defiro|indefiro|nego|deixo de conceder) (?:a |o )?(?:sursis|suspensao condicional)\b",
     "cautelar": r"\b(?:(?:concedo|nego) (?:ao reu )?o direito de recorrer|(?:mantenho|decreto|revogo) a prisao)\b",
-    "medidas_protetivas": r"\b(?:(?:mantenho|revogo|defiro|indefiro) (?:as )?medidas protetivas|(?:mantenham-se|revoguem-se) as medidas protetivas)\b",
 }
+
+# TASK-090. Comandos sobre as medidas protetivas por sentido, buscados em toda a minuta (fundamentação e dispositivo):
+# a forma imperativa ou declaratória conta como comando; a narrativa ("pediu que fossem revogadas") não.
+_MPU = r"(?:as |a )?(?:medidas? protetivas?|mpus?)"
+_COMANDOS_MPU = {
+    "revogar": re.compile(
+        rf"\b(?:revogo|revogam-se|revoguem-se|revoga-se|(?:julgo|declaro) revogadas?|ficam? revogadas?) {_MPU}\b"
+        rf"|\bmedidas? protetivas?(?: de urgencia)? ficam? revogadas?\b"
+    ),
+    "manter": re.compile(
+        rf"\b(?:mantenho|mantem-se|mantenham-se|ficam? mantidas?) {_MPU}\b"
+        rf"|\bmedidas? protetivas?(?: de urgencia)? ficam? mantidas?\b"
+    ),
+}
+
+
+def _sentido_mpu(comando: str) -> str:
+    texto = normalizar(comando)
+    if texto.startswith(("mantenho", "mantenham-se")):
+        return "manter"
+    if texto.startswith(("revogo", "registre-se a revogacao")):
+        return "revogar"
+    if texto.startswith("registro a inexistencia"):
+        return "sem_medidas"
+    return ""
+
+
+def _eh_titulo(linha: str) -> bool:
+    linha = linha.strip()
+    return bool(linha) and len(linha) <= 90 and not linha.endswith((".", ":", ";", ","))
+
+
+def _contradicoes_mpu(fundamentacao: str, dispositivo: str, decisao: dict[str, Any]) -> list[str]:
+    sentido = _sentido_mpu(str(decisao.get("comando") or ""))
+    if not sentido:
+        return []
+    proibidos = [p for chave, p in _COMANDOS_MPU.items() if chave != sentido]
+    divergencias = []
+    for local, texto in (("fundamentação", fundamentacao), ("dispositivo", dispositivo)):
+        secao = ""
+        for linha in (texto or "").splitlines():
+            if _eh_titulo(linha):
+                secao = linha.strip()
+                continue
+            normal = normalizar(linha)
+            if any(p.search(normal) for p in proibidos):
+                if local == "dispositivo":
+                    onde = "no dispositivo"
+                else:
+                    onde = f'na seção "{secao}" da fundamentação' if secao else "na fundamentação"
+                divergencias.append(
+                    f"Decisão de medidas protetivas de urgência: comando adicional incompatível com o registro do juízo {onde}."
+                )
+    return divergencias
 
 
 def verificar_decisoes_acessorias(
@@ -183,6 +271,9 @@ def verificar_decisoes_acessorias(
                 restante = texto.replace(trecho, "", 1)
                 if re.search(_OUTRO_COMANDO[chave], restante):
                     divergencias.append(f"Decisão de {rotulo}: comando adicional incompatível com o registro.")
+    medidas = registro.get("medidas_protetivas")
+    if isinstance(medidas, dict):
+        divergencias.extend(_contradicoes_mpu(fundamentacao, dispositivo, medidas))
     return divergencias
 
 
@@ -209,6 +300,90 @@ def _beneficio(
     )
 
 
+# Lei 14.994/2024 (art. 10: vigência na publicação, DOU de 10/10/2024). Norma mais gravosa: só fatos a partir dela.
+VIGENCIA_ART92_P2 = date(2024, 10, 10)
+_ENQUADRAMENTO_121A = {
+    "violencia_domestica": "violência doméstica e familiar (art. 121-A, § 1º, I, do CP)",
+    "menosprezo": "menosprezo ou discriminação à condição de mulher (art. 121-A, § 1º, II, do CP)",
+}
+
+
+def decidir_efeitos_art92(
+    registro: DecisaoEfeitosArt92 | None, datas_fatos: list[date | None],
+) -> tuple[str, str, bool]:
+    """Fundamento, comando e pendência dos efeitos do art. 92, § 2º, do CP para a condenação."""
+    if not datas_fatos:
+        return "", "", False
+    if all(data is not None and data < VIGENCIA_ART92_P2 for data in datas_fatos):
+        if registro is None:
+            return "", "", False
+        return (
+            "Os fatos da condenação são anteriores à vigência da Lei nº 14.994/2024 (10/10/2024); os efeitos do "
+            "art. 92, § 2º, do CP, mais gravosos, não retroagem (art. 5º, XL, da Constituição Federal).",
+            "", False,
+        )
+    if registro is None:
+        return (
+            "Fato posterior a 10/10/2024: cabe decidir o enquadramento do art. 121-A, § 1º, do CP para os efeitos do "
+            "art. 92, § 2º (Lei nº 14.994/2024).",
+            "[COMPLETAR PELO JUÍZO: enquadramento do art. 121-A, § 1º, e efeitos do art. 92, § 2º, do CP].",
+            True,
+        )
+    if registro.enquadramento == "nao_se_aplica":
+        return f"Afasta-se o regime do art. 92, § 2º, do CP: {registro.fundamento}", "", False
+    fundamento = (
+        f"A condenação recai sobre crime praticado contra a mulher por razões da condição do sexo feminino, "
+        f"por envolver {_ENQUADRAMENTO_121A[registro.enquadramento]}. Incidem os efeitos do art. 92, § 2º, do CP "
+        "(Lei nº 14.994/2024), automáticos quanto aos incisos I e II do caput e à vedação do § 2º, II "
+        "(art. 92, § 2º, III, do CP)."
+    )
+    if registro.fundamento:
+        fundamento += f" {registro.fundamento}"
+    comandos: list[str] = []
+    pendente = False
+    if registro.cargo_publico == "sim":
+        comandos.append(
+            f"DECLARO a perda do cargo, função pública ou mandato eletivo ({registro.descricao_cargo}) "
+            "(art. 92, I, e § 2º, I e III, do CP), oficiando-se ao órgão de vinculação após o trânsito em julgado."
+        )
+    elif registro.cargo_publico == "nao_informado":
+        comandos.append("[COMPLETAR PELO JUÍZO: titularidade de cargo, função pública ou mandato eletivo (art. 92, I, e § 2º, do CP)].")
+        pendente = True
+    if registro.poder_familiar == "sim":
+        comandos.append(
+            "DECLARO a incapacidade para o exercício do poder familiar, da tutela ou da curatela "
+            "(art. 92, II, e § 2º, I e III, do CP)."
+        )
+    elif registro.poder_familiar == "nao_informado":
+        comandos.append("[COMPLETAR PELO JUÍZO: poder familiar, tutela ou curatela do condenado (art. 92, II, e § 2º, do CP)].")
+        pendente = True
+    comandos.append(
+        "Ficam vedadas a nomeação, a designação ou a diplomação do condenado em qualquer cargo, função pública ou "
+        "mandato eletivo entre o trânsito em julgado e o efetivo cumprimento da pena (art. 92, § 2º, II, do CP)."
+    )
+    return fundamento, " ".join(comandos), pendente
+
+
+def _efeitos_condenacao(
+    registro: DecisaoEfeitosArt92 | None, dosimetria: DosimetriaGlobalOutput, destino: str,
+) -> DecisaoAcessoria:
+    fundamento_92, comando_92, pendente = decidir_efeitos_art92(
+        registro, [crime.data_fato for crime in dosimetria.crimes_calculados],
+    )
+    fundamento = (
+        "A condenação torna certa a obrigação de indenizar o dano causado pelo crime (art. 91, I, do CP). "
+        "O trânsito em julgado enseja a comunicação eleitoral (art. 15, III, da Constituição Federal) e as providências de execução penal."
+    )
+    comando = (
+        "Após o trânsito em julgado, comunique-se à Justiça Eleitoral, oficie-se aos órgãos de identificação para os registros pertinentes "
+        f"e expeça-se a guia de execução definitiva{destino}."
+    )
+    return DecisaoAcessoria(
+        f"{fundamento} {fundamento_92}".strip(), f"{comando} {comando_92}".strip(),
+        "pendente" if pendente else "decidida",
+    )
+
+
 def resolver_acessorias(
     dosimetria: DosimetriaGlobalOutput, juizo: JuizoSobreProvas, *,
     dados: Any, data_sentenca: date, fontes_ativas: set[str], revogacao_documentada: str,
@@ -223,6 +398,10 @@ def resolver_acessorias(
     sem_condenacao = dosimetria.sem_condenacao or not dosimetria.crimes_calculados
     if sem_condenacao and (registro.substituicao or registro.sursis):
         raise DadosInsuficientesError(["decisoes_acessorias"], "Os benefícios da pena pressupõem condenação.")
+    if sem_condenacao and registro.efeitos_art92:
+        raise DadosInsuficientesError(
+            ["decisoes_acessorias.efeitos_art92"], "Os efeitos do art. 92 do Código Penal pressupõem condenação.",
+        )
     if registro.substituicao and registro.substituicao.decisao == "conceder":
         dias = dosimetria.pena_total_unificada.to_total_days()
         modalidades_exigidas = 1 if dias <= 360 else 2
@@ -239,6 +418,15 @@ def resolver_acessorias(
         raise DadosInsuficientesError(
             ["decisoes_acessorias.sursis"], "Confira o cabimento do sursis do art. 77, caput, do Código Penal.",
         )
+    sursis_p2 = dosimetria.sursis_modalidade == "art77_p2"
+    if registro.sursis and registro.sursis.decisao == "conceder":
+        minimo, maximo = (4, 6) if sursis_p2 else (2, 4)
+        if not minimo <= (registro.sursis.prazo_anos or 0) <= maximo:
+            base = "art. 77, § 2º" if sursis_p2 else "art. 77, caput"
+            raise DadosInsuficientesError(
+                ["decisoes_acessorias.sursis.prazo_anos"],
+                f"O período de prova do {base}, do Código Penal, vai de {minimo} a {maximo} anos.",
+            )
 
     if sem_condenacao:
         substituicao = sursis = DecisaoAcessoria(
@@ -256,11 +444,15 @@ def resolver_acessorias(
         else:
             # O parecer de cabimento do calculador não é a decisão sobre concessão ou condições.
             parecer_sursis = (
+                "O cálculo aponta cabimento em tese da suspensão condicional da pena (art. 77, § 2º, do CP)." if sursis_p2 else
                 "O cálculo aponta cabimento em tese da suspensão condicional da pena (art. 77 do CP)."
                 if dosimetria.sursis_art77_cabivel else
                 "O cálculo indica impedimento ou condição pendente à concessão do sursis (art. 77 do CP)."
             )
-            sursis = _beneficio(registro.sursis, "suspensão condicional da pena", "art. 77 do CP", parecer_sursis)
+            sursis = _beneficio(
+                registro.sursis, "suspensão condicional da pena",
+                "art. 77, § 2º, do CP" if sursis_p2 else "art. 77 do CP", parecer_sursis,
+            )
 
     if sem_condenacao and juizo.cautelar and juizo.cautelar.decisao != "conceder":
         raise DadosInsuficientesError(
@@ -314,13 +506,7 @@ def resolver_acessorias(
         "Sem condenação, ficam prejudicados os efeitos próprios da sentença penal condenatória.",
         "Após o trânsito em julgado, dê-se baixa na distribuição e arquivem-se os autos.",
         "prejudicada",
-    ) if sem_condenacao else DecisaoAcessoria(
-        "A condenação torna certa a obrigação de indenizar o dano causado pelo crime (art. 91, I, do CP). "
-        "O trânsito em julgado enseja a comunicação eleitoral (art. 15, III, da Constituição Federal) e as providências de execução penal.",
-        "Após o trânsito em julgado, comunique-se à Justiça Eleitoral, oficie-se aos órgãos de identificação para os registros pertinentes "
-        f"e expeça-se a guia de execução definitiva{destino}.",
-        "decidida",
-    )
+    ) if sem_condenacao else _efeitos_condenacao(registro.efeitos_art92, dosimetria, destino)
     vitima = f" {nome_ofendida}" if nome_ofendida else ""
     intimacoes = DecisaoAcessoria(
         "A ofendida deve ser comunicada da sentença (art. 201, § 2º, do CPP) e dos atos pertinentes ao agressor (art. 21 da Lei nº 11.340/2006). A intimação do acusado segue o art. 392 do CPP.",

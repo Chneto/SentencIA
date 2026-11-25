@@ -230,7 +230,7 @@ def test_demais_pontos_decisivos_prisao_representacao_vitima_revelia_e_demo():
         _doc(
             "ID-SOL-01",
             "Alvará de Soltura",
-            "Cumprido o alvará de soltura em 20/01/2026 e colocado em liberdade o acusado.",
+            "Cumprido o alvará de soltura em 20/01/2026 referente ao flagrante ID-BO-01.",
             folha="fls. 18",
         ),
         _doc(

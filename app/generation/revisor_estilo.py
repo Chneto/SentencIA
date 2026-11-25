@@ -31,7 +31,7 @@ _RELATORIO_MAX_PALAVRAS = 1500  # heurística: o manual pede relatório "não pr
 
 
 def _chave(origem: str, tipo: str, ref: str) -> str:
-    return hashlib.sha1(f"{origem}|{tipo}|{ref}".encode("utf-8")).hexdigest()[:10]
+    return hashlib.sha1(f"{origem}|{tipo}|{ref}".encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
 
 
 def _item(origem: str, tipo: str, categoria: str, severidade: str, titulo: str, detalhe: str = "",

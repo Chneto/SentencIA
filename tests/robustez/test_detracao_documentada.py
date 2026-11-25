@@ -8,9 +8,10 @@ from pydantic import ValidationError
 from app.api.models import GenerateSentenceRequest
 from app.core.errors import DadosInsuficientesError
 from app.generation.sentence_generator import inferir_detracao_cautelar
-from app.ingestion.laya_classifier import classificar_pecas_autos
+from app.ingestion.custodia import analisar_custodia
+from app.ingestion.laya_classifier import classificar_pecas_autos, extrair_metadados_processo
 from app.legal_engine.detracao import IntervaloCustodia, calcular_detracao, detracao_por_quantidade
-from app.legal_engine.dosimetria_calculator import calcular_dosimetria_global
+from app.legal_engine.dosimetria_calculator import CrimeDosimetriaInput, calcular_dosimetria_global
 from tests.test_pontos_decisivos import _doc
 
 
@@ -134,3 +135,60 @@ def test_fluxo_confirmacao_cartao_duas_custodias_e_simulacao_detracao():
     # 10..20/01 (11 dias inclusivos) + 01..10/03 (10 dias inclusivos) = 21 dias
     assert sim["detracao_dias"] == 21
     assert "ID-APF-1" in (sim.get("detracao_periodo") or "") or sim["detracao_dias"] == 21
+
+
+def test_soltura_vinculada_ao_segundo_inicio_nao_altera_regime_pelo_primeiro():
+    """CPP, art. 387, § 2º (Lei 12.736/2012, vigência em 03/12/2012) e CP, art. 33.
+    https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12736.htm
+    https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm
+    """
+    fontes = [
+        _doc("ID-APF-FICTICIO", "Auto de Prisão em Flagrante", "Foi capturado em 03/01/2024."),
+        _doc("ID-MANDADO-FICTICIO", "Certidão", "Mandado de prisão cumprido em 10/02/2024."),
+        _doc("ID-ALVARA-FICTICIO", "Certidão de cumprimento do alvará de soltura",
+             "Cumprido o alvará de soltura em 11/02/2024, referente à custódia iniciada em 10/02/2024."),
+    ]
+    meta = extrair_metadados_processo(classificar_pecas_autos(fontes))
+    resultado = calcular_detracao(meta.intervalos_custodia)
+    assert resultado.dias == 2
+    assert resultado.periodos[0].fontes == ["ID-MANDADO-FICTICIO", "ID-ALVARA-FICTICIO"]
+    assert "ID-APF-FICTICIO" in resultado.pendencias[0]
+    ponto = next(item for item in meta.pontos_decisivos if item.chave == "prisao_provisoria")
+    assert len({evento.id for evento in ponto.eventos_custodia}) == 3
+    assert all(evento.trecho and evento.contexto for evento in ponto.eventos_custodia)
+
+    crimes = [
+        CrimeDosimetriaInput(crime_code="art_158_cp", data_fato=dt.date(2024, 1, 1)),
+        CrimeDosimetriaInput(crime_code="art_21_lcp", data_fato=dt.date(2024, 1, 1)),
+    ]
+    assert calcular_dosimetria_global(crimes, detracao=resultado).regime_inicial == "semiaberto"
+    assert calcular_dosimetria_global(crimes, dias_prisao_cautelar=40).regime_inicial == "aberto"
+
+
+def test_custodia_convertida_e_simultanea_preserva_vinculos_e_dias_unicos():
+    fontes = [
+        _doc("ID-CAP-FICTICIO", "Auto de Prisão em Flagrante", "Foi preso em flagrante em 03/01/2024."),
+        _doc("ID-CNV-FICTICIO", "Decisão", "Converteu a prisão em flagrante em preventiva em 04/01/2024 referente ao ID-CAP-FICTICIO."),
+        _doc("ID-MAND-FICTICIO", "Certidão", "Mandado de prisão cumprido em 05/01/2024."),
+        _doc("ID-SOL-A", "Certidão", "Cumprido o alvará de soltura em 07/01/2024 referente ao ID-CNV-FICTICIO."),
+        _doc("ID-SOL-B", "Certidão", "Cumprido o alvará de soltura em 10/01/2024 referente ao ID-MAND-FICTICIO."),
+        _doc("ID-MAND-C", "Certidão", "Mandado de prisão cumprido em 20/01/2024."),
+        _doc("ID-SOL-C", "Certidão", "Cumprido o alvará de soltura em 21/01/2024 referente ao ID-MAND-C."),
+    ]
+    extracao = analisar_custodia(classificar_pecas_autos(fontes))
+    assert not extracao.pendencias
+    assert [i.fonte_inicio for i in extracao.intervalos] == ["ID-CAP-FICTICIO", "ID-MAND-FICTICIO", "ID-MAND-C"]
+    assert [e.fonte_id for e in extracao.eventos if e.tipo == "conversao"] == ["ID-CNV-FICTICIO"]
+    assert calcular_detracao(extracao.intervalos).dias == 10
+
+
+def test_soltura_sem_vinculo_ou_sem_inicio_fica_pendente():
+    soltura = _doc("ID-SOL-FICTICIO", "Certidão", "Cumprido o alvará de soltura em 11/02/2024.")
+    mandado = _doc("ID-MANDADO-FICTICIO", "Certidão", "Mandado de prisão cumprido em 10/02/2024.")
+    for fontes in ([soltura], [soltura, mandado]):
+        meta = extrair_metadados_processo(classificar_pecas_autos(fontes))
+        ponto = next(item for item in meta.pontos_decisivos if item.chave == "prisao_provisoria")
+        assert ponto.estado == "a_confirmar" and ponto.valor is None
+        assert "sem vínculo documental único" in ponto.efeito
+        assert "ID-SOL-FICTICIO" in meta.alertas_custodia[0]
+        assert calcular_detracao(meta.intervalos_custodia).dias == 0

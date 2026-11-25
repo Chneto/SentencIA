@@ -1,4 +1,4 @@
-import { $, escapeHtml } from "./dom.js?v=2.2.1";
+import { $, escapeHtml } from "./dom.js?v=2.3.0";
 
 export const ROTULOS_FONTE = {
   llm: "LLM local (Ollama)",

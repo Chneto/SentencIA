@@ -107,7 +107,7 @@ def criar_atalho_windows(destino: Optional[Path] = None) -> List[Path]:
     )
     if resultado.returncode != 0:
         raise RuntimeError(f"Falha ao criar o atalho: {resultado.stderr.strip() or resultado.stdout.strip()}")
-    linhas = [l.strip() for l in resultado.stdout.splitlines() if l.strip()]
+    linhas = [linha.strip() for linha in resultado.stdout.splitlines() if linha.strip()]
     return [Path(linhas[-1])] if linhas else []
 
 

@@ -1,9 +1,9 @@
 // SentencIA — Módulo ES: folha-ferramentas.js (TASK-015)
-import { state } from "./estado.js?v=2.2.1";
-import { $, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.2.1";
-import { ApiError, apiFetch, handleApiError, lerJson, postJson } from "./api.js?v=2.2.1";
-import { analisarFalas } from "./estacao-analise.js?v=2.2.1";
-import { MARGENS_PRESETS, abrirLocalizar, acaoBarra, alternarPopover, alternarPopoverMargens, aplicarEstiloParagrafo, aplicarMargensDoPopover, aplicarMargensFolha, aplicarModelo, aplicarTamanho, aposEdicao, atualizarBarraFormatacao, carregarModelos, decorarFolha, emBlocos, excluirModeloSelecionado, execFormato, extractEditedSentenceText, folhaEditavel, folhaMudou, indiceDeTexto, inserirSubstituindo, irParaOcorrencia, marcarSujo, mostrarAchado, normalizarFormatacaoFolha, offsetDaSelecao, posParaNo, preencherMargens, renumerarMarcadores, restaurarSelecao, salvarModeloAtual, salvarSelecao, substituirAtual, substituirTudo, trechoTocaBadge } from "./folha-editor.js?v=2.2.1";
+import { state } from "./estado.js?v=2.3.0";
+import { $, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.3.0";
+import { ApiError, apiFetch, handleApiError, lerJson, postJson } from "./api.js?v=2.3.0";
+import { analisarFalas } from "./estacao-analise.js?v=2.3.0";
+import { MARGENS_PRESETS, abrirLocalizar, acaoBarra, alternarPopover, alternarPopoverMargens, aplicarEstiloParagrafo, aplicarMargensDoPopover, aplicarMargensFolha, aplicarModelo, aplicarTamanho, aposEdicao, atualizarBarraFormatacao, carregarModelos, decorarFolha, emBlocos, excluirModeloSelecionado, execFormato, extractEditedSentenceText, folhaEditavel, folhaMudou, indiceDeTexto, inserirSubstituindo, irParaOcorrencia, marcarSujo, mostrarAchado, normalizarFormatacaoFolha, offsetDaSelecao, posParaNo, preencherMargens, renumerarMarcadores, restaurarSelecao, salvarModeloAtual, salvarSelecao, substituirAtual, substituirTudo, trechoTocaBadge } from "./folha-editor.js?v=2.3.0";
 
 async function carregarTrechos() {
   try {

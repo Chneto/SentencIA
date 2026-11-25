@@ -832,7 +832,16 @@ def _status_pdf(pdf_path: Path, docs_pdf: List[Dict[str, Any]], uploaded_at: str
     else:
         ocr_estado = "PROCESSADO"
         detalhes = f"{len(docs_pdf)} peça(s) PJe extraída(s) e classificada(s)"
+    exclusoes = [
+        item for documento in docs_pdf if isinstance(documento, dict)
+        for item in documento.get("exclusoes_segmentacao", ())
+    ]
+    if exclusoes:
+        detalhes += ". Exclusões da segmentação: " + ", ".join(
+            f"{item['doc_id']} ({item['folha']}): {item['motivo']}" for item in exclusoes
+        )
     return {
+        "exclusoes_segmentacao": exclusoes,
         "filename": pdf_path.name,
         "tipo": "PDF_PROCESSO",
         "tamanho_kb": round(pdf_path.stat().st_size / 1024, 1),

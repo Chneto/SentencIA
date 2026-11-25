@@ -3,6 +3,32 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.3.0] — 2026-11-24
+
+Novo tema visual **Matilha** e conclusão do Ciclo 8 (sentença mais segura).
+
+- **Custódia por evento:** a detração automática só usa períodos com vínculo documental inequívoco entre prisão e
+  soltura; pares ambíguos ou solturas concorrentes vão para a confirmação do juízo.
+- **Uma decisão de confissão por imputação:** Análise e Dosimetria precisam coincidir; o conflito aparece na tela e
+  bloqueia o cálculo. Em fato posterior a 16/09/2025 a Dosimetria pede o tipo da confissão (Tema 1194/STJ).
+- **Efeitos do art. 92, § 2º, do CP** (Lei 14.994/2024, fatos a partir de 10/10/2024): enquadramento do art. 121-A,
+  § 1º, cargo e poder familiar registrados nas decisões acessórias; dado faltante vira pendência.
+- **Sursis do art. 77, § 2º** (maior de 70 anos ou razões de saúde, pena até 4 anos, prova de 4 a 6 anos) e
+  **exceção do art. 44, § 3º** para a substituição da pena do reincidente.
+- **Prescrição retroativa:** a estabilidade da acusação precisa referir-se ao título cuja pena entra no cálculo.
+- **Reauditoria** aponta comando sobre medidas protetivas contrário ao registro em qualquer seção da minuta.
+- **OCR** não substitui mais texto nativo legível e curto (evita datas trocadas); detração por quantidade segue o
+  marco de vigência da Lei 12.736/2012.
+- **Rascunho do caso** guarda também as decisões acessórias (inclusive incompletas); a minuta anterior fica marcada como
+  desatualizada quando o registro muda.
+
+- **Tema Matilha** (Configurações › Aparência): o pug é o assistente (carregamentos, avisos, estados vazios) e o
+  rottweiler é o guardião (sigilo, auditoria, erros). Claro e escuro ("a matilha dorme").
+- Personagens animados com respiração, piscar e rabo abanando; variantes escolhíveis: **pug abricó ou branco e bege**,
+  **rottweiler clássico ou atlético e feliz**. Fundo pastel com patinhas, lacinhos, gravatinhas, petiscos e brinquedos.
+- Easter eggs: cliques no logo, código Konami, barra de progresso de pegadas, comandos secretos na paleta e outros.
+  Sons desligados por padrão; animações respeitam "reduzir movimento".
+- A folha da sentença, o editor, as exportações e a cópia para o PJe continuam inteiramente formais em qualquer tema.
 ## [2.2.1] — 2026-11-24
 
 Correções da 2.2.0 e itens do Ciclo 8.

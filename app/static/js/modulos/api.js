@@ -1,6 +1,6 @@
 // SentencIA — Módulo ES: api.js (TASK-015)
-import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.2.1";
-import { $, showToast, sleep } from "./dom.js?v=2.2.1";
+import { FASES_PROGRESSO, TOKEN_HEADER, hooks, state } from "./estado.js?v=2.3.0";
+import { $, showToast, sleep } from "./dom.js?v=2.3.0";
 
 function lerTokenSessao() {
   const el = document.querySelector('meta[name="sentencia-token"]');
@@ -21,6 +21,13 @@ const ROTULOS_CAMPO_422 = {
   modalidades: "Modalidades/condições",
   especificacao: "Especificação",
   prazo_anos: "Prazo em anos",
+  efeitos_art92: "Efeitos do art. 92, § 2º",
+  enquadramento: "Enquadramento (art. 121-A, § 1º)",
+  cargo_publico: "Cargo, função ou mandato",
+  descricao_cargo: "Identificação do cargo",
+  poder_familiar: "Poder familiar, tutela ou curatela",
+  confissao: "Confissão",
+  tipo_confissao: "Tipo da confissão",
   crimes_config: "Crimes",
   decisao_cautelar: "Decisão cautelar",
   intervalos_custodia: "Intervalos de custódia",

@@ -212,7 +212,9 @@ class UserSettings(BaseModel):
     tamanho_fonte_docx: int = 12
     formato_referencia_pje: Literal["id_hifen", "id_ponto"] = "id_hifen"
     tema_interface: Literal["dark", "light", "system"] = "dark"
-    tema_design: Literal["original", "classico", "moderno", "cockpit"] = "original"
+    tema_design: Literal["original", "classico", "moderno", "cockpit", "matilha"] = "original"
+    matilha_pug: Literal["abrico", "branco_bege"] = "abrico"
+    matilha_rott: Literal["classico", "atletico_feliz"] = "classico"
     vram_limit_mb: int = 6144
     modo_gpu: Literal["normal", "moderado"] = "normal"
     gemini_model: str = "auto"

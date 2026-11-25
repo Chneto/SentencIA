@@ -34,7 +34,7 @@ VIEWPORTS: List[Tuple[str, int, int, float]] = [
 ]
 
 THEMES = ("light", "dark")
-DESIGNS = ("original", "classico", "moderno", "cockpit")
+DESIGNS = ("original", "classico", "moderno", "cockpit", "matilha")
 
 
 @dataclass

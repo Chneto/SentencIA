@@ -1,7 +1,7 @@
 // SentencIA — Módulo ES: folha-editor.js (TASK-015)
-import { MARCADOR_RE, hooks, state } from "./estado.js?v=2.2.1";
-import { $, escapeHtml, showToast } from "./dom.js?v=2.2.1";
-import { ApiError, apiFetch, handleApiError, lerJson, postJson } from "./api.js?v=2.2.1";
+import { MARCADOR_RE, hooks, state } from "./estado.js?v=2.3.0";
+import { $, escapeHtml, showToast } from "./dom.js?v=2.3.0";
+import { ApiError, apiFetch, handleApiError, lerJson, postJson } from "./api.js?v=2.3.0";
 
 const SELETOR_BLOCOS = "p,li,div,h1,h2,h3,h4,h5,h6,blockquote";
 const ORDEM_POS_RE = /^(?:\d+\.|[a-z]\))\s+(?:Lance-se|Oficie-se|Expe\u00e7a-se|Cumpra-se|Intime-se|Intimem-se|Comunique-se|Proceda-se|Suspendam-se|Mantenham-se|Concedo|Registre-se|Arquivem-se)\b/i;

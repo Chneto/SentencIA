@@ -106,6 +106,7 @@ class CrimeDosimetriaRequest(BaseModel):
     elementos_provados: list[ElementoProvado] | None = None
     vetores_art59: Annotated[dict[str, VetorArt59Request], AfterValidator(_chaves_vetores_validas)] | None = None
     confissao: BooleanoDecisao | None = None
+    tipo_confissao: Literal["total", "parcial", "qualificada"] | None = None
     reincidente: BooleanoDecisao | None = None
     usos_antecedentes: list[UsoAntecedente] | None = None
     agravante_art61f: BooleanoDecisao | None = None

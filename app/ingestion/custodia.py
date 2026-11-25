@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Iterable, Literal, Protocol
 
 from app.core.text_utils import normalizar
@@ -20,11 +21,28 @@ class PecaCustodia(Protocol):
     data_peca: str
 
 
+TipoEvento = Literal["inicio", "conversao", "fim"]
+
+
 @dataclass(frozen=True)
-class _Evento:
+class EventoCustodia:
+    id: str
     data: dt.date
-    tipo: Literal["inicio", "fim"]
-    peca: PecaCustodia
+    tipo: TipoEvento
+    fonte_id: str
+    folha: str
+    trecho: str
+    contexto: str
+    data_da_peca: bool = False
+    referencias: tuple[str, ...] = ()
+    datas_vinculadas: tuple[dt.date, ...] = ()
+
+
+@dataclass
+class ExtracaoCustodia:
+    eventos: list[EventoCustodia] = field(default_factory=list)
+    intervalos: list[IntervaloCustodia] = field(default_factory=list)
+    pendencias: list[str] = field(default_factory=list)
 
 
 _DATA = r"\b(\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4})\b"
@@ -33,10 +51,18 @@ _INICIO = re.compile(
     r"prisao (?:em flagrante|preventiva) (?:foi )?(?:efetuada|cumprida)|capturad[oa])\b"
 )
 _FIM = re.compile(
-    r"\b(?:alvara de soltura (?:foi )?cumprido|cumprido (?:o )?alvara de soltura|"
+    r"\b(?:alvara de soltura (?:foi )?cumprido|cumprido (?:o )?alvara(?: de soltura)?|"
     r"cumprimento d[oe] alvara de soltura|efetivada a soltura|(?:posto|posta|colocado|colocada) em liberdade|"
     r"solt[oa] em)\b"
 )
+_CONVERSAO = re.compile(
+    r"\b(?:converteu(?:-se)? (?:a )?prisao em flagrante|prisao em flagrante (?:foi )?convertida) em (?:prisao )?preventiva\b"
+)
+_REFERENCIA_FONTE = re.compile(r"\bid(?:-[a-z0-9]+(?:-[a-z0-9]+)*|(?:\s+|\s*[:#]\s*)\d+)\b")
+_REFERENCIA_DATA = re.compile(
+    r"\b(?:custodia|prisao|flagrante)\s+(?:(?:iniciad[ao]|efetuada|cumprida|ocorrid[ao])\s+)?(?:em|de)\s+" + _DATA
+)
+
 _TITULO_APF = re.compile(r"^(?:apf\b|auto de prisao em flagrante\b)")
 _TITULO_CUMPRIMENTO = re.compile(r"(?:certidao de cumprimento (?:do |de )?alvara de soltura|alvara de soltura cumprido)")
 _FONTES = {"BO", "DECISAO_MPU", "DESPACHO", "DECISAO_INTERLOCUTORIA", "CERTIDAO", "TERMO_AUDIENCIA", "OUTROS"}
@@ -52,54 +78,111 @@ def _data(valor: str) -> dt.date | None:
         return None
 
 
-def _datas_rotuladas(texto: str, sinal: re.Pattern[str]) -> Iterable[dt.date]:
-    for match in sinal.finditer(texto):
-        antes = texto[max(0, match.start() - 24):match.start()]
-        if re.search(r"\b(?:nao|se|quando) (?:foi )?$", antes):
-            continue
-        candidato = re.match(r"[^.;\n]{0,45}?" + _DATA, texto[match.end():match.end() + 60])
-        if candidato and (data := _data(candidato.group(1))):
-            yield data
+def _eventos_da_peca(peca: PecaCustodia) -> Iterable[EventoCustodia]:
+    titulo = normalizar(peca.titulo)
+    extraidos: list[tuple[dt.date, TipoEvento, str, str, bool]] = []
+    for linha in peca.conteudo.splitlines():
+        texto = normalizar(linha)
+        for tipo, sinal in (("inicio", _INICIO), ("conversao", _CONVERSAO), ("fim", _FIM)):
+            for match in sinal.finditer(texto):
+                if match[0].endswith("alvara") and "soltura" not in titulo:
+                    continue
+                antes = texto[max(0, match.start() - 24):match.start()]
+                if re.search(r"\b(?:nao|se|quando) (?:foi )?$", antes):
+                    continue
+                candidato = re.match(r"\s*[,:\-]?\s*(?:(?:em|no dia|na data de)\s+)?" + _DATA, texto[match.end():])
+                if candidato is None or not (data := _data(candidato.group(1))):
+                    continue
+                fim = match.end() + candidato.end()
+                # Limita os vínculos à mesma oração do evento. Evita colher IDs e
+                # datas narrados para outro evento no restante do documento.
+                limites = [texto.find(delim, fim) for delim in ".;"]
+                limite = min((pos for pos in limites if pos >= 0), default=len(texto))
+                extraidos.append((data, tipo, linha.strip(), texto[fim:limite], False))
+
+    data_peca = _data(peca.data_peca)
+    for tipo, padrao_titulo in (("inicio", _TITULO_APF), ("fim", _TITULO_CUMPRIMENTO)):
+        if data_peca and padrao_titulo.search(titulo) and not any(item[1] == tipo for item in extraidos):
+            extraidos.append((data_peca, tipo, peca.titulo, "", True))
+
+    for indice, (data, tipo, trecho, vinculo, data_da_peca) in enumerate(dict.fromkeys(extraidos), start=1):
+        yield EventoCustodia(
+            id=f"{peca.doc_id}:{indice}",
+            data=data,
+            tipo=tipo,
+            fonte_id=peca.doc_id,
+            folha=getattr(peca, "folha", ""),
+            trecho=trecho[:240],
+            contexto=peca.titulo,
+            data_da_peca=data_da_peca,
+            referencias=tuple(dict.fromkeys(
+                re.sub(r"^id[\s:#]+", "id-", ref) for ref in _REFERENCIA_FONTE.findall(vinculo)
+            )),
+            datas_vinculadas=tuple(dict.fromkeys(
+                data_ref for valor in _REFERENCIA_DATA.findall(vinculo) if (data_ref := _data(valor))
+            )),
+        )
+
+
+def analisar_custodia(pecas: Iterable[PecaCustodia]) -> ExtracaoCustodia:
+    """Faz vínculos documentais entre eventos. A ordem das datas só valida o período."""
+    resultado = ExtracaoCustodia()
+    resultado.eventos = sorted(
+        (evento for peca in pecas
+         if peca.categoria in _FONTES and peca.doc_id and peca.doc_id != "ID-CAPA-PJE"
+         for evento in _eventos_da_peca(peca)),
+        key=lambda evento: (evento.data, evento.tipo != "inicio", evento.tipo == "fim", evento.id),
+    )
+    inicios: dict[str, EventoCustodia] = {}
+    por_fonte: dict[str, list[EventoCustodia]] = defaultdict(list)
+    por_data: dict[dt.date, list[EventoCustodia]] = defaultdict(list)
+    ancora: dict[str, EventoCustodia] = {}
+    encerramentos: dict[str, list[EventoCustodia]] = defaultdict(list)
+
+    for evento in resultado.eventos:
+        if evento.tipo == "inicio":
+            inicios[evento.id] = evento
+            if not evento.data_da_peca:
+                ancora[evento.id] = evento
+        else:
+            grupos = [por_fonte[ref] for ref in evento.referencias]
+            grupos += [por_data[data] for data in evento.datas_vinculadas]
+            candidatos = [
+                {ancora[item.id].id for item in grupo if item.id in ancora and item.data <= evento.data}
+                for grupo in grupos
+            ]
+            comuns = set.intersection(*candidatos) if candidatos else set()
+            if len(comuns) != 1 or evento.data_da_peca:
+                descricao = "Conversão" if evento.tipo == "conversao" else "Soltura"
+                resultado.pendencias.append(
+                    f"{descricao} em {evento.data:%d/%m/%Y} ({evento.fonte_id}) sem vínculo documental único. "
+                    "Confirme o intervalo de custódia."
+                )
+                continue
+            inicio = inicios[comuns.pop()]
+            if evento.tipo == "fim":
+                encerramentos[inicio.id].append(evento)
+                continue
+            ancora[evento.id] = inicio
+        por_fonte[normalizar(evento.fonte_id)].append(evento)
+        por_data[evento.data].append(evento)
+
+    for inicio in inicios.values():
+        fins = encerramentos[inicio.id]
+        if len(fins) > 1:
+            fontes = ", ".join(fim.fonte_id for fim in fins)
+            resultado.pendencias.append(
+                f"Custódia em {inicio.data:%d/%m/%Y} ({inicio.fonte_id}) com solturas concorrentes ({fontes}). "
+                "Confirme o intervalo."
+            )
+        fim = fins[0] if len(fins) == 1 else None
+        resultado.intervalos.append(IntervaloCustodia(
+            inicio=inicio.data, fim=fim.data if fim else None,
+            fonte_inicio=inicio.fonte_id, fonte_fim=fim.fonte_id if fim else "",
+        ))
+    return resultado
 
 
 def extrair_intervalos_custodia(pecas: Iterable[PecaCustodia]) -> tuple[list[IntervaloCustodia], list[str]]:
-    """Reúne custódias sucessivas e mantém abertos os intervalos sem soltura documentada."""
-    eventos: list[_Evento] = []
-    for peca in pecas:
-        if peca.categoria not in _FONTES or not peca.doc_id or peca.doc_id == "ID-CAPA-PJE":
-            continue
-        titulo = normalizar(peca.titulo)
-        conteudo = "\n".join(normalizar(linha) for linha in peca.conteudo.splitlines())
-        inicios = list(_datas_rotuladas(conteudo, _INICIO))
-        fins = list(_datas_rotuladas(conteudo, _FIM))
-        data_peca = _data(peca.data_peca)
-        if data_peca and not inicios and _TITULO_APF.search(titulo):
-            inicios.append(data_peca)
-        if data_peca and not fins and _TITULO_CUMPRIMENTO.search(titulo):
-            fins.append(data_peca)
-        eventos.extend(_Evento(data, "inicio", peca) for data in inicios)
-        eventos.extend(_Evento(data, "fim", peca) for data in fins)
-
-    intervalos: list[IntervaloCustodia] = []
-    pendencias: list[str] = []
-    inicio: _Evento | None = None
-    ultima_soltura: dt.date | None = None
-    for evento in sorted(eventos, key=lambda e: (e.data, e.tipo == "fim")):
-        if evento.tipo == "inicio":
-            if inicio is None:
-                inicio = evento
-            continue
-        if inicio is None:
-            if evento.data != ultima_soltura:
-                pendencias.append(f"Soltura em {evento.peca.doc_id} sem data de prisão vinculada.")
-            continue
-        intervalos.append(IntervaloCustodia(
-            inicio=inicio.data, fim=evento.data,
-            fonte_inicio=inicio.peca.doc_id, fonte_fim=evento.peca.doc_id,
-        ))
-        ultima_soltura = evento.data
-        inicio = None
-
-    if inicio is not None:
-        intervalos.append(IntervaloCustodia(inicio=inicio.data, fonte_inicio=inicio.peca.doc_id))
-    return intervalos, pendencias
+    resultado = analisar_custodia(pecas)
+    return resultado.intervalos, resultado.pendencias

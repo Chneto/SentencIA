@@ -96,11 +96,11 @@ def test_detracao_acima_de_365_dias_nao_e_descartada():
 
     peca_apf = SimpleNamespace(
         doc_id="ID-1", data_peca="2023-01-01", titulo="Auto de Prisão em Flagrante",
-        categoria="BO", conteudo="Auto de prisão em flagrante lavrado em 01/01/2023",
+        categoria="BO", conteudo="Foi preso em flagrante em 01/01/2023",
     )
     peca_solt = SimpleNamespace(
         doc_id="ID-2", data_peca="2024-06-01", titulo="Certidão de cumprimento de alvará de soltura",
-        categoria="CERTIDAO", conteudo="Cumprido o alvará de soltura em 01/06/2024.",
+        categoria="CERTIDAO", conteudo="Cumprido o alvará de soltura em 01/06/2024 para a prisão do ID-1.",
     )
     dias, periodo = sg.inferir_detracao_cautelar([peca_apf, peca_solt])
     assert dias > 365

@@ -63,6 +63,8 @@ class SuspensaoPrescricao(MarcoComFonte):
 
 class EstabilidadeParaAcusacao(MarcoComFonte):
     tipo: Literal["transito_para_acusacao", "recurso_da_acusacao_improvido"]
+    # TASK-089: decisão condenatória (título) a que a estabilidade se refere. Exigido quando há mais de um título.
+    titulo_fonte_id: FonteMarco | None = None
 
 
 class DecisaoPrescricao(MarcoComFonte):

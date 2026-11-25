@@ -1,13 +1,13 @@
 // SentencIA — Módulo ES: estado.js (TASK-015)
 
-const APP_VERSION = "2.2.1";
+const APP_VERSION = "2.3.0";
 const TOKEN_HEADER = "X-SentencIA-Token";
 const LEGACY_GEMINI_KEY_STORAGE = "jvdfm_gemini_api_key";
 const THEME_STORAGE = "sentencia_theme";
 const THEME_MODE_STORAGE = "sentencia_theme_mode";
 const DESIGN_STORAGE = "sentencia_design";
-const DESIGNS_ATIVOS = new Set(["original", "classico", "moderno", "cockpit"]);
-const DESIGNS_VALIDOS = new Set(["original", "classico", "moderno", "cockpit"]);
+const DESIGNS_ATIVOS = new Set(["original", "classico", "moderno", "cockpit", "matilha"]);
+const DESIGNS_VALIDOS = new Set(["original", "classico", "moderno", "cockpit", "matilha"]);
 const MARCADOR_RE = /\[COMPLETAR PELO JU[IÍ]ZO[^\]]*\]/g;
 
 const VETORES_59_META = [
