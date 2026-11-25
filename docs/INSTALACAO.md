@@ -1,4 +1,4 @@
-# Guia de Instalação — SentencIA 2.3.1 (Windows e macOS)
+# Guia de Instalação — SentencIA 2.4.0 (Windows e macOS)
 
 > **Aplicação web local — 100% no seu computador.**
 > O SentencIA abre no seu navegador (Chrome, Edge, Brave ou Safari), mas o servidor roda **exclusivamente
@@ -48,27 +48,27 @@ irm https://github.com/Chneto/SentencIA/releases/latest/download/instalar.ps1 | 
 ```
 
 **O que este comando faz automaticamente:**
-- Baixa o pacote oficial da versão mais recente (`SentencIA-v2.3.1.zip`) e o arquivo `SHA256SUMS.txt`;
+- Baixa o pacote oficial da versão mais recente (`SentencIA-v2.4.0.zip`) e o arquivo `SHA256SUMS.txt`;
 - Confere a integridade criptográfica do pacote (**SHA-256**) antes de extrair;
 - Instala o programa em `%LOCALAPPDATA%\Programs\SentencIA`;
 - Configura a pasta de dados do gabinete fora do programa, em `%LOCALAPPDATA%\SentencIA\data`;
 - Executa o `bootstrap.ps1` (`uv` + Python 3.12 + OCR nativo `winocr` + transcrição `faster-whisper`);
 - Cria os atalhos **SentencIA** na Área de Trabalho e no Menu Iniciar e registra o desinstalador no Windows.
 
-### Caminho B: Instalador gráfico `SentencIA-Setup-2.3.1.exe` (com aviso do SmartScreen)
+### Caminho B: Instalador gráfico `SentencIA-Setup-2.4.0.exe` (com aviso do SmartScreen)
 
 Se preferir baixar o instalador `.exe` na página de *Releases* do GitHub:
 
-1. Baixe `SentencIA-Setup-2.3.1.exe` e dê dois cliques nele.
+1. Baixe `SentencIA-Setup-2.4.0.exe` e dê dois cliques nele.
 2. **Aviso do Windows SmartScreen:** como o instalador é distribuído gratuitamente sem certificado comercial pago (EV/OV), o Windows exibirá a janela azul *"O Windows protegeu o computador"*:
    - Passo 1: clique no link sublinhado **Mais informações**;
-   - Passo 2: confira o nome `SentencIA-Setup-2.3.1.exe` e clique no botão **Executar assim mesmo**.
+   - Passo 2: confira o nome `SentencIA-Setup-2.4.0.exe` e clique no botão **Executar assim mesmo**.
 3. Siga o assistente do instalador. Ele instala o programa no seu perfil de usuário (`%LOCALAPPDATA%\Programs\SentencIA`), preserva seus dados em `%LOCALAPPDATA%\SentencIA\data` e cria o atalho na Área de Trabalho.
 
 ### Alternativa portátil (pacote `.zip`)
 
 Caso a rede do tribunal bloqueie downloads por linha de comando:
-1. Baixe `SentencIA-v2.3.1.zip`, clique com o botão direito e escolha **Extrair Tudo...** (prefira uma pasta fora do OneDrive, como `C:\SentencIA`).
+1. Baixe `SentencIA-v2.4.0.zip`, clique com o botão direito e escolha **Extrair Tudo...** (prefira uma pasta fora do OneDrive, como `C:\SentencIA`).
 2. Abra a pasta extraída e dê dois cliques em **`Iniciar SentencIA.bat`**.
 
 ---
@@ -88,14 +88,14 @@ curl -fsSL https://github.com/Chneto/SentencIA/releases/latest/download/instalar
 
 **O que o instalador faz no Mac:**
 - Verifica a arquitetura do Mac (**Apple Silicon arm64** ou **Intel x86_64**, saindo automaticamente do Rosetta se necessário);
-- Baixa `SentencIA-v2.3.1.zip` e `SHA256SUMS.txt` e valida o hash **SHA-256**;
+- Baixa `SentencIA-v2.4.0.zip` e `SHA256SUMS.txt` e valida o hash **SHA-256**;
 - Instala o programa em `~/Applications/SentencIA` e configura os dados em `~/Library/Application Support/SentencIA`;
 - Configura `uv` + Python 3.12 + OCR nativo da Apple (`ocrmac`) + transcrição local (`faster-whisper`);
 - Monta localmente o aplicativo **`~/Applications/SentencIA.app`** (com ícone `AppIcon.icns`), que abre pelo **Launchpad**, **Dock** ou **Finder** sem aviso de quarentena do Gatekeeper.
 
 > **Instalação a partir de `.zip` já baixado (offline):**
 > ```bash
-> bash instalar-mac.sh --pacote-local ~/Downloads/SentencIA-v2.3.1.zip
+> bash instalar-mac.sh --pacote-local ~/Downloads/SentencIA-v2.4.0.zip
 > ```
 > Para mais detalhes e solução de problemas específicos do macOS, consulte também [`docs/INSTALACAO_MAC.md`](INSTALACAO_MAC.md).
 

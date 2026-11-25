@@ -1,8 +1,8 @@
-# Guia do Usuário — SentencIA 2.3.1
+# Guia do Usuário — SentencIA 2.4.0
 
 > **A inteligência que auxilia. A decisão que é sua.**
 >
-> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA 2.3.1** no dia a dia:
+> Este guia explica, em linguagem direta de gabinete, como usar o **SentencIA 2.4.0** no dia a dia:
 > das 4 estações de trabalho à cópia segura para o PJe, passando por temas, pré-análise em lote,
 > jurisprudência do gabinete e privacidade.
 
@@ -143,6 +143,11 @@ No **menu do logo**, escolha o desenho que melhor se adapta à sua tela e à sua
   (pug abricó ou branco e bege; rottweiler clássico ou atlético e feliz), ligue ou desligue os easter eggs
   e os sons (desligados por padrão). Com "reduzir movimento" do sistema, as animações param. A folha da
   sentença, o editor e as exportações continuam inteiramente formais.
+  - **Mascotes no rodapé:** os dois cães passeiam na parte de baixo da tela. Seguem o mouse, vão beber água e
+    comer nos potes do canto esquerdo, de vez em quando deixam um 💩 no canto direito (clique nele para limpar) e
+    dormem se o mouse ficar parado (acordam quando você o mexe). Mouse perto ou clique em cima: eles abanam o rabo;
+    na paleta (`Ctrl+K`), "petisco" faz os dois comerem. Os cliques passam através deles, sem atrapalhar os botões.
+    Desligue em **Configurações › Aparência › Mascotes no rodapé**.
 
 Todos os 5 temas possuem **modo claro e escuro** e usam fontes hospedadas localmente (sem carregar
 fontes da internet).

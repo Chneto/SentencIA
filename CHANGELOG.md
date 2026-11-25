@@ -3,6 +3,17 @@
 Formato inspirado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões seguem
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.4.0] — 2026-11-25
+
+Mascotes do tema Matilha e instalador de uma linha corrigido.
+
+- **Mascotes no rodapé (tema Matilha):** o pug e o rottweiler seguem o mouse, bebem água e comem nos potes do canto
+  esquerdo, fazem cocô no canto direito (um clique limpa) e dormem quando o mouse fica parado. Mouse perto ou clique:
+  abanam o rabo; na paleta, "petisco" faz os dois comerem. Não bloqueiam cliques, param com "reduzir movimento" e
+  podem ser desligados em Configurações › Aparência ("Mascotes no rodapé").
+- **Instalação no Windows em uma linha** (`irm ... | iex`) volta a funcionar: o `instalar.ps1` não tem mais BOM, que o
+  PowerShell 5.1 lia como caracteres soltos. A Release passa a testar a instalação nesse mesmo modo.
+
 ## [2.3.1] — 2026-11-24
 
 Correção do tema Matilha.

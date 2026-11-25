@@ -1,12 +1,12 @@
 // SentencIA — Módulo ES: estacao-sentenca.js (TASK-015)
-import { hooks, state } from "./estado.js?v=2.3.1";
-import { $, closeModal, escapeHtml, listarMarcadores, openModal, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.3.1";
-import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError, lerJson, postJson } from "./api.js?v=2.3.1";
-import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.3.1";
-import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.3.1";
-import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.3.1";
-import { marcarMinutaGerada, renderDecisoesAcessorias } from "./registro-decisoes-acessorias.js?v=2.3.1";
-import { ROTULOS_FONTE, renderSectionalTelemetry } from "./telemetria-sentenca.js?v=2.3.1";
+import { hooks, state } from "./estado.js?v=2.4.0";
+import { $, closeModal, escapeHtml, listarMarcadores, openModal, setActiveStation, showToast, updateHeroRibbon } from "./dom.js?v=2.4.0";
+import { ApiError, apiFetch, apiJson, consentirOllamaNaOperacao, handleApiError, lerJson, postJson } from "./api.js?v=2.4.0";
+import { buildDosimetryPayload, garantirDecisaoJudicial, renderCalcMemoryDrawer } from "./estacao-dosimetria.js?v=2.4.0";
+import { aplicarMargensFolha, atualizarBarraFormatacao, capturarBaseDaFolha, decorarFolha, extractEditedSentenceText, htmlLimpoDaFolha, normalizarFormatacaoFolha, setBarraFormatacaoAtiva, sincronizarFolha, textoPuroParaHtml } from "./folha-editor.js?v=2.4.0";
+import { atualizarContagemRevisao, atualizarRevisao } from "./folha-ferramentas.js?v=2.4.0";
+import { marcarMinutaGerada, renderDecisoesAcessorias } from "./registro-decisoes-acessorias.js?v=2.4.0";
+import { ROTULOS_FONTE, renderSectionalTelemetry } from "./telemetria-sentenca.js?v=2.4.0";
 
 function renderPendenciasPanel() {
   const panel = $("sentencePendenciasPanel");

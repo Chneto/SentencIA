@@ -12,7 +12,7 @@
 # -E: o trap de ERR vale também dentro das funções (sem ele, uma falha lá encerraria em silêncio).
 set -Eeuo pipefail
 
-VERSAO_APP="2.3.1"   # conferido por tests/test_versao_coerente.py (igual ao pyproject.toml)
+VERSAO_APP="2.4.0"   # conferido por tests/test_versao_coerente.py (igual ao pyproject.toml)
 VERSAO_PYTHON="3.12"
 UV_VERSAO_MINIMA="0.8.0"   # lê o uv.lock (revision 3) e o [tool.uv] do pyproject.toml
 

@@ -1,6 +1,6 @@
-import { escapeHtml, fmtDateBr, rotuloCrime, showToast } from "./dom.js?v=2.3.1";
-import { handleApiError, postJson } from "./api.js?v=2.3.1";
-import { hooks, state } from "./estado.js?v=2.3.1";
+import { escapeHtml, fmtDateBr, rotuloCrime, showToast } from "./dom.js?v=2.4.0";
+import { handleApiError, postJson } from "./api.js?v=2.4.0";
+import { hooks, state } from "./estado.js?v=2.4.0";
 
 const TIPOS = {
   total: "Confissão integral",

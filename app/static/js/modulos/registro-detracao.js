@@ -1,4 +1,4 @@
-import { $, escapeHtml } from "./dom.js?v=2.3.1";
+import { $, escapeHtml } from "./dom.js?v=2.4.0";
 
 const intervaloVazio = () => ({ inicio: "", fim: "", fonte_inicio: "", fonte_fim: "", em_curso: false });
 

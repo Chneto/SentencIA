@@ -1,6 +1,6 @@
 [project]
 name = "sentencia"
-version = "2.3.1"
+version = "2.4.0"
 description = "Sistema local de apoio à prolação de sentenças penais — Juizado de Violência Doméstica e Familiar contra a Mulher (Lei 11.340/2006)"
 authors = [{ name = "FChNeto" }]
 readme = "README.md"

@@ -13,9 +13,9 @@ def test_tentativa_substituicao_validacao_e_revisao_sao_estados_distintos(_live_
             page.goto(_live_server.base_url, wait_until="networkidle")
             page.evaluate(
                 """async () => {
-                    const { state } = await import('/static/js/modulos/estado.js?v=2.3.1');
+                    const { state } = await import('/static/js/modulos/estado.js?v=2.4.0');
                     const { renderAuditDrawer, renderPendenciasPanel, renderSectionalTelemetry } =
-                        await import('/static/js/modulos/estacao-sentenca.js?v=2.3.1');
+                        await import('/static/js/modulos/estacao-sentenca.js?v=2.4.0');
                     state.lastSentence = { texto_completo: "Minuta fictícia para verificação da interface." };
                     state.lastAudit = { aprovada_sem_alucinacao: true, score_confiabilidade: 100 };
                     state.lastPayload = { exportacao_liberada: true };
@@ -56,7 +56,7 @@ def test_tentativa_substituicao_validacao_e_revisao_sao_estados_distintos(_live_
             page.route("**/api/sentence/regenerate-section", falhar_regeneracao)
             page.evaluate(
                 """async () => {
-                    const { regenerarSecao } = await import('/static/js/modulos/estacao-sentenca.js?v=2.3.1');
+                    const { regenerarSecao } = await import('/static/js/modulos/estacao-sentenca.js?v=2.4.0');
                     await regenerarSecao();
                 }"""
             )

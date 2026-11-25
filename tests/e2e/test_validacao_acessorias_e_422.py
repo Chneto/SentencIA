@@ -46,8 +46,8 @@ def test_acessorias_incompletas_bloqueiam_envio_sem_empilhar_e_traduzem_422() ->
                 # Carrega o caso demo para habilitar o editor de Decisões acessórias na Estação 4
                 page.evaluate(
                     """async () => {
-                        const { postJson } = await import("/static/js/modulos/api.js?v=2.3.1");
-                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.3.1");
+                        const { postJson } = await import("/static/js/modulos/api.js?v=2.4.0");
+                        const { hooks } = await import("/static/js/modulos/estado.js?v=2.4.0");
                         const demo = await postJson("/api/cases/load-demo", {});
                         if (hooks.applyActiveCase) await hooks.applyActiveCase(demo, { clearSentence: true });
                     }"""
@@ -76,7 +76,7 @@ def test_acessorias_incompletas_bloqueiam_envio_sem_empilhar_e_traduzem_422() ->
                 # Também tenta simular dosimetria manualmente
                 page.evaluate(
                     """async () => {
-                        const { simulateDosimetry } = await import("/static/js/modulos/estacao-dosimetria.js?v=2.3.1");
+                        const { simulateDosimetry } = await import("/static/js/modulos/estacao-dosimetria.js?v=2.4.0");
                         await simulateDosimetry(false);
                     }"""
                 )
@@ -115,7 +115,7 @@ def test_acessorias_incompletas_bloqueiam_envio_sem_empilhar_e_traduzem_422() ->
                 # 3) Voltar para "Pendente" não envia nada em dadosAcessorias() e valida ok
                 res_pendente = page.evaluate(
                     """async () => {
-                        const mod = await import("/static/js/modulos/registro-decisoes-acessorias.js?v=2.3.1");
+                        const mod = await import("/static/js/modulos/registro-decisoes-acessorias.js?v=2.4.0");
                         const sel = document.querySelector('[data-acessorio="medidas_protetivas"] [data-decisao-acessoria]');
                         sel.value = "";
                         sel.dispatchEvent(new Event("change", { bubbles: true }));
@@ -128,7 +128,7 @@ def test_acessorias_incompletas_bloqueiam_envio_sem_empilhar_e_traduzem_422() ->
                 # 4) Deduplicação de showToast: 3 chamadas idênticas -> 1 único toast visível
                 qtd_toasts = page.evaluate(
                     """async () => {
-                        const { showToast } = await import("/static/js/modulos/dom.js?v=2.3.1");
+                        const { showToast } = await import("/static/js/modulos/dom.js?v=2.4.0");
                         document.getElementById("toastContainer").innerHTML = "";
                         showToast("Aviso repetido para deduplicação.", "warn");
                         showToast("Aviso repetido para deduplicação.", "warn");
@@ -141,7 +141,7 @@ def test_acessorias_incompletas_bloqueiam_envio_sem_empilhar_e_traduzem_422() ->
                 # 5) Tradução de erro 422 do Pydantic para português claro (sem cortar e sem inglês)
                 msg_422 = page.evaluate(
                     """async () => {
-                        const { ApiError, formatarErroValidacao422 } = await import("/static/js/modulos/api.js?v=2.3.1");
+                        const { ApiError, formatarErroValidacao422 } = await import("/static/js/modulos/api.js?v=2.4.0");
                         const detail = [
                             {
                                 type: "string_too_short",

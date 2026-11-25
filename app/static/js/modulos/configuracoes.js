@@ -1,10 +1,10 @@
 // SentencIA — Módulo ES: configuracoes.js (TASK-015)
-import { DESIGNS_VALIDOS, hooks, state } from "./estado.js?v=2.3.1";
-import { $, atualizarControlesConsentimento, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.3.1";
-import { apiJson, handleApiError, postJson } from "./api.js?v=2.3.1";
-import { applyDesign, applyThemeMode } from "./temas.js?v=2.3.1";
-import { carregarUltimaSentenca, renderSentenceOnSheet } from "./estacao-sentenca.js?v=2.3.1";
-import { atualizarStatusCofre, salvarSegredoGemini, testarChaveGemini } from "./gemini.js?v=2.3.1";
+import { DESIGNS_VALIDOS, hooks, state } from "./estado.js?v=2.4.0";
+import { $, atualizarControlesConsentimento, closeModal, escapeHtml, openModal, showToast } from "./dom.js?v=2.4.0";
+import { apiJson, handleApiError, postJson } from "./api.js?v=2.4.0";
+import { applyDesign, applyThemeMode } from "./temas.js?v=2.4.0";
+import { carregarUltimaSentenca, renderSentenceOnSheet } from "./estacao-sentenca.js?v=2.4.0";
+import { atualizarStatusCofre, salvarSegredoGemini, testarChaveGemini } from "./gemini.js?v=2.4.0";
 
 async function carregarSettings() {
   try {

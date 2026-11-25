@@ -34,7 +34,7 @@ def test_indice_confirma_categoria_e_reabre_a_peca(_live_server: _LocalAppServer
             pagina.goto(_live_server.base_url, wait_until="networkidle")
             indice = pagina.evaluate(
                 """async (pdf) => {
-                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.3.1');
+                    const { apiJson } = await import('/static/js/modulos/api.js?v=2.4.0');
                     const dados = Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0));
                     const form = new FormData();
                     form.append("files", new Blob([dados], {type: "application/pdf"}), "memoriais-ficticios.pdf");

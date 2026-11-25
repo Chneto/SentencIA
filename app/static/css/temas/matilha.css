@@ -387,6 +387,151 @@ html[data-design="matilha"] .matilha-drop-active {
   background: var(--accent-primary-soft);
 }
 
+/* Mascotes no rodapé (TASK-100): seguem o mouse, bebem, comem, fazem cocô e dormem. Nunca bloqueiam cliques. */
+.matilha-pets {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 84px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 45;
+}
+
+.matilha-pet {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.matilha-pet-corpo {
+  display: block;
+  width: 56px;
+  height: 56px;
+  transform-origin: bottom center;
+}
+
+.matilha-pet-img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+  box-shadow: 0 3px 8px rgba(60, 30, 20, 0.22);
+  transition: transform 0.18s ease-out;
+}
+
+.matilha-pet[data-direcao="esquerda"] .matilha-pet-img {
+  transform: scaleX(-1);
+}
+
+.matilha-pet[data-estado="andando"] .matilha-pet-corpo {
+  animation: matilha-trotar 0.3s ease-in-out infinite;
+}
+
+.matilha-pet[data-estado="beber"] .matilha-pet-corpo,
+.matilha-pet[data-estado="comer"] .matilha-pet-corpo {
+  animation: matilha-abaixar 0.55s ease-in-out infinite alternate;
+}
+
+.matilha-pet[data-estado="coco"] .matilha-pet-corpo {
+  animation: matilha-agachar 0.8s ease-in-out infinite alternate;
+}
+
+.matilha-pet[data-estado="dormindo"] .matilha-pet-corpo {
+  animation: matilha-breathe 3.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.matilha-pet[data-estado="carinho"] .matilha-pet-corpo {
+  animation: matilha-wag 0.2s ease-in-out 6;
+}
+
+.matilha-pet-balao {
+  position: absolute;
+  top: -12px;
+  right: -6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  animation: matilha-zzz 2.4s ease-in-out infinite;
+}
+
+.matilha-pote {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  width: 36px;
+  height: 15px;
+  border-radius: 4px 4px 18px 18px;
+  background: var(--matilha-pink-soft, #f6c9d6);
+  border: 2px solid rgba(120, 60, 70, 0.35);
+  pointer-events: none;
+}
+
+.matilha-pote::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: -3px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.matilha-pote-agua::before {
+  background: linear-gradient(180deg, #a9dcf5, #5fb4e0);
+}
+
+.matilha-pote-racao::before {
+  background: radial-gradient(circle at 25% 50%, #8a5a2b 2px, transparent 2.5px),
+    radial-gradient(circle at 55% 40%, #a8703a 2px, transparent 2.5px),
+    radial-gradient(circle at 80% 55%, #7a4d22 2px, transparent 2.5px), #c99a63;
+}
+
+.matilha-coco {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  bottom: 8px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 2px 2px rgba(60, 30, 20, 0.25));
+  transition: transform 0.15s ease-out;
+}
+
+.matilha-coco:hover {
+  transform-origin: bottom center;
+  scale: 1.15;
+}
+
+@keyframes matilha-trotar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes matilha-abaixar {
+  0% { transform: rotate(0deg) translateY(0); }
+  100% { transform: rotate(-9deg) translateY(4px); }
+}
+
+@keyframes matilha-agachar {
+  0% { transform: scaleY(1); }
+  100% { transform: scaleY(0.86) translateY(3px); }
+}
+
+@keyframes matilha-zzz {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+
 /* Acessibilidade: prefers-reduced-motion desliga todas as animações */
 @media (prefers-reduced-motion: reduce) {
   html[data-design="matilha"] .btn-primary:hover::after,
@@ -397,7 +542,9 @@ html[data-design="matilha"] .matilha-drop-active {
   .matilha-sprite,
   .matilha-fx-banner,
   .matilha-zoomies-runner,
-  .matilha-treat-drop {
+  .matilha-treat-drop,
+  .matilha-pet-corpo,
+  .matilha-pet-balao {
     animation: none !important;
     transition: none !important;
   }

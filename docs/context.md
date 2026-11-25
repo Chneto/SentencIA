@@ -1,5 +1,5 @@
 # CONTEXT.MD — Contexto Técnico, Operacional e de Domínio Jurídico
-## Sistema Especialista de Sentenças Penais — JVDFM (2.3.1)
+## Sistema Especialista de Sentenças Penais — JVDFM (2.4.0)
 
 Este documento descreve o ambiente de execução suportado, a arquitetura do repositório, a superfície
 HTTP local e o domínio jurídico. Caminhos são relativos à raiz do programa.

@@ -1,13 +1,15 @@
 // SentencIA — Módulo ES sob demanda: tema-matilha.js — Fase B2 (TASK-099)
 // Carregado exclusivamente quando data-design="matilha". Zero recursos externos; CSP-safe.
-import { postJson } from "./api.js?v=2.3.1";
-import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.3.1";
-import { state } from "./estado.js?v=2.3.1";
+import { postJson } from "./api.js?v=2.4.0";
+import { $, lsGet, lsSet, showToast } from "./dom.js?v=2.4.0";
+import { state } from "./estado.js?v=2.4.0";
+import { acaoMascote, iniciarMascotes, pararMascotes } from "./matilha-mascotes.js?v=2.4.0";
 
 const KEY_EASTER_EGGS = "sentencia_matilha_easter_eggs";
 const KEY_SONS = "sentencia_matilha_sons";
 const KEY_PUG = "sentencia_matilha_pug";
 const KEY_ROTT = "sentencia_matilha_rott";
+const KEY_MASCOTES = "sentencia_matilha_mascotes";
 const IMG_BASE = "/static/img/matilha";
 const KONAMI_SEQ = [
   "arrowup", "arrowup", "arrowdown", "arrowdown",
@@ -30,6 +32,21 @@ function _reducedMotion() {
 
 function _easterEggsAtivos() {
   return lsGet(KEY_EASTER_EGGS) !== "0";
+}
+
+function _mascotesAtivos() {
+  return lsGet(KEY_MASCOTES) !== "0";
+}
+
+function _sincronizarMascotes() {
+  if (!_ativo || !_easterEggsAtivos() || !_mascotesAtivos()) {
+    pararMascotes();
+    return;
+  }
+  iniciarMascotes({
+    imgPug: _imgPug, imgRott: _imgRott, reducedMotion: _reducedMotion(), sons: _sonsAtivos, tocarSom: _tocarSom,
+    aoLimpar: () => showToast("Obrigado por limpar! O gabinete agradece.", "success"),
+  });
 }
 
 function _sonsAtivos() {
@@ -271,6 +288,9 @@ export function acionarSegredoPaleta(chave) {
     bom_garoto: { img: _imgPug("feliz"), txt: "Os dois abanam o rabo felizes — melhores estagiários do gabinete!" },
   };
   const info = mensagens[chave] || mensagens.au_au;
+  // Os mascotes do rodapé reagem ao segredo: petisco → vão comer; bom garoto → abanam o rabo.
+  const reacao = { petisco: "comer", bom_garoto: "carinho" }[chave];
+  if (reacao) ["pug", "rott"].forEach((cao) => acaoMascote(cao, reacao));
   _mostrarOverlay((root) => {
     const b = document.createElement("div");
     b.className = "matilha-fx-banner";
@@ -385,12 +405,15 @@ function _sincronizarConfiguracoes() {
   const { pug, rott } = obterVariantesMatilha();
   if (chkEggs) chkEggs.checked = _easterEggsAtivos();
   if (chkSons) chkSons.checked = _sonsAtivos();
+  const chkMascotes = $("chkMatilhaMascotes");
+  if (chkMascotes) chkMascotes.checked = _mascotesAtivos();
   if (selPug) selPug.value = pug;
   if (selRott) selRott.value = rott;
 }
 
 function _reaplicarVisual() {
   _sincronizarSeloCabecalho();
+  _sincronizarMascotes();
   _sincronizarEstadoVazio();
   _sincronizarAuditoria();
   _sincronizarConfiguracoes();
@@ -455,6 +478,11 @@ export function ativarTemaMatilha() {
     _agendarPiscarIdle();
   };
   const onSonsChange = () => lsSet(KEY_SONS, chkSons?.checked ? "1" : "0");
+  const chkMascotes = $("chkMatilhaMascotes");
+  const onMascotesChange = () => {
+    lsSet(KEY_MASCOTES, chkMascotes?.checked ? "1" : "0");
+    _sincronizarMascotes();
+  };
   const onPugChange = () => {
     const val = selPug?.value === "branco_bege" ? "branco_bege" : "abrico";
     lsSet(KEY_PUG, val);
@@ -469,11 +497,13 @@ export function ativarTemaMatilha() {
   };
   chkEggs?.addEventListener("change", onEggsChange);
   chkSons?.addEventListener("change", onSonsChange);
+  chkMascotes?.addEventListener("change", onMascotesChange);
   selPug?.addEventListener("change", onPugChange);
   selRott?.addEventListener("change", onRottChange);
   _cleanups.push(() => {
     chkEggs?.removeEventListener("change", onEggsChange);
     chkSons?.removeEventListener("change", onSonsChange);
+    chkMascotes?.removeEventListener("change", onMascotesChange);
     selPug?.removeEventListener("change", onPugChange);
     selRott?.removeEventListener("change", onRottChange);
   });
@@ -495,6 +525,7 @@ export function desativarTemaMatilha() {
     _idleTimer = null;
   }
   _fecharOverlay();
+  pararMascotes();
   _cleanups.forEach((fn) => fn());
   _cleanups = [];
   $("matilhaRibbonBadge")?.remove();
