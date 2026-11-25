@@ -142,7 +142,11 @@ def test_copia_pje_clipboard_item_fallback_id_ponto_e_pendencias(_live_server: _
 
             page.once("dialog", _cancelar)
             page.click("#btnCopyPje")
-            page.wait_for_timeout(500)
+            # Espera o diálogo de confirmação (até 5 s): o runner mais lento da CI passava dos 500 ms fixos.
+            for _ in range(25):
+                if dialogos:
+                    break
+                page.wait_for_timeout(200)
             assert len(dialogos) == 1
             assert "1 trecho a completar. Copiar assim mesmo?" in dialogos[0]
             # Cancelado -> não chamou writeText novamente
