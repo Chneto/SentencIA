@@ -24,10 +24,11 @@ def test_hover_em_botao_primario_nao_altera_largura_nem_cabecalho(_live_server: 
             page.wait_for_selector("html[data-design='matilha']", state="attached")
             botao = page.locator(".btn-primary:visible").first
             botao.wait_for()
+            # Caixa de layout (offset*), que ignora o transform do próprio hover (leve elevação animada);
+            # a posição do menu é arredondada para não depender de subpixel.
             medir = """(el) => {
-                const b = el.getBoundingClientRect();
                 const menu = document.getElementById('btnAppMenu').getBoundingClientRect();
-                return { largura: b.width, altura: b.height, menuY: menu.y };
+                return { largura: el.offsetWidth, altura: el.offsetHeight, menuY: Math.round(menu.y) };
             }"""
             antes = botao.evaluate(medir)
             botao.hover()
